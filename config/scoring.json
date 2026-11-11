@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "scoring_version": "1.0.0",
+  "normalization": {
+    "minimum": 0,
+    "maximum": 100,
+    "round_digits": 1
+  },
+  "commander_levels": {
+    "primary": 1.0,
+    "secondary": 0.65,
+    "complementary": 0.35
+  },
+  "components": {
+    "strategy_evidence": 0.40,
+    "shared_synergy_tags": 0.30,
+    "role_coverage": 0.15,
+    "commander_text_support": 0.15
+  },
+  "thresholds": {
+    "strong": 70,
+    "moderate": 40,
+    "weak": 15
+  },
+  "caps": {
+    "single_generic_keyword_max": 20,
+    "type_line_only_max": 15,
+    "single_weak_rule_max": 25
+  }
+}

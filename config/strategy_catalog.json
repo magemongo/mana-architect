@@ -1,0 +1,266 @@
+{
+  "schema_version": 1,
+  "catalog_version": "1.0.0",
+  "strategies": [
+    {
+      "id": "tokens",
+      "name": "Tokens",
+      "description": "Gera, multiplica ou explora fichas para pressão de campo, valor ou custo de outras ações.",
+      "nature": ["resource_engine", "combat_plan"],
+      "active": true,
+      "tag_affinities": [
+        {"tag_id": "create_tokens", "weight": 1.0},
+        {"tag_id": "token_doubler", "weight": 1.0},
+        {"tag_id": "populate", "weight": 0.9},
+        {"tag_id": "go_wide", "weight": 0.8},
+        {"tag_id": "anthem", "weight": 0.6},
+        {"tag_id": "sacrifice_token", "weight": 0.7}
+      ],
+      "notes": ["Token incidental não basta para alta afinidade; tipo, escala e recorrência importam."]
+    },
+    {
+      "id": "plus_one_counters",
+      "name": "+1/+1 Counters",
+      "description": "Usa contadores +1/+1 como recurso de crescimento, valor ou vitória.",
+      "nature": ["resource_engine", "combat_plan"],
+      "active": true,
+      "tag_affinities": [
+        {"tag_id": "add_plus_one_counters", "weight": 1.0},
+        {"tag_id": "counter_doubler", "weight": 1.0},
+        {"tag_id": "proliferate", "weight": 0.8},
+        {"tag_id": "counter_matters", "weight": 0.8},
+        {"tag_id": "counter_transfer", "weight": 0.7}
+      ],
+      "notes": ["Contadores incidentais ou sem payoff não indicam sozinhos um plano dedicado."]
+    },
+    {
+      "id": "combo",
+      "name": "Combo",
+      "description": "Combina peças interdependentes para gerar valor repetível ou uma condição de vitória.",
+      "nature": ["victory_plan", "resource_engine"],
+      "active": true,
+      "tag_affinities": [
+        {"tag_id": "combo_piece", "weight": 1.0},
+        {"tag_id": "repeatable_loop", "weight": 1.0},
+        {"tag_id": "untap_permanent", "weight": 0.7},
+        {"tag_id": "free_cast", "weight": 0.7},
+        {"tag_id": "sacrifice_outlet", "weight": 0.6},
+        {"tag_id": "tutor", "weight": 0.5},
+        {"tag_id": "combo_protection", "weight": 0.7},
+        {"tag_id": "infinite_resource", "weight": 1.0}
+      ],
+      "notes": ["Não declarar combo infinito por uma heurística textual isolada; infinite_resource exige revisão."]
+    },
+    {
+      "id": "artifacts",
+      "name": "Artifacts",
+      "description": "Usa artefatos como recurso, tema de permanentes, combustível ou condição de valor.",
+      "nature": ["resource_engine"],
+      "active": true,
+      "tag_affinities": [
+        {"tag_id": "artifact_count", "weight": 0.5},
+        {"tag_id": "create_artifact", "weight": 0.9},
+        {"tag_id": "artifact_etb", "weight": 0.8},
+        {"tag_id": "sacrifice_artifact", "weight": 0.8},
+        {"tag_id": "artifact_recursion", "weight": 0.8},
+        {"tag_id": "artifact_cost_reduction", "weight": 0.8},
+        {"tag_id": "artifact_matter", "weight": 1.0}
+      ],
+      "notes": ["Possuir o tipo Artifact, sem sinergia funcional, não implica afinidade forte."]
+    },
+    {
+      "id": "aggro",
+      "name": "Aggro",
+      "description": "Pressiona cedo por combate, priorizando velocidade e dano sobre vantagem de longo prazo.",
+      "nature": ["combat_plan", "victory_plan"],
+      "active": true,
+      "tag_affinities": [
+        {"tag_id": "low_curve", "weight": 0.7},
+        {"tag_id": "haste", "weight": 0.8},
+        {"tag_id": "combat_damage", "weight": 0.6},
+        {"tag_id": "attack_trigger", "weight": 0.8},
+        {"tag_id": "evasion", "weight": 0.7},
+        {"tag_id": "go_wide", "weight": 0.8},
+        {"tag_id": "anthem", "weight": 0.7},
+        {"tag_id": "early_pressure", "weight": 1.0}
+      ],
+      "notes": ["Dano de combate genérico não demonstra, sozinho, pressão agressiva."]
+    },
+    {
+      "id": "reanimator",
+      "name": "Reanimator",
+      "description": "Prepara o cemitério e retorna criaturas ou outros permanentes ao campo.",
+      "nature": ["graveyard_plan", "resource_engine"],
+      "active": true,
+      "tag_affinities": [
+        {"tag_id": "self_mill", "weight": 0.7},
+        {"tag_id": "discard_outlet", "weight": 0.7},
+        {"tag_id": "graveyard_recursion", "weight": 0.8},
+        {"tag_id": "reanimate_creature", "weight": 1.0},
+        {"tag_id": "death_trigger", "weight": 0.5},
+        {"tag_id": "enters_from_graveyard", "weight": 0.8},
+        {"tag_id": "graveyard_setup", "weight": 0.7}
+      ],
+      "notes": ["Recursão genérica da mão não equivale automaticamente a reanimação."]
+    },
+    {
+      "id": "spellslinger",
+      "name": "Spellslinger",
+      "description": "Conjura mágicas, sobretudo instantâneas e feitiços, para gerar valor, ameaças ou vitória.",
+      "nature": ["resource_engine", "victory_plan"],
+      "active": true,
+      "tag_affinities": [
+        {"tag_id": "spell_cast_noncreature", "weight": 0.7},
+        {"tag_id": "instant_sorcery_matters", "weight": 1.0},
+        {"tag_id": "spell_copy", "weight": 0.8},
+        {"tag_id": "spell_recursion", "weight": 0.8},
+        {"tag_id": "magecraft", "weight": 0.9},
+        {"tag_id": "prowess", "weight": 0.6},
+        {"tag_id": "storm_count", "weight": 0.8},
+        {"tag_id": "cast_from_graveyard", "weight": 0.7}
+      ],
+      "notes": ["A densidade e as recompensas por conjurar mágicas importam mais que tipo isolado."]
+    },
+    {
+      "id": "lifegain",
+      "name": "Lifegain",
+      "description": "Ganha vida de forma relevante e converte esse ganho em recursos, escala ou vitória.",
+      "nature": ["resource_engine", "victory_plan"],
+      "active": true,
+      "tag_affinities": [
+        {"tag_id": "life_gain", "weight": 0.6},
+        {"tag_id": "life_gain_trigger", "weight": 1.0},
+        {"tag_id": "life_total_matters", "weight": 0.9},
+        {"tag_id": "life_payment", "weight": 0.5},
+        {"tag_id": "life_loss_opponent", "weight": 0.7},
+        {"tag_id": "lifelink", "weight": 0.4}
+      ],
+      "notes": ["Ganho incidental sem payoff não deve receber afinidade forte automaticamente."]
+    },
+    {
+      "id": "control",
+      "name": "Control",
+      "description": "Limita ameaças adversárias com respostas eficientes e vantagem no jogo longo.",
+      "nature": ["interaction_plan"],
+      "active": true,
+      "tag_affinities": [
+        {"tag_id": "counterspell", "weight": 0.8},
+        {"tag_id": "spot_removal", "weight": 0.8},
+        {"tag_id": "board_wipe", "weight": 0.8},
+        {"tag_id": "permanent_lock", "weight": 0.8},
+        {"tag_id": "tempo", "weight": 0.6},
+        {"tag_id": "card_advantage", "weight": 0.7},
+        {"tag_id": "instant_speed_interaction", "weight": 0.8}
+      ],
+      "notes": ["Uma resposta isolada não define o plano de controle do deck."]
+    },
+    {
+      "id": "aristocrats",
+      "name": "Aristocrats",
+      "description": "Converte mortes e sacrifícios de criaturas, especialmente próprias, em valor ou dano.",
+      "nature": ["resource_engine", "victory_plan"],
+      "active": true,
+      "tag_affinities": [
+        {"tag_id": "sacrifice_creature", "weight": 0.9},
+        {"tag_id": "death_trigger", "weight": 0.8},
+        {"tag_id": "dies_trigger", "weight": 0.9},
+        {"tag_id": "aristocrats_payoff", "weight": 1.0},
+        {"tag_id": "death_drain", "weight": 0.9},
+        {"tag_id": "sacrifice_outlet", "weight": 0.8},
+        {"tag_id": "recursion", "weight": 0.6},
+        {"tag_id": "token_generation", "weight": 0.7}
+      ],
+      "notes": ["Combinações de outlet, payoff e corpos recorrentes são evidência mais forte."]
+    },
+    {
+      "id": "burn",
+      "name": "Burn",
+      "description": "Converte mágicas e efeitos de dano direto em pressão ou finalização.",
+      "nature": ["victory_plan", "interaction_plan"],
+      "active": true,
+      "tag_affinities": [
+        {"tag_id": "noncombat_damage", "weight": 0.9},
+        {"tag_id": "spell_damage", "weight": 0.8},
+        {"tag_id": "damage_any_target", "weight": 0.8},
+        {"tag_id": "damage_opponent", "weight": 0.9},
+        {"tag_id": "damage_amplifier", "weight": 0.8},
+        {"tag_id": "cast_trigger_damage", "weight": 0.9},
+        {"tag_id": "burn_finisher", "weight": 1.0}
+      ],
+      "notes": ["Dano de combate genérico não é evidência suficiente."]
+    },
+    {
+      "id": "ramp",
+      "name": "Ramp",
+      "description": "Acelera a disponibilidade de mana além da progressão normal de terrenos.",
+      "nature": ["cross_cutting", "resource_acceleration"],
+      "active": true,
+      "tag_affinities": [
+        {"tag_id": "mana_acceleration", "weight": 1.0},
+        {"tag_id": "land_ramp", "weight": 0.9},
+        {"tag_id": "mana_rock", "weight": 0.8},
+        {"tag_id": "mana_dork", "weight": 0.8},
+        {"tag_id": "treasure", "weight": 0.7},
+        {"tag_id": "cost_reduction", "weight": 0.6},
+        {"tag_id": "extra_land_play", "weight": 0.7},
+        {"tag_id": "mana_from_permanent", "weight": 0.8}
+      ],
+      "notes": ["Land drop normal não é ramp; esta estratégia também é uma função transversal."]
+    },
+    {
+      "id": "lands_matter",
+      "name": "Lands Matter",
+      "description": "Usa quantidade, entrada, saída ou tipos de terrenos como fonte de sinergia ou vitória.",
+      "nature": ["resource_engine", "victory_plan"],
+      "active": true,
+      "tag_affinities": [
+        {"tag_id": "landfall", "weight": 1.0},
+        {"tag_id": "land_etb", "weight": 0.8},
+        {"tag_id": "extra_land_play", "weight": 0.7},
+        {"tag_id": "land_recursion", "weight": 0.9},
+        {"tag_id": "land_sacrifice", "weight": 0.8},
+        {"tag_id": "lands_in_graveyard", "weight": 0.8},
+        {"tag_id": "land_count", "weight": 0.8},
+        {"tag_id": "land_token", "weight": 0.8}
+      ],
+      "notes": ["A presença de terrenos sem um efeito que os utilize não indica afinidade forte."]
+    },
+    {
+      "id": "voltron",
+      "name": "Voltron",
+      "description": "Concentra melhorias e proteção em uma ameaça para vencer com dano de combate.",
+      "nature": ["combat_plan", "victory_plan"],
+      "active": true,
+      "tag_affinities": [
+        {"tag_id": "single_creature_buff", "weight": 1.0},
+        {"tag_id": "aura", "weight": 0.6},
+        {"tag_id": "equipment", "weight": 0.7},
+        {"tag_id": "protect_single_creature", "weight": 0.8},
+        {"tag_id": "hexproof", "weight": 0.5},
+        {"tag_id": "indestructible", "weight": 0.5},
+        {"tag_id": "evasion", "weight": 0.5},
+        {"tag_id": "commander_damage", "weight": 1.0},
+        {"tag_id": "double_strike", "weight": 0.8},
+        {"tag_id": "trample", "weight": 0.5}
+      ],
+      "notes": ["Palavras-chave isoladas como flying não tornam automaticamente uma carta Voltron."]
+    },
+    {
+      "id": "midrange",
+      "name": "Midrange",
+      "description": "Combina desenvolvimento, interação e ameaças eficientes para vencer no jogo médio.",
+      "nature": ["cross_cutting", "interaction_plan"],
+      "active": true,
+      "tag_affinities": [
+        {"tag_id": "value_etb", "weight": 0.7},
+        {"tag_id": "card_advantage", "weight": 0.6},
+        {"tag_id": "resilient_threat", "weight": 0.8},
+        {"tag_id": "efficient_interaction", "weight": 0.7},
+        {"tag_id": "recursion", "weight": 0.5},
+        {"tag_id": "mana_curve_mid", "weight": 0.5},
+        {"tag_id": "flexible_threat", "weight": 0.8}
+      ],
+      "notes": ["Afinidade ampla: não classificar automaticamente toda carta eficiente como midrange."]
+    }
+  ]
+}

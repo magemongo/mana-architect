@@ -1,0 +1,528 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import uuid
+
+from sqlalchemy import delete, select
+from sqlalchemy.orm import Session
+
+from mana_architect.catalog import StrategyCatalog, load_strategy_catalog
+from mana_architect.classification import (
+    CardClassificationInput,
+    ClassificationEvidence,
+    ClassificationResult,
+    classify_card,
+)
+from mana_architect.commander_affinity import (
+    CommanderAffinityProfile,
+    CommanderStrategyAffinity,
+    CommanderTagAffinity,
+    validate_commander_affinity_profile,
+)
+from mana_architect.models import (
+    Card,
+    CardClassification,
+    ClassificationCatalogVersion,
+    ClassificationEvidenceRecord,
+    ClassificationRun,
+    CommanderAffinityRecord,
+    ManualOverrideRecord,
+)
+from mana_architect.overrides import (
+    ManualOverride,
+    resolve_classification_overrides,
+)
+
+
+NORMALIZER_VERSION = "1.0.0"
+_CATALOG_FILES = (
+    "strategy_catalog.json",
+    "synergy_tags.json",
+    "card_roles.json",
+    "classification_rules.json",
+    "scoring.json",
+)
+
+
+@dataclass(frozen=True)
+class ReclassificationSummary:
+    catalog_hash: str
+    examined: int
+    classified: int
+    skipped: int
+
+
+def catalog_configuration_hash(config_dir: Path) -> str:
+    return _configuration_hash(config_dir, _CATALOG_FILES)
+
+
+def _configuration_hash(
+    config_dir: Path,
+    filenames: tuple[str, ...],
+) -> str:
+    digest = hashlib.sha256()
+    for filename in filenames:
+        path = config_dir / filename
+        try:
+            contents = path.read_bytes()
+        except OSError as error:
+            raise ValueError(f"{filename}: não foi possível ler o arquivo: {error}") from error
+        digest.update(filename.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(contents)
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _classification_configuration_hash(
+    config_dir: Path,
+    catalog: StrategyCatalog,
+) -> str:
+    rules_path = config_dir / "classification_rules.json"
+    try:
+        rules_data = json.loads(rules_path.read_text(encoding="utf-8"))
+    except OSError as error:
+        raise ValueError(
+            f"classification_rules.json: não foi possível ler o arquivo: {error}"
+        ) from error
+    except json.JSONDecodeError as error:
+        raise ValueError(
+            "classification_rules.json: configuração inválida; carregue e valide "
+            "o catálogo antes da reclassificação."
+        ) from error
+    semantics = {
+        "normalizer_version": NORMALIZER_VERSION,
+        "strategy_ids": sorted(strategy.id for strategy in catalog.strategies),
+        "tag_ids": sorted(tag.id for tag in catalog.tags),
+        "role_ids": sorted(role.id for role in catalog.roles),
+        "rules": rules_data,
+    }
+    encoded = json.dumps(
+        semantics,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def reclassify_cards(
+    session: Session,
+    catalog: StrategyCatalog,
+    config_dir: Path,
+    oracle_ids: tuple[str, ...] | None = None,
+) -> ReclassificationSummary:
+    """Classify changed cards and persist evidence inside a caller-owned transaction."""
+    configured_catalog = load_strategy_catalog(config_dir)
+    if configured_catalog != catalog:
+        raise ValueError(
+            "O catálogo carregado não corresponde aos arquivos de config_dir."
+        )
+    catalog_hash = catalog_configuration_hash(config_dir)
+    classification_hash = _classification_configuration_hash(config_dir, catalog)
+    if oracle_ids is not None:
+        if not all(isinstance(oracle_id, str) and oracle_id for oracle_id in oracle_ids):
+            raise ValueError("oracle_ids deve conter apenas textos não vazios.")
+        if len(set(oracle_ids)) != len(oracle_ids):
+            raise ValueError("oracle_ids contém valores duplicados.")
+
+    _register_catalog_version(session, catalog, catalog_hash, config_dir)
+    statement = select(Card).order_by(Card.oracle_id)
+    if oracle_ids is not None:
+        if not oracle_ids:
+            cards: list[Card] = []
+        else:
+            cards = list(
+                session.scalars(statement.where(Card.oracle_id.in_(oracle_ids)))
+            )
+            found_ids = {card.oracle_id for card in cards}
+            missing_ids = set(oracle_ids) - found_ids
+            if missing_ids:
+                raise ValueError(
+                    f"oracle_id inexistente: {', '.join(sorted(missing_ids))}."
+                )
+    else:
+        cards = list(session.scalars(statement))
+
+    classified = 0
+    skipped = 0
+    for card in cards:
+        fingerprint = _card_input_fingerprint(card, catalog)
+        existing_run_id = session.scalar(
+            select(ClassificationRun.run_id).where(
+                ClassificationRun.oracle_id == card.oracle_id,
+                ClassificationRun.classification_hash == classification_hash,
+                ClassificationRun.input_fingerprint == fingerprint,
+            )
+        )
+        if existing_run_id is not None:
+            skipped += 1
+            continue
+
+        card_input = _classification_input(card)
+        result = classify_card(card_input, catalog)
+        run = ClassificationRun(
+            run_id=str(uuid.uuid4()),
+            oracle_id=card.oracle_id,
+            catalog_hash=catalog_hash,
+            classification_hash=classification_hash,
+            input_fingerprint=fingerprint,
+            card_updated_at=card.scryfall_updated_at,
+            classified_at=datetime.now(timezone.utc),
+        )
+        session.add(run)
+        session.flush()
+        _persist_classification_result(session, run.run_id, result)
+        classified += 1
+
+    return ReclassificationSummary(
+        catalog_hash=catalog_hash,
+        examined=len(cards),
+        classified=classified,
+        skipped=skipped,
+    )
+
+
+def load_latest_classification(
+    session: Session,
+    oracle_id: str,
+) -> ClassificationResult | None:
+    run = session.scalar(
+        select(ClassificationRun)
+        .where(ClassificationRun.oracle_id == oracle_id)
+        .order_by(ClassificationRun.classified_at.desc(), ClassificationRun.run_id.desc())
+        .limit(1)
+    )
+    if run is None:
+        return None
+    records = session.scalars(
+        select(ClassificationEvidenceRecord)
+        .where(ClassificationEvidenceRecord.run_id == run.run_id)
+        .order_by(ClassificationEvidenceRecord.id)
+    )
+    return ClassificationResult(
+        evidence=tuple(
+            ClassificationEvidence(
+                rule_id=record.rule_id,
+                target_type=record.target_type,
+                target_id=record.target_id,
+                source_field=record.source_field,
+                matched_value=record.matched_value,
+                weight=record.weight,
+                confidence=record.confidence,
+                requires_review=record.requires_review,
+                evidence_label=record.evidence_label,
+                face_index=record.face_index,
+            )
+            for record in records
+        )
+    )
+
+
+def save_manual_override(
+    session: Session,
+    override: ManualOverride,
+    catalog: StrategyCatalog,
+) -> ManualOverride:
+    resolve_classification_overrides(ClassificationResult(evidence=()), (override,), catalog)
+    recorded_at = override.recorded_at or datetime.now(timezone.utc)
+    stored_override = replace(override, recorded_at=recorded_at)
+    record = session.scalar(
+        select(ManualOverrideRecord).where(
+            ManualOverrideRecord.target_type == override.target_type,
+            ManualOverrideRecord.target_id == override.target_id,
+        )
+    )
+    if record is None:
+        record = ManualOverrideRecord(
+            target_type=override.target_type,
+            target_id=override.target_id,
+            action=override.action,
+            level=override.level,
+            confidence_score=override.confidence_score,
+            reason=override.reason,
+            author=override.author,
+            recorded_at=recorded_at.isoformat(),
+        )
+        session.add(record)
+    else:
+        record.action = override.action
+        record.level = override.level
+        record.confidence_score = override.confidence_score
+        record.reason = override.reason
+        record.author = override.author
+        record.recorded_at = recorded_at.isoformat()
+    return stored_override
+
+
+def load_manual_overrides(
+    session: Session,
+    catalog: StrategyCatalog,
+) -> tuple[ManualOverride, ...]:
+    records = session.scalars(
+        select(ManualOverrideRecord).order_by(
+            ManualOverrideRecord.target_type,
+            ManualOverrideRecord.target_id,
+        )
+    )
+    overrides = tuple(
+        ManualOverride(
+            target_type=record.target_type,  # validated by resolver below
+            target_id=record.target_id,
+            action=record.action,  # validated by resolver below
+            level=record.level,
+            confidence_score=record.confidence_score,
+            reason=record.reason,
+            author=record.author,
+            recorded_at=datetime.fromisoformat(record.recorded_at),
+        )
+        for record in records
+    )
+    resolve_classification_overrides(ClassificationResult(evidence=()), overrides, catalog)
+    return overrides
+
+
+def remove_manual_override(
+    session: Session,
+    target_type: str,
+    target_id: str,
+    catalog: StrategyCatalog,
+) -> bool:
+    candidate = ManualOverride(
+        target_type=target_type,  # validation is performed by resolver
+        target_id=target_id,
+        action="force_include",
+    )
+    resolve_classification_overrides(
+        ClassificationResult(evidence=()),
+        (candidate,),
+        catalog,
+    )
+    record = session.scalar(
+        select(ManualOverrideRecord).where(
+            ManualOverrideRecord.target_type == target_type,
+            ManualOverrideRecord.target_id == target_id,
+        )
+    )
+    if record is None:
+        return False
+    session.delete(record)
+    return True
+
+
+def save_commander_affinity_profile(
+    session: Session,
+    profile: CommanderAffinityProfile,
+    catalog: StrategyCatalog,
+) -> CommanderAffinityProfile:
+    validated = validate_commander_affinity_profile(profile, catalog)
+    if session.get(Card, validated.commander_oracle_id) is None:
+        raise ValueError(
+            f"Comandante desconhecido: '{validated.commander_oracle_id}'."
+        )
+
+    session.execute(
+        delete(CommanderAffinityRecord).where(
+            CommanderAffinityRecord.commander_oracle_id
+            == validated.commander_oracle_id
+        )
+    )
+    records = [
+        CommanderAffinityRecord(
+            commander_oracle_id=validated.commander_oracle_id,
+            target_type="strategy",
+            target_id=affinity.strategy_id,
+            level=affinity.level,
+            strength_score=affinity.strength_score,
+            evidence_ids=list(affinity.evidence_ids),
+            rationale=affinity.rationale,
+            source=affinity.source,
+        )
+        for affinity in validated.strategy_affinities
+    ]
+    records.extend(
+        CommanderAffinityRecord(
+            commander_oracle_id=validated.commander_oracle_id,
+            target_type="tag",
+            target_id=affinity.tag_id,
+            level=None,
+            strength_score=None,
+            evidence_ids=list(affinity.evidence_ids),
+            rationale=affinity.rationale,
+            source=affinity.source,
+        )
+        for affinity in validated.tag_affinities
+    )
+    session.add_all(records)
+    return validated
+
+
+def load_commander_affinity_profile(
+    session: Session,
+    commander_oracle_id: str,
+    catalog: StrategyCatalog,
+) -> CommanderAffinityProfile | None:
+    records = tuple(
+        session.scalars(
+            select(CommanderAffinityRecord)
+            .where(
+                CommanderAffinityRecord.commander_oracle_id == commander_oracle_id
+            )
+            .order_by(
+                CommanderAffinityRecord.target_type,
+                CommanderAffinityRecord.target_id,
+            )
+        )
+    )
+    if not records:
+        return None
+
+    profile = CommanderAffinityProfile(
+        commander_oracle_id=commander_oracle_id,
+        strategy_affinities=tuple(
+            CommanderStrategyAffinity(
+                strategy_id=record.target_id,
+                level=record.level,  # validated by profile validator below
+                strength_score=record.strength_score,
+                evidence_ids=tuple(record.evidence_ids),
+                rationale=record.rationale,
+                source=record.source,  # validated by profile validator below
+            )
+            for record in records
+            if record.target_type == "strategy"
+        ),
+        tag_affinities=tuple(
+            CommanderTagAffinity(
+                tag_id=record.target_id,
+                evidence_ids=tuple(record.evidence_ids),
+                rationale=record.rationale,
+                source=record.source,  # validated by profile validator below
+            )
+            for record in records
+            if record.target_type == "tag"
+        ),
+    )
+    return validate_commander_affinity_profile(profile, catalog)
+
+
+def _register_catalog_version(
+    session: Session,
+    catalog: StrategyCatalog,
+    catalog_hash: str,
+    config_dir: Path,
+) -> None:
+    if session.get(ClassificationCatalogVersion, catalog_hash) is not None:
+        return
+    snapshot: dict[str, str] = {}
+    for filename in _CATALOG_FILES:
+        try:
+            snapshot[filename] = (config_dir / filename).read_text(encoding="utf-8")
+        except OSError as error:
+            raise ValueError(
+                f"{filename}: não foi possível ler o arquivo: {error}"
+            ) from error
+    session.add(
+        ClassificationCatalogVersion(
+            catalog_hash=catalog_hash,
+            catalog_version=catalog.catalog_version,
+            ruleset_version=catalog.ruleset_version,
+            scoring_version=catalog.scoring_version,
+            normalizer_version=NORMALIZER_VERSION,
+            configuration_snapshot=snapshot,
+            registered_at=datetime.now(timezone.utc),
+        )
+    )
+    session.flush()
+
+
+def _classification_input(card: Card) -> CardClassificationInput:
+    return CardClassificationInput(
+        type_line=card.type_line,
+        oracle_text=card.oracle_text,
+        mana_cost=card.mana_cost,
+        cmc=card.cmc,
+        colors=tuple(card.colors) if card.colors is not None else None,
+        color_identity=(
+            tuple(card.color_identity) if card.color_identity is not None else None
+        ),
+        produced_mana=(
+            tuple(card.produced_mana) if card.produced_mana is not None else None
+        ),
+        keywords=tuple(card.keywords) if card.keywords is not None else None,
+    )
+
+
+def _card_input_fingerprint(card: Card, catalog: StrategyCatalog) -> str:
+    values = {
+        "type_line": card.type_line,
+        "type_line_normalized": card.type_line,
+        "oracle_text": card.oracle_text,
+        "oracle_text_normalized": card.oracle_text,
+        "mana_cost": card.mana_cost,
+        "cmc": card.cmc,
+        "colors": card.colors,
+        "color_identity": card.color_identity,
+        "produced_mana": card.produced_mana,
+        "keywords": card.keywords,
+    }
+    relevant_fields = sorted(
+        {
+            field
+            for rule in catalog.rules
+            if rule.enabled
+            for field in rule.source_fields
+        }
+    )
+    payload = {field: values[field] for field in relevant_fields}
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _persist_classification_result(
+    session: Session,
+    run_id: str,
+    result: ClassificationResult,
+) -> None:
+    grouped: dict[tuple[str, str], list[ClassificationEvidence]] = {}
+    for evidence in result.evidence:
+        key = (evidence.target_type, evidence.target_id)
+        grouped.setdefault(key, []).append(evidence)
+    for (target_type, target_id), evidence_group in grouped.items():
+        session.add(
+            CardClassification(
+                run_id=run_id,
+                target_type=target_type,
+                target_id=target_id,
+                confidence_score=max(item.confidence for item in evidence_group),
+                requires_review=any(item.requires_review for item in evidence_group),
+                source="automatic",
+            )
+        )
+    session.flush()
+    session.add_all(
+        ClassificationEvidenceRecord(
+            run_id=run_id,
+            target_type=evidence.target_type,
+            target_id=evidence.target_id,
+            rule_id=evidence.rule_id,
+            source_field=evidence.source_field,
+            matched_value=evidence.matched_value[:512],
+            weight=evidence.weight,
+            confidence=evidence.confidence,
+            requires_review=evidence.requires_review,
+            evidence_label=evidence.evidence_label[:512],
+            face_index=evidence.face_index,
+        )
+        for evidence in result.evidence
+    )

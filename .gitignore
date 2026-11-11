@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.env
+*.db
+*.sqlite
+*.sqlite3
+*.csv
+data/cache/
+data/decks/
+build/
+dist/
+*.egg-info/

@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mana-architect"
+version = "0.1.0"
+description = "Gerenciador local de coleção de Magic: The Gathering"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "SQLAlchemy>=2.0,<3.0",
+    "python-dotenv>=1.0,<2.0",
+]
+
+[project.optional-dependencies]
+app = [
+    "streamlit>=1.40,<2.0",
+]
+dev = [
+    "pytest>=8.0,<10.0",
+]
+
+[project.scripts]
+mana-architect = "mana_architect.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

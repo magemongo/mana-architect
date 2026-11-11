@@ -1,0 +1,22 @@
+[profiles."e7e69583-8326-417e-8a9a-6b917c8ba4b6"]
+name = "Anowon, the Ruin Thief"
+themes = ["Rogues tribal", "mill por dano de combate"]
+utility_land_limit = 4
+
+[[profiles."e7e69583-8326-417e-8a9a-6b917c8ba4b6".signals]]
+name = "Tribal Rogue"
+weight = 1.5
+patterns = ['(?i)\brogues?\b']
+
+[[profiles."e7e69583-8326-417e-8a9a-6b917c8ba4b6".signals]]
+name = "Mill"
+weight = 1.25
+patterns = [
+    '(?i)\bmill(?:s|ed|ing)?\b',
+    '(?i)\btop \d+ cards? of (?:target|their|your) library\b',
+]
+
+[[profiles."e7e69583-8326-417e-8a9a-6b917c8ba4b6".signals]]
+name = "Dano de combate"
+weight = 0.75
+patterns = ['(?i)\bcombat damage\b']

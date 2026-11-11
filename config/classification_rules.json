@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "ruleset_version": "1.0.0",
+  "rules": [
+    {
+      "id": "tag_create_tokens_oracle_text",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "create_tokens",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {"type": "phrase_any", "values": ["create a token", "create two tokens"]},
+      "weight": 0.8,
+      "confidence": 0.75,
+      "evidence_label": "O texto Oracle indica criação de fichas.",
+      "requires_review": false
+    },
+    {
+      "id": "tag_artifact_type_line",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "artifact_count",
+      "source_fields": ["type_line_normalized"],
+      "match": {"type": "type_line_contains", "values": ["artifact"]},
+      "weight": 0.3,
+      "confidence": 0.4,
+      "evidence_label": "A linha de tipo contém Artifact; isso não comprova sinergia funcional.",
+      "requires_review": true
+    },
+    {
+      "id": "role_land_type_line",
+      "enabled": true,
+      "target_type": "role",
+      "target_id": "land",
+      "source_fields": ["type_line_normalized"],
+      "match": {"type": "type_line_contains", "values": ["land"]},
+      "weight": 0.9,
+      "confidence": 0.95,
+      "evidence_label": "A linha de tipo identifica um terreno.",
+      "requires_review": false
+    },
+    {
+      "id": "role_card_draw_oracle_text",
+      "enabled": true,
+      "target_type": "role",
+      "target_id": "card_draw",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {"type": "phrase_any", "values": ["draw a card", "draw two cards"]},
+      "weight": 0.7,
+      "confidence": 0.65,
+      "evidence_label": "O texto Oracle sugere compra de cartas.",
+      "requires_review": true
+    },
+    {
+      "id": "strategy_lifegain_oracle_text",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "lifegain",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {"type": "phrase_any", "values": ["you gain life", "whenever you gain life"]},
+      "weight": 0.5,
+      "confidence": 0.55,
+      "evidence_label": "O texto Oracle menciona ganho de vida; a intenção estratégica requer contexto.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_noncombat_damage_opponents",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "noncombat_damage",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {
+        "type": "phrase_any",
+        "values": [
+          "deals 1 damage to each opponent",
+          "deals 2 damage to each opponent",
+          "deals 3 damage to each opponent",
+          "deals 4 damage to each opponent",
+          "deals 5 damage to each opponent"
+        ]
+      },
+      "weight": 0.6,
+      "confidence": 0.6,
+      "evidence_label": "O texto menciona dano direto a oponentes, sem depender de combate.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_combat_damage_oracle_text",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "combat_damage",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {"type": "phrase_any", "values": ["deals combat damage"]},
+      "weight": 0.5,
+      "confidence": 0.6,
+      "evidence_label": "O texto vincula o efeito a dano de combate, não a burn.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_land_ramp_oracle_text",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "land_ramp",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {
+        "type": "phrase_any",
+        "values": [
+          "search your library for a land card",
+          "search your library for a basic land card"
+        ]
+      },
+      "weight": 0.7,
+      "confidence": 0.7,
+      "evidence_label": "O texto sugere busca de terreno como aceleração.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_reanimate_creature_oracle_text",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "reanimate_creature",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {
+        "type": "phrase_any",
+        "values": [
+          "return target creature card from your graveyard to the battlefield",
+          "return a creature card from your graveyard to the battlefield"
+        ]
+      },
+      "weight": 0.8,
+      "confidence": 0.75,
+      "evidence_label": "O texto retorna uma criatura do cemitério ao campo.",
+      "requires_review": false
+    },
+    {
+      "id": "tag_single_creature_buff_oracle_text",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "single_creature_buff",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {
+        "type": "phrase_any",
+        "values": [
+          "target creature gets +1/+1",
+          "equipped creature gets +1/+1",
+          "enchanted creature gets +1/+1"
+        ]
+      },
+      "weight": 0.35,
+      "confidence": 0.45,
+      "evidence_label": "O texto sugere um bônus concentrado; não determina sozinho uma estratégia Voltron.",
+      "requires_review": true
+    }
+  ]
+}
