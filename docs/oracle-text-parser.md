@@ -40,6 +40,15 @@ time. New classification runs store the parser version, ability segmentation,
 feature spans, and mechanics as JSON. Evidence rows also store source offsets.
 Older runs remain readable with `oracle_parse=None`.
 
+## UI inspection
+
+Open **Catalog → Oracle Parser** to search cards in the local collection and
+inspect ability segments, lexical features, mechanical facts, parser-backed
+classification rules, and evidence spans. If a card's saved classification is
+stale, the page shows a live preview without writing it. **Save current parser
+result for this card** explicitly reclassifies only the selected card; the
+collection is never reclassified automatically from this page.
+
 The next migration should:
 
 1. Expand coverage and schema validation for the versioned parser catalogs.

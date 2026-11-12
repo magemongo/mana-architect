@@ -112,6 +112,8 @@ related validation and generation tests.
   source spans additively. All seven Oracle-text classification rules now use
   mechanical IDs; broader target/zone modeling and corpus review remain. See
   [oracle-text-parser.md](./oracle-text-parser.md).
+- Catalog now includes an Oracle Parser inspector for collection cards, with
+  live previews and explicit single-card reclassification.
 - The Catalog page can view, create, edit, and delete strategies and roles.
   After confirmation, deletion removes linked rules, affinities, and current
   manual overrides while preserving classification history. Changes are saved

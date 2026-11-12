@@ -10,7 +10,7 @@ from typing import Literal
 
 import pandas as pd
 import streamlit as st
-from sqlalchemy import Engine, delete, select
+from sqlalchemy import Engine, delete, or_, select
 from sqlalchemy.orm import Session
 
 from mana_architect.catalog import (
@@ -19,7 +19,9 @@ from mana_architect.catalog import (
     load_strategy_catalog,
 )
 from mana_architect.commanders import CommanderOption, list_available_commanders
+from mana_architect.classification import CardClassificationInput, classify_card
 from mana_architect.classification_repository import (
+    load_current_classifications,
     load_commander_affinity_profile,
     reclassify_cards,
     remove_card_classification_override,
@@ -39,11 +41,14 @@ from mana_architect.deckbuilding import (
     build_deck,
 )
 from mana_architect.models import (
+    Card,
     CardClassificationOverrideRecord,
+    CollectionPrinting,
     CommanderAffinityRecord,
     ManualOverrideRecord,
     SyncMetadata,
 )
+from mana_architect.oracle_text import PARSER_VERSION
 from mana_architect.overrides import (
     ClassificationTargetType,
     ManualOverride,
@@ -783,11 +788,17 @@ def _render_catalog_admin(session: Session) -> None:
     rules_data = json.loads(
         (DEFAULT_CATALOG_DIR / "classification_rules.json").read_text(encoding="utf-8")
     )
+    catalog = load_strategy_catalog(DEFAULT_CATALOG_DIR)
     strategy_ids = [item["id"] for item in strategies_data["strategies"]]
     role_ids = [item["id"] for item in roles_data["roles"]]
-    strategy_tab, role_tab = st.tabs(["Strategies", "Roles"])
+    catalog_view = st.segmented_control(
+        "Catalog view",
+        options=["Strategies", "Roles", "Oracle Parser"],
+        default="Strategies",
+        key="catalog_admin_view",
+    )
 
-    with strategy_tab:
+    if catalog_view == "Strategies":
         st.dataframe(
             [
                 {
@@ -948,7 +959,7 @@ def _render_catalog_admin(session: Session) -> None:
                         st.success("Strategy deleted. Classification history was preserved.")
                         st.rerun()
 
-    with role_tab:
+    elif catalog_view == "Roles":
         st.dataframe(
             [
                 {
@@ -958,7 +969,7 @@ def _render_catalog_admin(session: Session) -> None:
                         if item["group"] == "deck_service"
                         else "Synergy Role"
                     ),
-                    "Oracle Terms": ", ".join(item.get("oracle_keywords", [])),
+                    "Oracle Phrases": ", ".join(item.get("oracle_keywords", [])),
                     "Description": item["description"],
                 }
                 for item in roles_data["roles"]
@@ -1010,9 +1021,9 @@ def _render_catalog_admin(session: Session) -> None:
                 "Description", value=current["description"] if current else ""
             )
             oracle_keywords = st.text_area(
-                "Oracle Terms (one per line)",
+                "Oracle text terms (one per line)",
                 value="\n".join(current.get("oracle_keywords", [])) if current else "",
-                help="Literal, case-insensitive matches. Any term can suggest this role; classifications remain heuristic.",
+                help="Terms are extracted as source-linked phrase features before they can suggest this role. Classifications remain heuristic.",
             )
             save_role = st.form_submit_button("Save Role", type="primary")
         if save_role:
@@ -1094,6 +1105,278 @@ def _render_catalog_admin(session: Session) -> None:
                     else:
                         st.success("Role deleted. Classification history was preserved.")
                         st.rerun()
+
+    else:
+        _render_oracle_parser_inspector(session, catalog)
+
+
+def _render_oracle_parser_inspector(
+    session: Session,
+    catalog: StrategyCatalog,
+) -> None:
+    st.subheader("Oracle parser inspector")
+    st.caption(
+        "Inspect how a card's Oracle text becomes ability segments, lexical "
+        "features, mechanical facts, and classification evidence."
+    )
+    st.info(
+        "Features show terms found in the text. Mechanical facts interpret "
+        "those terms in context. The rules below map mechanics to tags, roles, "
+        "or strategies; these are separate steps."
+    )
+    parser_left, parser_middle, parser_right = st.columns(3)
+    parser_left.metric("Parser version", PARSER_VERSION)
+    parser_middle.metric("Lexical entries", len(catalog.oracle_lexicon))
+    parser_right.metric("Mechanical patterns", len(catalog.oracle_mechanical_patterns))
+
+    parser_rules = [
+        rule for rule in catalog.rules
+        if rule.match.type in {"oracle_feature_any", "oracle_mechanic_any"}
+    ]
+    target_names = {
+        **{("strategy", item.id): item.name for item in catalog.strategies},
+        **{("tag", item.id): item.name for item in catalog.tags},
+        **{("role", item.id): item.name for item in catalog.roles},
+    }
+    st.markdown("**Active parser-backed classification rules**")
+    if parser_rules:
+        st.dataframe(
+            [
+                {
+                    "Rule": rule.id,
+                    "Classifies as": target_names.get(
+                        (rule.target_type, rule.target_id),
+                        f"{rule.target_type}: {rule.target_id}",
+                    ),
+                    "Matches": ", ".join(rule.match.values),
+                    "Conditions": json.dumps(dict(rule.match.where), ensure_ascii=False),
+                    "Weight": rule.weight,
+                    "Confidence": rule.confidence,
+                    "Review": "Required" if rule.requires_review else "No",
+                }
+                for rule in parser_rules
+            ],
+            hide_index=True,
+            width="stretch",
+            alt="Parser-backed classification rules",
+        )
+    else:
+        st.info("No parser-backed classification rules are configured.")
+
+    with st.form("oracle_parser_card_search_form"):
+        search_text = st.text_input(
+            "Find a card in your collection",
+            key="oracle_parser_search_input",
+            help="Search by card name or paste an exact Oracle ID.",
+        )
+        search_submitted = st.form_submit_button(
+            "Search cards", icon=":material/search:"
+        )
+    if search_submitted:
+        st.session_state["oracle_parser_search_query"] = search_text.strip()
+
+    query = st.session_state.get("oracle_parser_search_query", "")
+    if not query:
+        st.info("Search for a card to inspect its current Oracle parse.")
+        return
+    if len(query) < 2:
+        st.info("Enter at least two characters of a card name, or an Oracle ID.")
+        return
+
+    matching_cards = list(
+        session.scalars(
+            select(Card)
+            .join(CollectionPrinting, CollectionPrinting.oracle_id == Card.oracle_id)
+            .where(
+                or_(
+                    Card.name.ilike(f"%{query}%"),
+                    Card.oracle_id == query,
+                )
+            )
+            .distinct()
+            .order_by(Card.name, Card.oracle_id)
+            .limit(100)
+        )
+    )
+    if not matching_cards:
+        st.warning("No matching card was found in your collection.")
+        return
+    cards_by_id = {card.oracle_id: card for card in matching_cards}
+    card_ids = tuple(cards_by_id)
+    if st.session_state.get("oracle_parser_selected_card") not in cards_by_id:
+        st.session_state.pop("oracle_parser_selected_card", None)
+    selected_card_id = st.selectbox(
+        "Matching card",
+        options=card_ids,
+        format_func=lambda oracle_id: (
+            f"{cards_by_id[oracle_id].name} · {oracle_id}"
+        ),
+        key="oracle_parser_selected_card",
+    )
+    card = cards_by_id[selected_card_id]
+    current_result = load_current_classifications(
+        session,
+        (selected_card_id,),
+        catalog,
+        DEFAULT_CATALOG_DIR,
+    ).get(selected_card_id)
+    persisted_parse = (
+        current_result.oracle_parse if current_result is not None else None
+    )
+    classification_result = current_result
+    if persisted_parse is not None:
+        oracle_parse = persisted_parse
+        st.success(
+            f"Showing the saved parse for {persisted_parse.parser_version} "
+            "and the current catalog."
+        )
+    else:
+        preview_result = classify_card(
+            CardClassificationInput(
+                type_line=card.type_line,
+                oracle_text=card.oracle_text,
+                mana_cost=card.mana_cost,
+                cmc=card.cmc,
+                colors=tuple(card.colors) if card.colors is not None else None,
+                color_identity=(
+                    tuple(card.color_identity)
+                    if card.color_identity is not None else None
+                ),
+                produced_mana=(
+                    tuple(card.produced_mana)
+                    if card.produced_mana is not None else None
+                ),
+                keywords=tuple(card.keywords) if card.keywords is not None else None,
+            ),
+            catalog,
+        )
+        classification_result = preview_result
+        oracle_parse = preview_result.oracle_parse
+        st.warning(
+            "This is a live preview. The saved classification is missing or "
+            "out of date, so this result has not been written to the database."
+        )
+        if st.button(
+            "Save current parser result for this card",
+            key=f"save_oracle_parse_{selected_card_id}",
+            type="primary",
+        ):
+            try:
+                session.rollback()
+                with session.begin():
+                    summary = reclassify_cards(
+                        session,
+                        catalog,
+                        DEFAULT_CATALOG_DIR,
+                        (selected_card_id,),
+                    )
+            except ValueError as error:
+                st.error(str(error))
+            else:
+                st.success(
+                    f"Card updated: {summary.classified} new classification, "
+                    f"{summary.skipped} already current."
+                )
+                st.rerun()
+
+    if oracle_parse is None:
+        st.error("The parser did not return a result for this card.")
+        return
+    with st.expander("Oracle text", expanded=False):
+        st.code(oracle_parse.oracle_text or "No Oracle text is available.")
+
+    st.markdown("**Ability segments**")
+    ability_rows = [
+        {
+            "Ability": item.id,
+            "Structure": item.kind.replace("_", " ").title(),
+            "Cost": " ".join(f"{{{symbol}}}" for symbol in item.mana_cost.symbols)
+                if item.mana_cost else "—",
+            "Source span": f"{item.start}–{item.end}",
+            "Oracle text": item.text,
+        }
+        for item in oracle_parse.abilities
+    ]
+    if ability_rows:
+        st.dataframe(
+            ability_rows,
+            hide_index=True,
+            width="stretch",
+            alt="Parsed Oracle ability segments",
+        )
+    else:
+        st.caption("No Oracle ability text was found.")
+
+    st.markdown("**Extracted Oracle features**")
+    feature_rows = [
+        {
+            "Category": item.category.replace("_", " ").title(),
+            "Term in text": item.surface,
+            "Canonical term": item.canonical,
+            "Ability": item.ability_id,
+            "Source span": f"{item.start}–{item.end}",
+        }
+        for item in oracle_parse.features
+    ]
+    if feature_rows:
+        st.dataframe(
+            feature_rows,
+            hide_index=True,
+            width="stretch",
+            alt="Oracle terms extracted by the parser",
+        )
+    else:
+        st.caption("No catalog terms were found in this card's Oracle text.")
+    st.markdown("**Mechanical facts**")
+    mechanic_rows = [
+        {
+            "Mechanic": item.id,
+            "Attributes": json.dumps(dict(item.attributes), ensure_ascii=False),
+            "Ability": item.ability_id,
+            "Source span": f"{item.evidence_start}–{item.evidence_end}",
+            "Matched text": oracle_parse.oracle_text[
+                item.evidence_start:item.evidence_end
+            ],
+        }
+        for item in oracle_parse.mechanics
+    ]
+    if mechanic_rows:
+        st.dataframe(
+            mechanic_rows,
+            hide_index=True,
+            width="stretch",
+            alt="Mechanical facts recognized in Oracle text",
+        )
+    else:
+        st.caption("No configured mechanical patterns matched this card.")
+    if classification_result is not None:
+        st.markdown("**Classification evidence**")
+        classification_rows = [
+                {
+                    "Rule": item.rule_id,
+                    "Target": target_names.get(
+                        (item.target_type, item.target_id),
+                        f"{item.target_type}: {item.target_id}",
+                    ),
+                    "Evidence": item.matched_value,
+                    "Source span": (
+                        f"{item.span_start}–{item.span_end}"
+                        if item.span_start is not None and item.span_end is not None
+                        else "—"
+                    ),
+                    "Review": "Required" if item.requires_review else "No",
+                }
+                for item in classification_result.evidence
+            ]
+        if classification_rows:
+            st.dataframe(
+                classification_rows,
+                hide_index=True,
+                width="stretch",
+                alt="Classification evidence for this card",
+            )
+        else:
+            st.caption("No classification rule matched this card.")
 
 
 def _render_suggestion_correction(
