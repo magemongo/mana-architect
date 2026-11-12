@@ -30,11 +30,11 @@ def classify_card_roles(type_line: str | None, oracle_text: str | None) -> tuple
     roles: list[str] = []
     text = oracle_text or ""
     if any(pattern.search(text) for pattern in _RAMP_PATTERNS):
-        roles.append("Ramp (heurística)")
+        roles.append("Ramp (heuristic)")
     if _DRAW_PATTERN.search(text):
-        roles.append("Compra de cartas (heurística)")
+        roles.append("Card Draw (heuristic)")
     if any(pattern.search(text) for pattern in _REMOVAL_PATTERNS):
-        roles.append("Remoção (heurística)")
+        roles.append("Removal (heuristic)")
     if any(pattern.search(text) for pattern in _RECURSION_PATTERNS):
-        roles.append("Recursão (heurística)")
+        roles.append("Recursion (heuristic)")
     return tuple(roles)

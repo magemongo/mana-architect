@@ -1,17 +1,25 @@
 {
   "schema_version": 1,
-  "ruleset_version": "1.0.0",
+  "ruleset_version": "1.1.0",
   "rules": [
     {
       "id": "tag_create_tokens_oracle_text",
       "enabled": true,
       "target_type": "tag",
       "target_id": "create_tokens",
-      "source_fields": ["oracle_text_normalized"],
-      "match": {"type": "phrase_any", "values": ["create a token", "create two tokens"]},
+      "source_fields": [
+        "oracle_text_normalized"
+      ],
+      "match": {
+        "type": "phrase_any",
+        "values": [
+          "create a token",
+          "create two tokens"
+        ]
+      },
       "weight": 0.8,
       "confidence": 0.75,
-      "evidence_label": "O texto Oracle indica criação de fichas.",
+      "evidence_label": "Oracle text indicates token creation.",
       "requires_review": false
     },
     {
@@ -19,11 +27,18 @@
       "enabled": true,
       "target_type": "tag",
       "target_id": "artifact_count",
-      "source_fields": ["type_line_normalized"],
-      "match": {"type": "type_line_contains", "values": ["artifact"]},
+      "source_fields": [
+        "type_line_normalized"
+      ],
+      "match": {
+        "type": "type_line_contains",
+        "values": [
+          "artifact"
+        ]
+      },
       "weight": 0.3,
       "confidence": 0.4,
-      "evidence_label": "A linha de tipo contém Artifact; isso não comprova sinergia funcional.",
+      "evidence_label": "The type line contains Artifact; this alone does not establish functional synergy.",
       "requires_review": true
     },
     {
@@ -31,11 +46,18 @@
       "enabled": true,
       "target_type": "role",
       "target_id": "land",
-      "source_fields": ["type_line_normalized"],
-      "match": {"type": "type_line_contains", "values": ["land"]},
+      "source_fields": [
+        "type_line_normalized"
+      ],
+      "match": {
+        "type": "type_line_contains",
+        "values": [
+          "land"
+        ]
+      },
       "weight": 0.9,
       "confidence": 0.95,
-      "evidence_label": "A linha de tipo identifica um terreno.",
+      "evidence_label": "The type line identifies a land.",
       "requires_review": false
     },
     {
@@ -43,11 +65,19 @@
       "enabled": true,
       "target_type": "role",
       "target_id": "card_draw",
-      "source_fields": ["oracle_text_normalized"],
-      "match": {"type": "phrase_any", "values": ["draw a card", "draw two cards"]},
+      "source_fields": [
+        "oracle_text_normalized"
+      ],
+      "match": {
+        "type": "phrase_any",
+        "values": [
+          "draw a card",
+          "draw two cards"
+        ]
+      },
       "weight": 0.7,
       "confidence": 0.65,
-      "evidence_label": "O texto Oracle sugere compra de cartas.",
+      "evidence_label": "Oracle text suggests card draw.",
       "requires_review": true
     },
     {
@@ -55,11 +85,19 @@
       "enabled": true,
       "target_type": "strategy",
       "target_id": "lifegain",
-      "source_fields": ["oracle_text_normalized"],
-      "match": {"type": "phrase_any", "values": ["you gain life", "whenever you gain life"]},
+      "source_fields": [
+        "oracle_text_normalized"
+      ],
+      "match": {
+        "type": "phrase_any",
+        "values": [
+          "you gain life",
+          "whenever you gain life"
+        ]
+      },
       "weight": 0.5,
       "confidence": 0.55,
-      "evidence_label": "O texto Oracle menciona ganho de vida; a intenção estratégica requer contexto.",
+      "evidence_label": "Oracle text mentions life gain; strategic intent requires context.",
       "requires_review": true
     },
     {
@@ -67,7 +105,9 @@
       "enabled": true,
       "target_type": "tag",
       "target_id": "noncombat_damage",
-      "source_fields": ["oracle_text_normalized"],
+      "source_fields": [
+        "oracle_text_normalized"
+      ],
       "match": {
         "type": "phrase_any",
         "values": [
@@ -80,7 +120,7 @@
       },
       "weight": 0.6,
       "confidence": 0.6,
-      "evidence_label": "O texto menciona dano direto a oponentes, sem depender de combate.",
+      "evidence_label": "Oracle text mentions direct damage to opponents without relying on combat.",
       "requires_review": true
     },
     {
@@ -88,11 +128,18 @@
       "enabled": true,
       "target_type": "tag",
       "target_id": "combat_damage",
-      "source_fields": ["oracle_text_normalized"],
-      "match": {"type": "phrase_any", "values": ["deals combat damage"]},
+      "source_fields": [
+        "oracle_text_normalized"
+      ],
+      "match": {
+        "type": "phrase_any",
+        "values": [
+          "deals combat damage"
+        ]
+      },
       "weight": 0.5,
       "confidence": 0.6,
-      "evidence_label": "O texto vincula o efeito a dano de combate, não a burn.",
+      "evidence_label": "Oracle text ties the effect to combat damage, not burn.",
       "requires_review": true
     },
     {
@@ -100,7 +147,9 @@
       "enabled": true,
       "target_type": "tag",
       "target_id": "land_ramp",
-      "source_fields": ["oracle_text_normalized"],
+      "source_fields": [
+        "oracle_text_normalized"
+      ],
       "match": {
         "type": "phrase_any",
         "values": [
@@ -110,7 +159,7 @@
       },
       "weight": 0.7,
       "confidence": 0.7,
-      "evidence_label": "O texto sugere busca de terreno como aceleração.",
+      "evidence_label": "Oracle text suggests searching for a land as ramp.",
       "requires_review": true
     },
     {
@@ -118,7 +167,9 @@
       "enabled": true,
       "target_type": "tag",
       "target_id": "reanimate_creature",
-      "source_fields": ["oracle_text_normalized"],
+      "source_fields": [
+        "oracle_text_normalized"
+      ],
       "match": {
         "type": "phrase_any",
         "values": [
@@ -128,7 +179,7 @@
       },
       "weight": 0.8,
       "confidence": 0.75,
-      "evidence_label": "O texto retorna uma criatura do cemitério ao campo.",
+      "evidence_label": "Oracle text returns a creature from a graveyard to the battlefield.",
       "requires_review": false
     },
     {
@@ -136,7 +187,9 @@
       "enabled": true,
       "target_type": "tag",
       "target_id": "single_creature_buff",
-      "source_fields": ["oracle_text_normalized"],
+      "source_fields": [
+        "oracle_text_normalized"
+      ],
       "match": {
         "type": "phrase_any",
         "values": [
@@ -147,7 +200,7 @@
       },
       "weight": 0.35,
       "confidence": 0.45,
-      "evidence_label": "O texto sugere um bônus concentrado; não determina sozinho uma estratégia Voltron.",
+      "evidence_label": "Oracle text suggests a concentrated buff; this alone does not establish a Voltron strategy.",
       "requires_review": true
     }
   ]

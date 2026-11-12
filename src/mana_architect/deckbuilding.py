@@ -48,10 +48,10 @@ BASIC_LAND_COLORS = {
     "forest": "G",
 }
 ROLE_NAMES = (
-    "Ramp (heurística)",
-    "Compra de cartas (heurística)",
-    "Remoção (heurística)",
-    "Recursão (heurística)",
+    "Ramp (heuristic)",
+    "Card Draw (heuristic)",
+    "Removal (heuristic)",
+    "Recursion (heuristic)",
 )
 _CATALOG_SCORE_WEIGHT = 0.25
 
@@ -310,13 +310,13 @@ def _select_lands(
 
     if len(selected) != count:
         message = (
-            f"Foram solicitados {count} terrenos, mas há apenas {len(selected)} "
-            "identidades de terreno legais e disponíveis na coleção."
+            f"Requested {count} lands, but only {len(selected)} legal land "
+            "identities are available in the collection."
         )
         if unclassified_count:
             message += (
-                f" {unclassified_count} cartas não foram consideradas por falta "
-                "de classificação atual; reclassifique a coleção e tente novamente."
+                f" {unclassified_count} cards were skipped because they lack "
+                "current classifications. Reclassify the collection and try again."
             )
         raise DeckBuildError(message)
     return selected
@@ -337,12 +337,12 @@ def build_deck(
     if strategy_id is not None and (
         not isinstance(strategy_id, str) or not strategy_id.strip()
     ):
-        raise DeckBuildError("strategy_id deve ser um texto não vazio ou None.")
+        raise DeckBuildError("strategy_id must be a non-empty string or None.")
 
     commander = resolve_commander(session, commander_identifier)
     commander_card = session.get(Card, commander.oracle_id)
     if commander_card is None:
-        raise DeckBuildError("Os dados do comandante não estão disponíveis.")
+        raise DeckBuildError("Commander data is unavailable.")
 
     catalog: StrategyCatalog | None = None
     catalog_strategy_name: str | None = None
@@ -361,7 +361,7 @@ def build_deck(
         )
         if strategy is None:
             raise DeckBuildError(
-                f"Estratégia ativa inexistente no catálogo: '{strategy_id}'."
+                f"Active strategy does not exist in the catalog: '{strategy_id}'."
             )
         catalog_strategy_name = strategy.name
         commander_affinities = load_commander_affinity_profile(
@@ -374,8 +374,8 @@ def build_deck(
             for affinity in commander_affinities.strategy_affinities
         ):
             raise DeckBuildError(
-                "Cadastre a afinidade do comandante para essa estratégia na "
-                "página Sugestões antes de gerar o deck."
+                "Add a commander affinity for this strategy on the Suggestions "
+                "page before building the deck."
             )
 
     candidate_rows = session.execute(
@@ -416,7 +416,7 @@ def build_deck(
         )
         if commander_affinities is None:
             raise DeckBuildError(
-                "O perfil de afinidade do comandante não está disponível."
+                "The commander's affinity profile is unavailable."
             )
         for card, quantity in candidate_rows:
             if (
@@ -448,8 +448,8 @@ def build_deck(
                 continue
             if not score.rankable or score.score is None:
                 raise DeckBuildError(
-                    f"Não foi possível calcular o score de '{card.name}' "
-                    f"para a estratégia '{strategy_id}'."
+                    f"Could not calculate the score for '{card.name}' "
+                    f"for strategy '{strategy_id}'."
                 )
             score_minimum = catalog.scoring.normalization.minimum
             score_range = (
@@ -457,7 +457,7 @@ def build_deck(
             )
             if score_range <= 0:
                 raise DeckBuildError(
-                    "A faixa de normalização do score do catálogo é inválida."
+                    "The catalog score normalization range is invalid."
                 )
             catalog_scores[card.oracle_id] = (
                 _CATALOG_SCORE_WEIGHT
@@ -572,15 +572,15 @@ def build_deck(
 
     if selected_nonlands != target_nonlands:
         classification_note = (
-            f" {unclassified_count} cartas da coleção não foram consideradas por "
-            "falta de classificação atual; reclassifique a coleção e tente novamente."
+            f" {unclassified_count} collection cards were skipped because they "
+            "lack current classifications. Reclassify the collection and try again."
             if unclassified_count
             else ""
         )
         raise DeckBuildError(
-            f"Não há cartas não-terreno distintas suficientes: eram necessárias "
-            f"{target_nonlands}, mas apenas {selected_nonlands} puderam ser "
-            "selecionadas respeitando coleção, legalidade e singleton."
+            "There are not enough distinct nonland cards: "
+            f"{target_nonlands} were needed, but only {selected_nonlands} could be "
+            "selected while respecting collection, legality, and singleton rules."
             f"{classification_note}"
         )
 
@@ -592,8 +592,8 @@ def build_deck(
     if validation.errors:
         details = "; ".join(issue.message for issue in validation.errors[:5])
         raise DeckBuildError(
-            "O rascunho produzido não passou pelo validador; não será exportado. "
-            f"Problemas: {details}"
+            "The generated draft did not pass validation and will not be exported. "
+            f"Issues: {details}"
         )
 
     actual_role_counts: Counter[str] = Counter()
@@ -619,7 +619,7 @@ def build_deck(
 def export_deck(result: DeckBuildResult, path: Path, overwrite: bool = False) -> None:
     if path.exists() and not overwrite:
         raise FileExistsError(
-            f"O arquivo '{path}' já existe. Use --overwrite para substituí-lo."
+            f"File '{path}' already exists. Use --overwrite to replace it."
         )
     path.parent.mkdir(parents=True, exist_ok=True)
     draft = {
@@ -761,7 +761,7 @@ def export_decklist(
 ) -> None:
     if path.exists() and not overwrite:
         raise FileExistsError(
-            f"O arquivo '{path}' já existe. Use --overwrite para substituí-lo."
+            f"File '{path}' already exists. Use --overwrite to replace it."
         )
 
     lines = [f"# Commander: {analysis.commander_name}"]

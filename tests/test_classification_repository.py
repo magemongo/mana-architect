@@ -542,7 +542,7 @@ def test_card_override_requires_a_reason_and_valid_catalog_target(
                 ManualOverride("tag", "create_tokens", "force_include"),
                 catalog,
             )
-        with pytest.raises(ValueError, match="ID inexistente"):
+        with pytest.raises(ValueError, match="ID does not exist"):
             save_card_classification_override(
                 session,
                 "spell-id",

@@ -16,8 +16,8 @@ def _copy_catalog(tmp_path: Path) -> Path:
 def test_loads_versioned_catalog_and_all_initial_strategy_roles() -> None:
     catalog = load_strategy_catalog()
 
-    assert catalog.catalog_version == "1.0.0"
-    assert catalog.ruleset_version == "1.0.0"
+    assert catalog.catalog_version == "1.1.0"
+    assert catalog.ruleset_version == "1.1.0"
     assert catalog.scoring_version == "1.0.0"
     assert len(catalog.strategies) == 15
     assert {strategy.id for strategy in catalog.strategies} == {
@@ -138,5 +138,5 @@ def test_reports_malformed_json_file_and_location(tmp_path: Path) -> None:
     config_dir = _copy_catalog(tmp_path)
     (config_dir / "strategy_catalog.json").write_text("{", encoding="utf-8")
 
-    with pytest.raises(ValueError, match=r"strategy_catalog\.json: JSON inválido na linha 1"):
+    with pytest.raises(ValueError, match=r"strategy_catalog\.json: invalid JSON at line 1"):
         load_strategy_catalog(config_dir)

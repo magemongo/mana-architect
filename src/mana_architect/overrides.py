@@ -58,7 +58,7 @@ def resolve_classification_overrides(
         target_type = _validated_target_type(evidence.target_type)
         if evidence.target_id not in catalog_ids[target_type]:
             raise ValueError(
-                f"ID inexistente no catálogo: {target_type} '{evidence.target_id}'."
+                f"ID does not exist in the catalog: {target_type} '{evidence.target_id}'."
             )
         key = (target_type, evidence.target_id)
         automatic.setdefault(key, []).append(evidence)
@@ -125,19 +125,19 @@ def _validate_override(
     catalog_ids: dict[str, set[str]],
 ) -> None:
     if not isinstance(override.target_type, str) or override.target_type not in _TARGET_TYPES:
-        raise ValueError(f"Tipo de alvo inválido: {override.target_type!r}.")
+        raise ValueError(f"Invalid target type: {override.target_type!r}.")
     if not isinstance(override.target_id, str) or not override.target_id:
-        raise ValueError("target_id deve ser um texto não vazio.")
+        raise ValueError("target_id must be a non-empty string.")
     if override.target_id not in catalog_ids[override.target_type]:
         raise ValueError(
-            f"ID inexistente no catálogo: {override.target_type} '{override.target_id}'."
+            f"ID does not exist in the catalog: {override.target_type} '{override.target_id}'."
         )
     if not isinstance(override.action, str) or override.action not in _OVERRIDE_ACTIONS:
-        raise ValueError(f"Ação de override inválida: {override.action!r}.")
+        raise ValueError(f"Invalid override action: {override.action!r}.")
 
     if override.action == "set_level":
         if override.target_type != "strategy":
-            raise ValueError("set_level só é válido para alvos strategy.")
+            raise ValueError("set_level is only valid for strategy targets.")
         if not isinstance(override.level, str) or override.level not in _STRATEGY_LEVELS:
             raise ValueError(
                 "set_level exige level primary, secondary ou complementary."
@@ -149,7 +149,7 @@ def _validate_override(
         or override.level not in _STRATEGY_LEVELS
     ):
         raise ValueError(
-            "level em force_include exige alvo strategy e um nível de afinidade válido."
+            "level in force_include requires a strategy target and a valid affinity level."
         )
 
     if override.confidence_score is not None and (
@@ -158,9 +158,9 @@ def _validate_override(
         or not math.isfinite(override.confidence_score)
         or not 0 <= override.confidence_score <= 1
     ):
-        raise ValueError("confidence_score deve ser um número finito entre 0 e 1.")
+        raise ValueError("confidence_score must be a finite number between 0 and 1.")
     if override.action == "force_exclude" and override.confidence_score is not None:
-        raise ValueError("force_exclude não aceita confidence_score.")
+        raise ValueError("force_exclude does not accept confidence_score.")
     if override.reason is not None and not isinstance(override.reason, str):
         raise ValueError("reason deve ser texto ou None.")
     if override.author is not None and not isinstance(override.author, str):
@@ -180,7 +180,7 @@ def _validated_target_type(value: str) -> ClassificationTargetType:
         return "tag"
     if value == "role":
         return "role"
-    raise ValueError(f"Tipo de alvo inválido: {value!r}.")
+    raise ValueError(f"Invalid target type: {value!r}.")
 
 
 def _select_override(
@@ -191,7 +191,7 @@ def _select_override(
     if exclusions:
         if len(exclusions) > 1:
             raise ValueError(
-                f"Overrides de exclusão duplicados para {key[0]} '{key[1]}'."
+                f"Duplicate exclusion overrides for {key[0]} '{key[1]}'."
             )
         return exclusions[0]
 

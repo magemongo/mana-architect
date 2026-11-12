@@ -91,9 +91,9 @@ def normalize_card(card: CardClassificationInput) -> NormalizedCard:
         or not isinstance(card.cmc, (int, float))
         or not math.isfinite(card.cmc)
     ):
-        raise ValueError("cmc deve ser um número finito ou None.")
+        raise ValueError("cmc must be a finite number or None.")
     if card.cmc is not None and card.cmc < 0:
-        raise ValueError("cmc não pode ser negativo.")
+        raise ValueError("cmc cannot be negative.")
 
     type_line_normalized = (
         normalize_text(card.type_line) if card.type_line is not None else None
@@ -200,8 +200,8 @@ def classify_card(
                         confidence=0.6,
                         requires_review=True,
                         evidence_label=(
-                            f"O termo configurado para a função {role.name} "
-                            "aparece nos dados Oracle da carta."
+                            f"A configured term for the {role.name} role "
+                            "appears in the card's Oracle data."
                         ),
                     )
                 )

@@ -24,7 +24,7 @@ def _normalize_color_filter(value: str | None, field_name: str) -> set[str]:
         return set()
     symbols = value.upper().replace(",", "").replace(" ", "")
     if not symbols or any(symbol not in VALID_COLORS for symbol in symbols):
-        raise ValueError(f"{field_name} deve conter apenas símbolos W, U, B, R ou G.")
+        raise ValueError(f"{field_name} can only contain W, U, B, R, or G symbols.")
     return set(symbols)
 
 
@@ -53,7 +53,7 @@ def search_collection(
     ):
         raise ValueError("Informe um termo de pesquisa ou ao menos um filtro.")
     if limit < 1:
-        raise ValueError("O limite deve ser maior que zero.")
+        raise ValueError("Limit must be greater than zero.")
 
     card_name = func.coalesce(Card.name, CollectionPrinting.name)
     card_identity = func.coalesce(Card.oracle_id, CollectionPrinting.name)

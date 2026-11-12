@@ -1,9 +1,9 @@
-# Estado do projeto e roadmap
+# Project Status and Roadmap
 
 - **Revisado em:** 2026-11-12
 - **Última revisão integralmente auditada:** `5533668`
-- **Escopo aprovado em desenvolvimento:** administração de catálogo, funções e afinidades
-- **Idioma da documentação de produto:** português
+- **Approved development scope:** catalog, role, and affinity administration
+- **Product language:** English
 
 Este é o resumo canônico do produto e de seu roadmap conhecido. O estado abaixo
 foi conferido contra o código, a configuração e os testes na revisão indicada;

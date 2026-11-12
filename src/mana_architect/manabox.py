@@ -57,14 +57,14 @@ def parse_manabox_csv(path: Path) -> ParsedCollection:
     with path.open("r", encoding="utf-8-sig", newline="") as csv_file:
         reader = csv.DictReader(csv_file)
         if reader.fieldnames is None:
-            raise ImportFormatError("O arquivo CSV está vazio ou não tem cabeçalho.")
+            raise ImportFormatError("CSV file is empty or has no header.")
         if len(reader.fieldnames) != len(set(reader.fieldnames)):
-            raise ImportFormatError("O cabeçalho contém nomes de coluna duplicados.")
+            raise ImportFormatError("Header contains duplicate column names.")
 
         missing_columns = [column for column in REQUIRED_COLUMNS if column not in reader.fieldnames]
         if missing_columns:
             missing = ", ".join(missing_columns)
-            raise ImportFormatError(f"Colunas obrigatórias ausentes: {missing}.")
+            raise ImportFormatError(f"Missing required columns: {missing}.")
 
         for line_number, row in enumerate(reader, start=2):
             if not row or all(value is None or not value.strip() for value in row.values()):
@@ -87,11 +87,11 @@ def parse_manabox_csv(path: Path) -> ParsedCollection:
                 quantity = int(values["Quantity"])
             except ValueError as error:
                 raise ImportFormatError(
-                    f"Linha {line_number}: Quantity deve ser um inteiro positivo."
+                    f"Linha {line_number}: Quantity must be a positive integer."
                 ) from error
             if quantity <= 0:
                 raise ImportFormatError(
-                    f"Linha {line_number}: Quantity deve ser um inteiro positivo."
+                    f"Linha {line_number}: Quantity must be a positive integer."
                 )
 
             finish_source = values["Foil"].casefold()

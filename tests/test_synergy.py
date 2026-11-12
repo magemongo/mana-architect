@@ -353,11 +353,11 @@ def test_deterministic_ranking_uses_score_availability_name_and_oracle_id(
 def test_validation_rejects_unknown_strategies_roles_and_bad_adjustments(catalog) -> None:
     with pytest.raises(ValueError, match="Estratégia ativa inexistente"):
         _score(catalog, _card(), strategy="not_real")
-    with pytest.raises(ValueError, match="Funções inexistentes"):
+    with pytest.raises(ValueError, match="Funções inexistentes no catálogo"):
         _score(catalog, _card(), required_roles=("not_real",))
     with pytest.raises(ValueError, match="número finito"):
         _score(catalog, _card(), user_priority_adjustment=float("nan"))
-    with pytest.raises(ValueError, match="fora da faixa"):
+    with pytest.raises(ValueError, match="fora da faixa configurada"):
         _score(catalog, _card(), user_priority_adjustment=10.1)
 
 

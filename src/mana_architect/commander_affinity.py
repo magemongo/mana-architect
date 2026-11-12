@@ -49,7 +49,7 @@ def validate_commander_affinity_profile(
         not isinstance(profile.commander_oracle_id, str)
         or not profile.commander_oracle_id.strip()
     ):
-        raise ValueError("commander_oracle_id deve ser um texto não vazio.")
+        raise ValueError("commander_oracle_id must be a non-empty string.")
 
     strategy_ids = {item.id for item in catalog.strategies}
     tag_ids = {item.id for item in catalog.tags}
@@ -57,7 +57,7 @@ def validate_commander_affinity_profile(
     for affinity in profile.strategy_affinities:
         if not isinstance(affinity.strategy_id, str) or affinity.strategy_id not in strategy_ids:
             raise ValueError(
-                f"Strategy inexistente no catálogo: '{affinity.strategy_id}'."
+                f"Strategy does not exist in the catalog: '{affinity.strategy_id}'."
             )
         if affinity.strategy_id in seen_strategies:
             raise ValueError(
@@ -66,7 +66,7 @@ def validate_commander_affinity_profile(
         seen_strategies.add(affinity.strategy_id)
         if not isinstance(affinity.level, str) or affinity.level not in _LEVELS:
             raise ValueError(
-                f"Nível inválido para strategy '{affinity.strategy_id}': "
+                f"Invalid level for strategy '{affinity.strategy_id}': "
                 f"{affinity.level!r}."
             )
         if (
@@ -88,7 +88,7 @@ def validate_commander_affinity_profile(
     seen_tags: set[str] = set()
     for affinity in profile.tag_affinities:
         if not isinstance(affinity.tag_id, str) or affinity.tag_id not in tag_ids:
-            raise ValueError(f"Tag inexistente no catálogo: '{affinity.tag_id}'.")
+            raise ValueError(f"Tag does not exist in the catalog: '{affinity.tag_id}'.")
         if affinity.tag_id in seen_tags:
             raise ValueError(f"Affinity duplicada para tag '{affinity.tag_id}'.")
         seen_tags.add(affinity.tag_id)
@@ -107,13 +107,13 @@ def _validate_evidence_ids(
     target: str,
 ) -> None:
     if not all(isinstance(value, str) for value in values):
-        raise ValueError(f"IDs de evidência devem ser texto para {target}.")
+        raise ValueError(f"Evidence IDs must be strings for {target}.")
     if len(set(values)) != len(values):
-        raise ValueError(f"IDs de evidência duplicados para {target}.")
+        raise ValueError(f"Duplicate evidence IDs for {target}.")
     invalid = [value for value in values if not _EVIDENCE_ID_PATTERN.fullmatch(value)]
     if invalid:
         raise ValueError(
-            f"IDs de evidência inválidos para {target}: {', '.join(sorted(invalid))}."
+            f"Invalid evidence IDs for {target}: {', '.join(sorted(invalid))}."
         )
 
 

@@ -250,7 +250,7 @@ def test_suggestions_report_cards_without_current_classification(
 
 
 def test_suggestions_require_explicit_commander_affinity(database, catalog) -> None:
-    with pytest.raises(ValueError, match="Cadastre a afinidade"):
+    with pytest.raises(ValueError, match="Add a commander affinity"):
         with Session(database) as session:
             suggest_collection_cards(
                 session,

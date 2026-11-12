@@ -1,10 +1,10 @@
 [profiles."e7e69583-8326-417e-8a9a-6b917c8ba4b6"]
 name = "Anowon, the Ruin Thief"
-themes = ["Rogues tribal", "mill por dano de combate"]
+themes = ["Rogue tribal", "combat-damage mill"]
 utility_land_limit = 4
 
 [[profiles."e7e69583-8326-417e-8a9a-6b917c8ba4b6".signals]]
-name = "Tribal Rogue"
+name = "Rogue Tribal"
 weight = 1.5
 patterns = ['(?i)\brogues?\b']
 
@@ -17,6 +17,6 @@ patterns = [
 ]
 
 [[profiles."e7e69583-8326-417e-8a9a-6b917c8ba4b6".signals]]
-name = "Dano de combate"
+name = "Combat Damage"
 weight = 0.75
 patterns = ['(?i)\bcombat damage\b']

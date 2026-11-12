@@ -154,9 +154,9 @@ class ScryfallClient:
             with urlopen(request, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response:
                 payload = json.load(response)
         except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError) as error:
-            raise ScryfallError(f"Falha ao consultar Scryfall ({url}): {error}") from error
+            raise ScryfallError(f"Scryfall request failed ({url}): {error}") from error
         if not isinstance(payload, dict):
-            raise ScryfallError(f"Resposta inválida do Scryfall ({url}).")
+            raise ScryfallError(f"Invalid Scryfall response ({url}).")
         return payload
 
     def get_bulk_data(self) -> BulkDataFile:
@@ -174,14 +174,14 @@ class ScryfallClient:
                 raise ScryfallError("Metadados de default_cards incompletos.")
             parsed_uri = urlparse(download_uri)
             if parsed_uri.scheme != "https" or parsed_uri.hostname != "data.scryfall.io":
-                raise ScryfallError("URL do Bulk Data fora do domínio oficial do Scryfall.")
+                raise ScryfallError("Bulk Data URL is outside the official Scryfall domain.")
             return BulkDataFile(updated_at=updated_at, download_uri=download_uri)
-        raise ScryfallError("O Bulk Data default_cards não foi encontrado.")
+        raise ScryfallError("Scryfall default_cards Bulk Data was not found.")
 
     def download_bulk(self, download_uri: str, destination: Path) -> None:
         parsed_uri = urlparse(download_uri)
         if parsed_uri.scheme != "https" or parsed_uri.hostname != "data.scryfall.io":
-            raise ScryfallError("URL do Bulk Data fora do domínio oficial do Scryfall.")
+            raise ScryfallError("Bulk Data URL is outside the official Scryfall domain.")
         self.cache_directory.mkdir(parents=True, exist_ok=True)
         temporary_path = destination.with_suffix(destination.suffix + ".tmp")
         request = Request(
@@ -200,7 +200,7 @@ class ScryfallClient:
             os.replace(temporary_path, destination)
         except (HTTPError, URLError, TimeoutError, OSError, EOFError) as error:
             temporary_path.unlink(missing_ok=True)
-            raise ScryfallError(f"Falha ao baixar Bulk Data do Scryfall: {error}") from error
+            raise ScryfallError(f"Failed to download Scryfall Bulk Data: {error}") from error
 
 
 def _read_relevant_cards(
@@ -237,7 +237,7 @@ def _read_relevant_cards(
                 if oracle_id not in cards:
                     cards[oracle_id] = _card_values(record, bulk_updated_at)
     except (OSError, EOFError, UnicodeDecodeError) as error:
-        raise ScryfallError(f"Não foi possível ler o cache de Bulk Data: {error}") from error
+        raise ScryfallError(f"Could not read Bulk Data cache: {error}") from error
     return cards, printing_oracle_ids
 
 

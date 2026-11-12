@@ -60,7 +60,7 @@ def test_empty_mana_cost_is_omitted() -> None:
 def test_mana_curve_markup_renders_sorted_histogram_bars() -> None:
     markup = _mana_curve_markup({4: 2, 1: 5, 2.5: 1})
 
-    assert 'aria-label="Histograma da curva de mana"' in markup
+    assert 'aria-label="Mana curve histogram"' in markup
     assert markup.index('class="mana-curve-label">1<') < markup.index(
         'class="mana-curve-label">2.5<'
     ) < markup.index('class="mana-curve-label">4<')
@@ -236,7 +236,7 @@ def test_suggestions_page_saves_affinity_shows_cards_and_persists_corrections(
         app = AppTest.from_file(
             str(Path(__file__).parents[1] / "src" / "mana_architect" / "streamlit_app.py")
         ).run()
-        app.radio(key="page_navigation").set_value("Sugestões").run()
+        app.radio(key="page_navigation").set_value("Suggestions").run()
         assert not app.exception
 
         app.selectbox(key="suggestion_strategy_id").select("tokens").run()
@@ -257,7 +257,7 @@ def test_suggestions_page_saves_affinity_shows_cards_and_persists_corrections(
             "tag:create_tokens"
         )
         app.selectbox(key="correction_action_ui-token-card").set_value(
-            "Forçar exclusão"
+            "Force exclusion"
         )
         app.text_area(key="correction_reason_ui-token-card").set_value(
             "A ficha é apenas incidental."
@@ -380,7 +380,7 @@ def test_builder_generates_with_selected_catalog_strategy(
             card["oracle_id"] for card in app.session_state["deck_cards"]
         }
         assert any(
-            "Estratégia do catálogo: Tokens" in item.value
+            "Catalog strategy: Tokens" in item.value
             for item in app.caption
         )
     finally:

@@ -82,14 +82,14 @@ def test_commander_affinity_validation_does_not_infer_from_colors_or_partners(
                     CommanderStrategyAffinity("unknown_strategy", "primary", 0.9),
                 ),
             ),
-            "Strategy inexistente",
+            "Strategy does not exist",
         ),
         (
             CommanderAffinityProfile(
                 commander_oracle_id="commander-id",
                 tag_affinities=(CommanderTagAffinity("unknown_tag"),),
             ),
-            "Tag inexistente",
+            "Tag does not exist",
         ),
         (
             CommanderAffinityProfile(
@@ -112,7 +112,7 @@ def test_commander_affinity_validation_does_not_infer_from_colors_or_partners(
                     ),
                 ),
             ),
-            "IDs de evidência inválidos",
+            "Invalid evidence IDs",
         ),
     ],
 )

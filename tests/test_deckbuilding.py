@@ -182,7 +182,7 @@ def test_build_deck_uses_only_owned_cards_and_validates_draft(tmp_path: Path) ->
     }
     assert result.land_count == 98
     assert result.validation.status == "valid"
-    assert result.role_counts["Compra de cartas (heurística)"] == 1
+    assert result.role_counts["Card Draw (heuristic)"] == 1
 
 
 def test_catalog_strategy_prioritizes_cards_without_changing_legacy_mode(
@@ -238,7 +238,7 @@ def test_catalog_strategy_requires_explicit_commander_affinity(
         classified_ids=(),
     )
     with Session(engine) as session:
-        with pytest.raises(DeckBuildError, match="Cadastre a afinidade"):
+        with pytest.raises(DeckBuildError, match="Add a commander affinity"):
             build_deck(
                 session,
                 commander_identifier="commander",
@@ -281,7 +281,7 @@ def test_build_deck_requires_sufficient_physical_land_copies(tmp_path: Path) -> 
         island_quantity=1,
     )
     with Session(engine) as session:
-        with pytest.raises(DeckBuildError, match="apenas 1"):
+        with pytest.raises(DeckBuildError, match="only 1 legal land identities"):
             build_deck(session, commander_identifier="commander", land_count=39)
     engine.dispose()
 
@@ -291,7 +291,7 @@ def test_build_deck_fails_instead_of_exporting_an_incomplete_list(
 ) -> None:
     engine = make_deck_database(tmp_path / "not-enough-spells.db")
     with Session(engine) as session:
-        with pytest.raises(DeckBuildError, match="cartas não-terreno"):
+        with pytest.raises(DeckBuildError, match="not enough distinct nonland cards"):
             build_deck(session, commander_identifier="commander", land_count=98)
     engine.dispose()
 
@@ -360,7 +360,7 @@ def test_exported_deck_is_readable_by_validator_and_not_overwritten_silently(
     assert commander == "commander"
     assert sum(card.quantity for card in cards) == 100
     assert payload["draft"]["validation_status"] == "valid"
-    with pytest.raises(FileExistsError, match="já existe"):
+    with pytest.raises(FileExistsError, match="already exists"):
         export_deck(result, output)
     export_deck(result, output, overwrite=True)
 
@@ -382,14 +382,14 @@ def test_analyze_deck_reports_names_curve_roles_and_exports_text(
     assert analysis.land_count == 98
     assert analysis.nonland_count == 2
     assert analysis.mana_curve == {2: 1}
-    assert analysis.role_counts["Compra de cartas (heurística)"] == 1
+    assert analysis.role_counts["Card Draw (heuristic)"] == 1
     assert analysis.validation.status == "valid"
     assert "# Commander: Blue Captain" in contents
     assert "1 Blue Captain" in contents
     assert "# Main deck" in contents
     assert "98 Island" in contents
     assert "1 Helpful Insight" in contents
-    with pytest.raises(FileExistsError, match="já existe"):
+    with pytest.raises(FileExistsError, match="already exists"):
         export_decklist(analysis, output)
     export_decklist(analysis, output, overwrite=True)
 
@@ -463,13 +463,13 @@ def test_anowon_profile_prioritizes_rogue_and_exposes_strategy_signals(
     assert "generic-card" not in card_ids
     rogue_details = next(card for card in analysis.cards if card.oracle_id == "rogue-card")
     assert rogue_details.strategy_signals == (
-        "Tribal Rogue",
+        "Rogue Tribal",
         "Mill",
-        "Dano de combate",
+        "Combat Damage",
     )
     assert rogue_details.image_uri == "https://example.test/rogue.jpg"
     assert analysis.strategy_name == "Anowon, the Ruin Thief"
-    assert analysis.strategy_themes == ("Rogues tribal", "mill por dano de combate")
+    assert analysis.strategy_themes == ("Rogue tribal", "combat-damage mill")
 
 
 def test_land_selection_uses_dual_sources_and_colorless_utility_land(

@@ -168,11 +168,11 @@ def _read_json(directory: Path, filename: str) -> dict[str, object]:
         with path.open(encoding="utf-8") as file:
             data = json.load(file)
     except OSError as error:
-        raise ValueError(f"{filename}: não foi possível ler o arquivo: {error}") from error
+        raise ValueError(f"{filename}: could not read file: {error}") from error
     except json.JSONDecodeError as error:
         raise ValueError(
-            f"{filename}: JSON inválido na linha {error.lineno}, "
-            f"coluna {error.colno}: {error.msg}"
+            f"{filename}: invalid JSON at line {error.lineno}, "
+            f"column {error.colno}: {error.msg}"
         ) from error
     if not isinstance(data, dict):
         raise _error(filename, "$", "esperado um objeto JSON")
@@ -212,7 +212,7 @@ def _parse_strategies(data: dict[str, object]) -> tuple[StrategyDefinition, ...]
             raise _error(filename, f"{path}.tag_affinities", "tag_ids duplicados")
         nature = _string_tuple(record, filename, f"{path}.nature")
         if not nature:
-            raise _error(filename, f"{path}.nature", "a lista não pode ser vazia")
+            raise _error(filename, f"{path}.nature", "the list cannot be empty")
         strategies.append(
             StrategyDefinition(
                 id=_identifier(record, filename, f"{path}.id"),
@@ -226,7 +226,7 @@ def _parse_strategies(data: dict[str, object]) -> tuple[StrategyDefinition, ...]
         )
     _unique_ids((item.id for item in strategies), filename, "strategies")
     if not strategies:
-        raise _error(filename, "strategies", "o catálogo deve ter ao menos uma estratégia")
+        raise _error(filename, "strategies", "the catalog must contain at least one strategy")
     return tuple(strategies)
 
 
@@ -274,7 +274,7 @@ def _parse_roles(data: dict[str, object]) -> tuple[CardRole, ...]:
     )
     _unique_ids((item.id for item in roles), filename, "roles")
     if not roles:
-        raise _error(filename, "roles", "o catálogo deve ter ao menos uma função")
+        raise _error(filename, "roles", "the catalog must contain at least one role")
     return roles
 
 
@@ -293,7 +293,7 @@ def _parse_rules(data: dict[str, object]) -> tuple[ClassificationRule, ...]:
             )
         source_fields = _string_tuple(record, filename, f"{path}.source_fields")
         if not source_fields:
-            raise _error(filename, f"{path}.source_fields", "a lista não pode ser vazia")
+            raise _error(filename, f"{path}.source_fields", "the list cannot be empty")
         if len(set(source_fields)) != len(source_fields):
             raise _error(filename, f"{path}.source_fields", "campos duplicados")
         unknown_fields = set(source_fields) - _RULE_SOURCE_FIELDS
@@ -301,7 +301,7 @@ def _parse_rules(data: dict[str, object]) -> tuple[ClassificationRule, ...]:
             raise _error(
                 filename,
                 f"{path}.source_fields",
-                f"campos não suportados: {', '.join(sorted(unknown_fields))}",
+                f"unsupported fields: {', '.join(sorted(unknown_fields))}",
             )
         rules.append(
             ClassificationRule(
@@ -333,7 +333,7 @@ def _parse_predicate(
         raise _error(
             filename,
             f"{path}.type",
-            f"predicado não suportado: {predicate_type}",
+            f"unsupported predicate: {predicate_type}",
         )
     if predicate_type in {
         "phrase_any",
@@ -343,7 +343,7 @@ def _parse_predicate(
     }:
         values = _string_tuple(raw, filename, f"{path}.values")
         if not values:
-            raise _error(filename, f"{path}.values", "a lista não pode ser vazia")
+            raise _error(filename, f"{path}.values", "the list cannot be empty")
         required_field = {
             "type_line_contains": {"type_line", "type_line_normalized"},
             "keyword_contains": {"keywords"},
@@ -366,11 +366,11 @@ def _parse_predicate(
             raise _error(filename, f"{path}.field", "numeric_threshold aceita apenas cmc")
         operator = _string(raw, filename, f"{path}.operator", path)
         if operator not in {"gt", "gte", "lt", "lte", "eq"}:
-            raise _error(filename, f"{path}.operator", "operador numérico inválido")
+            raise _error(filename, f"{path}.operator", "invalid numeric operator")
         if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise _error(filename, f"{path}.value", "esperado um número finito")
+            raise _error(filename, f"{path}.value", "expected a finite number")
         if not math.isfinite(value):
-            raise _error(filename, f"{path}.value", "esperado um número finito")
+            raise _error(filename, f"{path}.value", "expected a finite number")
         return MatchPredicate(
             type=predicate_type,
             field=field,
@@ -378,9 +378,9 @@ def _parse_predicate(
             value=value,
         )
     if value is None or not isinstance(value, (str, int, float, bool)):
-        raise _error(filename, f"{path}.value", "esperado um valor escalar não nulo")
+        raise _error(filename, f"{path}.value", "expected a non-null scalar value")
     if isinstance(value, float) and not math.isfinite(value):
-        raise _error(filename, f"{path}.value", "esperado um número finito")
+        raise _error(filename, f"{path}.value", "expected a finite number")
     return MatchPredicate(type=predicate_type, field=field, value=value)
 
 
@@ -391,7 +391,7 @@ def _parse_scoring(data: dict[str, object]) -> ScoringConfig:
     maximum = _number(normalization, filename, "normalization.maximum")
     digits = normalization.get("round_digits")
     if isinstance(digits, bool) or not isinstance(digits, int) or digits < 0:
-        raise _error(filename, "normalization.round_digits", "esperado inteiro não negativo")
+        raise _error(filename, "normalization.round_digits", "expected a non-negative integer")
     commander_levels = _number_map(data, filename, "commander_levels")
     components = _number_map(data, filename, "components")
     thresholds = _number_map(data, filename, "thresholds")
@@ -467,7 +467,7 @@ def _validate_references(
 def _validate_scoring(scoring: ScoringConfig, filename: str) -> None:
     normalization = scoring.normalization
     if normalization.maximum <= normalization.minimum:
-        raise _error(filename, "normalization", "maximum deve ser maior que minimum")
+        raise _error(filename, "normalization", "maximum must be greater than minimum")
     if any(
         not normalization.minimum <= value <= normalization.maximum
         for value in scoring.thresholds.values()
@@ -491,9 +491,9 @@ def _validate_scoring(scoring: ScoringConfig, filename: str) -> None:
         >= scoring.commander_levels["secondary"]
         >= scoring.commander_levels["complementary"]
     ):
-        raise _error(filename, "commander_levels", "níveis devem ser não crescentes")
+        raise _error(filename, "commander_levels", "levels must be non-increasing")
     if any(value < 0 for value in scoring.components.values()):
-        raise _error(filename, "components", "pesos não podem ser negativos")
+        raise _error(filename, "components", "weights cannot be negative")
     if not math.isclose(sum(scoring.components.values()), 1.0, abs_tol=1e-9):
         raise _error(filename, "components", "os pesos ativos devem somar 1.0")
     if any(
@@ -516,7 +516,7 @@ def _validate_scoring(scoring: ScoringConfig, filename: str) -> None:
         raise _error(
             filename,
             "user_priority_adjustment",
-            "a faixa deve ser ordenada e incluir zero",
+            "range must be ordered and include zero",
         )
 
 
@@ -527,7 +527,7 @@ def _number_map(
 ) -> dict[str, float]:
     raw = _object(data, filename, path)
     if not raw:
-        raise _error(filename, path, "o objeto não pode ser vazio")
+        raise _error(filename, path, "the object cannot be empty")
     result: dict[str, float] = {}
     for key, value in raw.items():
         if (
@@ -536,7 +536,7 @@ def _number_map(
             or not isinstance(value, (int, float))
             or not math.isfinite(value)
         ):
-            raise _error(filename, f"{path}.{key}", "esperado número finito")
+            raise _error(filename, f"{path}.{key}", "expected a finite number")
         result[key] = float(value)
     return result
 
@@ -570,7 +570,7 @@ def _string(
 ) -> str:
     value = data.get(field.rpartition(".")[2])
     if not isinstance(value, str) or not value.strip():
-        raise _error(filename, field, f"{path}: esperado texto não vazio")
+        raise _error(filename, field, f"{path}: expected non-empty text")
     return value
 
 
@@ -586,7 +586,7 @@ def _string_tuple(data: dict[str, object], filename: str, field: str) -> tuple[s
     if not isinstance(raw, list) or not all(
         isinstance(item, str) and item.strip() for item in raw
     ):
-        raise _error(filename, field, "esperada uma lista de textos não vazios")
+        raise _error(filename, field, "expected a list of non-empty strings")
     return tuple(raw)
 
 
@@ -597,7 +597,7 @@ def _optional_string_tuple(
     if not isinstance(value, list) or not all(
         isinstance(item, str) and item.strip() for item in value
     ):
-        raise _error(filename, field, "esperada uma lista de textos não vazios")
+        raise _error(filename, field, "expected a list of non-empty strings")
     if len(value) != len(set(value)):
         raise _error(filename, field, "termos duplicados")
     return tuple(value)
@@ -637,7 +637,7 @@ def _number(
         or not isinstance(value, (int, float))
         or not math.isfinite(value)
     ):
-        raise _error(filename, field, "esperado número finito")
+        raise _error(filename, field, "expected a finite number")
     if minimum is not None and value < minimum:
         raise _error(filename, field, f"valor deve ser >= {minimum}")
     if maximum is not None and value > maximum:

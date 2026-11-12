@@ -109,7 +109,7 @@ def _load_commander(session: Session, identifier: str) -> tuple[Card | None, int
         return None, 0
     if len(matching) > 1:
         raise ValueError(
-            f"'{selection}' corresponde a várias identidades; informe o oracle_id."
+            f"'{selection}' matches multiple card identities; provide the oracle_id."
         )
     card, quantity = matching[0]
     return card, quantity
@@ -119,28 +119,28 @@ def load_deck_file(path: Path) -> tuple[str, list[DeckCard]]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8-sig"))
     except json.JSONDecodeError as error:
-        raise ValueError(f"JSON inválido na linha {error.lineno}: {error.msg}.") from error
+        raise ValueError(f"Invalid JSON at line {error.lineno}: {error.msg}.") from error
     if not isinstance(payload, dict):
-        raise ValueError("O arquivo do deck deve conter um objeto JSON.")
+        raise ValueError("The deck file must contain a JSON object.")
 
     commander_identifier = payload.get("commander")
     if not isinstance(commander_identifier, str) or not commander_identifier.strip():
-        raise ValueError("O campo commander deve conter o nome ou oracle_id.")
+        raise ValueError("The commander field must contain a name or oracle_id.")
 
     raw_cards = payload.get("cards")
     if not isinstance(raw_cards, list):
-        raise ValueError("O campo cards deve ser uma lista.")
+        raise ValueError("The cards field must be a list.")
 
     deck_cards: list[DeckCard] = []
     for index, raw_card in enumerate(raw_cards, start=1):
         if not isinstance(raw_card, dict):
-            raise ValueError(f"cards[{index}] deve ser um objeto.")
+            raise ValueError(f"cards[{index}] must be an object.")
         oracle_id = raw_card.get("oracle_id")
         quantity = raw_card.get("quantity")
         if not isinstance(oracle_id, str) or not oracle_id.strip():
-            raise ValueError(f"cards[{index}].oracle_id deve ser um texto não vazio.")
+            raise ValueError(f"cards[{index}].oracle_id must be a non-empty string.")
         if isinstance(quantity, bool) or not isinstance(quantity, int):
-            raise ValueError(f"cards[{index}].quantity deve ser um inteiro.")
+            raise ValueError(f"cards[{index}].quantity must be an integer.")
         deck_cards.append(DeckCard(oracle_id=oracle_id, quantity=quantity))
     return commander_identifier, deck_cards
 
@@ -157,13 +157,13 @@ def validate_deck(
     for entry in deck_cards:
         oracle_id = entry.oracle_id.strip()
         if not oracle_id:
-            errors.append(ValidationIssue("invalid_card_id", "Uma carta não tem oracle_id."))
+            errors.append(ValidationIssue("invalid_card_id", "A card has no oracle_id."))
             continue
         if isinstance(entry.quantity, bool) or not isinstance(entry.quantity, int):
             errors.append(
                 ValidationIssue(
                     "invalid_quantity",
-                    f"A quantidade de {oracle_id} deve ser um inteiro.",
+                    f"The quantity for {oracle_id} must be an integer.",
                 )
             )
             continue

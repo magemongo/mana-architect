@@ -40,7 +40,7 @@ def load_strategy_profile(
         return None
     if not isinstance(profile, dict):
         raise ValueError(
-            f"Perfil estratégico inválido para o comandante {commander_oracle_id}."
+            f"Invalid strategy profile for commander {commander_oracle_id}."
         )
 
     name = profile.get("name")
@@ -57,13 +57,13 @@ def load_strategy_profile(
         or not isinstance(raw_signals, list)
     ):
         raise ValueError(
-            f"Perfil estratégico inválido para o comandante {commander_oracle_id}."
+            f"Invalid strategy profile for commander {commander_oracle_id}."
         )
 
     signals: list[StrategySignal] = []
     for raw_signal in raw_signals:
         if not isinstance(raw_signal, dict):
-            raise ValueError(f"Sinal estratégico inválido no perfil de {name}.")
+            raise ValueError(f"Invalid strategy signal in profile {name}.")
         signal_name = raw_signal.get("name")
         weight = raw_signal.get("weight")
         patterns = raw_signal.get("patterns")
@@ -77,12 +77,12 @@ def load_strategy_profile(
             or not patterns
             or not all(isinstance(pattern, str) for pattern in patterns)
         ):
-            raise ValueError(f"Sinal estratégico inválido no perfil de {name}.")
+            raise ValueError(f"Invalid strategy signal in profile {name}.")
         try:
             compiled_patterns = tuple(re.compile(pattern) for pattern in patterns)
         except re.error as error:
             raise ValueError(
-                f"Expressão inválida no sinal '{signal_name}' do perfil de {name}: {error}"
+                f"Invalid expression in signal '{signal_name}' in profile {name}: {error}"
             ) from error
         signals.append(
             StrategySignal(

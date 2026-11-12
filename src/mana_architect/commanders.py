@@ -32,7 +32,7 @@ def list_available_commanders(
     limit: int = 100,
 ) -> list[CommanderOption]:
     if limit < 1:
-        raise ValueError("O limite deve ser maior que zero.")
+        raise ValueError("Limit must be greater than zero.")
 
     statement = (
         select(
@@ -103,8 +103,8 @@ def resolve_commander(session: Session, identifier: str) -> CommanderOption:
     ]
     if not matching:
         raise CommanderError(
-            f"'{selection}' não corresponde a um comandante elegível e legal "
-            "registrado na sua coleção. Consulte `commanders` para ver as opções."
+            f"'{selection}' does not match an eligible, legal commander "
+            "in your collection. Run `commanders` to see the available options."
         )
     if len(matching) > 1:
         oracle_ids = ", ".join(option.oracle_id for option in matching)

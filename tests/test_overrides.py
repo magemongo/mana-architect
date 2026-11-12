@@ -157,10 +157,10 @@ def test_conflicting_manual_values_for_same_target_are_rejected(catalog) -> None
 @pytest.mark.parametrize(
     ("override", "message"),
     [
-        (ManualOverride("tag", "missing_tag", "force_include"), "ID inexistente"),
+        (ManualOverride("tag", "missing_tag", "force_include"), "ID does not exist"),
         (
             ManualOverride("role", "land", "set_level", level="primary"),
-            "só é válido para alvos strategy",
+            "only valid for strategy targets",
         ),
         (
             ManualOverride("strategy", "tokens", "set_level", level="bad"),
@@ -172,7 +172,7 @@ def test_conflicting_manual_values_for_same_target_are_rejected(catalog) -> None
         ),
         (
             ManualOverride("tag", "create_tokens", "force_exclude", confidence_score=0.5),
-            "não aceita confidence_score",
+            "does not accept confidence_score",
         ),
         (
             ManualOverride(

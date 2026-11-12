@@ -1,4 +1,4 @@
-# Índice da documentação
+# Documentation Index
 
 ## Comece por aqui
 

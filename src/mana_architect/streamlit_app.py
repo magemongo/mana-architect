@@ -60,11 +60,11 @@ from mana_architect.validation import DeckCard
 
 
 COLOR_NAMES = {
-    "W": "Branco",
-    "U": "Azul",
-    "B": "Preto",
-    "R": "Vermelho",
-    "G": "Verde",
+    "W": "White",
+    "U": "Blue",
+    "B": "Black",
+    "R": "Red",
+    "G": "Green",
 }
 MANA_SYMBOLS = frozenset(
     {
@@ -94,7 +94,7 @@ def _load_commander_options(session: Session) -> list[CommanderOption]:
 
 
 def _format_identity(identity: tuple[str, ...]) -> str:
-    return " ".join(COLOR_NAMES.get(color, color) for color in identity) or "Sem cor"
+    return " ".join(COLOR_NAMES.get(color, color) for color in identity) or "Colorless"
 
 
 def _mana_cost_markdown(mana_cost: str | None) -> str:
@@ -141,7 +141,7 @@ def _mana_curve_markup(mana_curve: dict[float, int]) -> str:
             "</div>"
         )
     return (
-        '<div class="mana-curve" role="img" aria-label="Histograma da curva de mana">'
+        '<div class="mana-curve" role="img" aria-label="Mana curve histogram">'
         + "".join(bars)
         + "</div>"
     )
@@ -192,7 +192,7 @@ def _deck_text(
 ) -> str:
     lines = [f"# Commander: {analysis.commander_name}"]
     if catalog_strategy_name:
-        lines.append(f"# Estratégia do catálogo: {catalog_strategy_name}")
+        lines.append(f"# Catalog strategy: {catalog_strategy_name}")
     lines.extend(
         f"{card.quantity} {card.name}"
         for card in analysis.cards
@@ -218,12 +218,12 @@ def _generate_deck_from_form() -> None:
     )
     if generation_mode not in {"legacy", "catalog"}:
         st.session_state["deck_build_error"] = (
-            "Modo de geração desconhecido; escolha Legado ou Catálogo."
+            "Unknown generation mode. Choose Legacy or Catalog."
         )
         return
     if generation_mode == "catalog" and not strategy_id:
         st.session_state["deck_build_error"] = (
-            "Não há uma estratégia ativa disponível no catálogo."
+            "There is no active strategy in the catalog."
         )
         return
     try:
@@ -256,22 +256,22 @@ def _generate_deck_from_form() -> None:
 
 def _card_category(card: DeckCardDetails) -> str:
     if card.is_commander:
-        return "Comandante"
+        return "Commander"
     card_types = (card.type_line or "").split("—", maxsplit=1)[0].casefold().split()
     categories = (
-        ("Criaturas", "creature"),
+        ("Creatures", "creature"),
         ("Planeswalkers", "planeswalker"),
-        ("Batalhas", "battle"),
-        ("Artefatos", "artifact"),
-        ("Encantamentos", "enchantment"),
-        ("Mágicas instantâneas", "instant"),
-        ("Feitiços", "sorcery"),
-        ("Terrenos", "land"),
+        ("Battles", "battle"),
+        ("Artifacts", "artifact"),
+        ("Enchantments", "enchantment"),
+        ("Instants", "instant"),
+        ("Sorceries", "sorcery"),
+        ("Lands", "land"),
     )
     for label, card_type in categories:
         if card_type in card_types:
             return label
-    return "Outras cartas"
+    return "Other Cards"
 
 
 def _balance_category_names(
@@ -337,7 +337,7 @@ def _deck_preview_markup(
                 f'alt="{html.escape(card.name, quote=True)}" width="320" '
                 'loading="lazy">'
                 if card.image_uri
-                else '<span>Imagem indisponível para esta carta.</span>'
+                else '<span>Card image unavailable.</span>'
             )
             + "</div>"
         )
@@ -345,7 +345,7 @@ def _deck_preview_markup(
             f'<div class="deck-preview-details" data-card-id="{safe_id}">'
             + (
                 f'<p class="deck-preview-signals">'
-                f'Sinergias heurísticas: '
+                f'Heuristic synergies: '
                 f'{html.escape(", ".join(card.strategy_signals))}</p>'
                 if card.strategy_signals
                 else ""
@@ -406,7 +406,7 @@ def _render_deck_page(session: Session) -> None:
     commander_id = st.session_state.get("deck_commander_id")
     current_cards = st.session_state.get("deck_cards")
     if not commander_id or not current_cards:
-        st.info("Gere um deck no Construtor para visualizá-lo aqui.")
+        st.info("Build a deck in Deck Builder to view it here.")
         return
 
     deck_cards = [
@@ -422,7 +422,7 @@ def _render_deck_page(session: Session) -> None:
     st.title(analysis.commander_name)
     catalog_strategy_name = st.session_state.get("deck_catalog_strategy_name")
     if catalog_strategy_name:
-        st.caption(f"Estratégia do catálogo: {catalog_strategy_name}")
+        st.caption(f"Catalog strategy: {catalog_strategy_name}")
     elif analysis.strategy_name:
         st.caption(
             f"{analysis.strategy_name} · "
@@ -431,45 +431,45 @@ def _render_deck_page(session: Session) -> None:
     unclassified_count = st.session_state.get("deck_unclassified_count", 0)
     if unclassified_count:
         st.warning(
-            f"{unclassified_count} cartas sem classificação atual foram "
-            "desconsideradas pelo gerador do catálogo."
+            f"{unclassified_count} cards without current classifications were "
+            "excluded by the catalog-guided builder."
         )
 
     metric_columns = st.columns(4)
-    metric_columns[0].metric("Cartas", f"{analysis.total_cards}/100")
-    metric_columns[1].metric("Terrenos", analysis.land_count)
-    metric_columns[2].metric("Não-terrenos", analysis.nonland_count)
+    metric_columns[0].metric("Cards", f"{analysis.total_cards}/100")
+    metric_columns[1].metric("Lands", analysis.land_count)
+    metric_columns[2].metric("Nonlands", analysis.nonland_count)
     metric_columns[3].metric(
-        "Validação",
+        "Validation",
         {
-            "valid": "Válido",
-            "incomplete": "Incompleta",
-            "invalid": "Inválido",
+            "valid": "Valid",
+            "incomplete": "Incomplete",
+            "invalid": "Invalid",
         }[analysis.validation.status],
     )
 
     if analysis.validation.status == "valid":
-        st.success("Deck aprovado pelo validador para os dados sincronizados.")
+        st.success("Deck passes validation against the synchronized data.")
     elif analysis.validation.status == "incomplete":
-        st.warning("A validação está incompleta devido a dados ausentes.")
+        st.warning("Validation is incomplete because some data is missing.")
     else:
-        st.error("O deck tem problemas; consulte os detalhes antes de exportar.")
+        st.error("The deck has issues. Review the details before exporting.")
     if analysis.validation.data_as_of:
         st.caption(
-            f"Snapshot de legalidade: {analysis.validation.data_as_of}. "
-            "Isso não garante que a banlist permaneça atual."
+            f"Legality snapshot: {analysis.validation.data_as_of}. "
+            "This does not guarantee that the ban list is current."
         )
     for issue in analysis.validation.errors:
         st.error(f"{issue.message} [{issue.code}]")
     for issue in analysis.validation.unverified:
-        st.warning(f"Não verificado: {issue.message}")
+        st.warning(f"Unverified: {issue.message}")
     for issue in analysis.validation.warnings:
         st.caption(issue.message)
 
     actions = st.columns(2)
     if analysis.validation.status == "valid":
         actions[0].download_button(
-            "Baixar JSON",
+            "Download JSON",
             data=_deck_json(
                 analysis,
                 st.session_state.get("deck_catalog_strategy_id"),
@@ -481,7 +481,7 @@ def _render_deck_page(session: Session) -> None:
             use_container_width=True,
         )
         actions[1].download_button(
-            "Baixar decklist TXT",
+            "Download decklist TXT",
             data=_deck_text(analysis, catalog_strategy_name),
             file_name="mana-architect-deck.txt",
             mime="text/plain",
@@ -497,21 +497,21 @@ def _render_deck_page(session: Session) -> None:
     list_column, preview_column = st.columns([2.75, 1])
     with list_column:
         with st.container(key="deck-list"):
-            st.subheader("Lista do deck")
+            st.subheader("Decklist")
             grouped_cards: dict[str, list[DeckCardDetails]] = {}
             for card in analysis.cards:
                 grouped_cards.setdefault(_card_category(card), []).append(card)
             category_order = (
-                "Comandante",
-                "Criaturas",
-                "Artefatos",
-                "Encantamentos",
-                "Mágicas instantâneas",
-                "Feitiços",
-                "Terrenos",
+                "Commander",
+                "Creatures",
+                "Artifacts",
+                "Enchantments",
+                "Instants",
+                "Sorceries",
+                "Lands",
                 "Planeswalkers",
-                "Batalhas",
-                "Outras cartas",
+                "Battles",
+                "Other Cards",
             )
             category_groups: list[tuple[str, list[DeckCardDetails]]] = []
             for category in category_order:
@@ -560,7 +560,7 @@ def _render_deck_page(session: Session) -> None:
 
     with preview_column:
         with st.container(key="selected-card-preview"):
-            st.subheader("Prévia da carta")
+            st.subheader("Card Preview")
             st.markdown(
                 _deck_preview_markup(
                     list(analysis.cards),
@@ -570,16 +570,16 @@ def _render_deck_page(session: Session) -> None:
                 unsafe_allow_html=True,
             )
 
-    with st.expander("Análise do deck"):
-        st.markdown("**Curva de mana**")
+    with st.expander("Deck Analysis"):
+        st.markdown("**Mana Curve**")
         if analysis.mana_curve:
             st.markdown(
                 _mana_curve_markup(analysis.mana_curve),
                 unsafe_allow_html=True,
             )
         else:
-            st.caption("Nenhum custo de mana disponível para exibir.")
-        st.markdown("**Funções detectadas (heurísticas)**")
+            st.caption("No mana costs available to display.")
+        st.markdown("**Detected Roles (Heuristic)**")
         for role, quantity in analysis.role_counts.items():
             st.text(f"{role}: {quantity}")
 
@@ -593,23 +593,23 @@ def _render_commander_affinity_editor(
     existing = profile.strategy_affinities if profile else ()
     names = {item.id: item.name for item in catalog.strategies}
     labels = {
-        "primary": "Primária",
-        "secondary": "Secundária",
-        "complementary": "Complementar",
+        "primary": "Primary",
+        "secondary": "Secondary",
+        "complementary": "Complementary",
     }
     rows = [
         {
             "strategy_id": item.strategy_id,
-            "nível": labels[item.level],
-            "força": item.strength_score,
-            "justificativa": item.rationale or "",
+            "level": labels[item.level],
+            "strength": item.strength_score,
+            "rationale": item.rationale or "",
         }
         for item in existing
     ]
-    with st.expander("Afinidades do comandante", expanded=True):
+    with st.expander("Commander Affinities", expanded=True):
         st.caption(
-            "Adicione várias estratégias e ajuste suas afinidades na mesma "
-            "tela. Força e níveis são heurísticos, não probabilidades."
+            "Add multiple strategies and edit their affinity levels in one "
+            "table. Strength and levels are heuristic, not probabilities."
         )
         with st.form(f"commander_affinities_{commander_id}"):
             affinity_rows = pd.DataFrame(
@@ -617,14 +617,14 @@ def _render_commander_affinity_editor(
                     "strategy_id": pd.Series(
                         [row["strategy_id"] for row in rows], dtype="string"
                     ),
-                    "nível": pd.Series(
-                        [row["nível"] for row in rows], dtype="string"
+                    "level": pd.Series(
+                        [row["level"] for row in rows], dtype="string"
                     ),
-                    "força": pd.Series(
-                        [row["força"] for row in rows], dtype="float64"
+                    "strength": pd.Series(
+                        [row["strength"] for row in rows], dtype="float64"
                     ),
-                    "justificativa": pd.Series(
-                        [row["justificativa"] for row in rows], dtype="string"
+                    "rationale": pd.Series(
+                        [row["rationale"] for row in rows], dtype="string"
                     ),
                 }
             )
@@ -636,36 +636,36 @@ def _render_commander_affinity_editor(
                 width="stretch",
                 column_config={
                     "strategy_id": st.column_config.SelectboxColumn(
-                        "Estratégia",
+                        "Strategy",
                         options=[item.id for item in catalog.strategies],
                         required=True,
                         format_func=lambda value: names.get(value, value),
                     ),
-                    "nível": st.column_config.SelectboxColumn(
-                        "Nível",
+                    "level": st.column_config.SelectboxColumn(
+                        "Level",
                         options=list(labels.values()),
                         required=True,
                     ),
-                    "força": st.column_config.NumberColumn(
-                        "Força",
+                    "strength": st.column_config.NumberColumn(
+                        "Strength",
                         min_value=0.0,
                         max_value=1.0,
                         step=0.05,
                         format="%.2f",
                     ),
-                    "justificativa": st.column_config.TextColumn("Justificativa"),
+                    "rationale": st.column_config.TextColumn("Rationale"),
                 },
             )
             tag_names = {item.id: item.name for item in catalog.tags}
             selected_tags = st.multiselect(
-                "Tags associadas ao comandante",
+                "Commander Tags",
                 options=[item.id for item in catalog.tags],
                 default=[item.tag_id for item in profile.tag_affinities] if profile else [],
                 format_func=lambda tag_id: tag_names[tag_id],
                 key=f"affinity_tags_{commander_id}",
             )
             submitted = st.form_submit_button(
-                "Salvar afinidades",
+                "Save Affinities",
                 type="primary",
                 key=f"save_affinities_{commander_id}",
             )
@@ -685,19 +685,19 @@ def _render_commander_affinity_editor(
                     if not strategy_id:
                         continue
                     if strategy_id in seen:
-                        raise ValueError("Cada estratégia pode aparecer uma vez.")
+                        raise ValueError("Each strategy can only appear once.")
                     seen.add(strategy_id)
-                    strength = row.get("força")
+                    strength = row.get("strength")
                     if strength is None:
                         strength = 0.5
                     strategy_affinities.append(
                         CommanderStrategyAffinity(
                             strategy_id=strategy_id,
-                            level=level_by_label[row["nível"]],
+                            level=level_by_label[row["level"]],
                             strength_score=float(strength),
                             evidence_ids=previous[strategy_id].evidence_ids
                             if strategy_id in previous else (),
-                            rationale=row.get("justificativa", "").strip() or None,
+                            rationale=row.get("rationale", "").strip() or None,
                             source="manual",
                         )
                     )
@@ -727,19 +727,19 @@ def _render_commander_affinity_editor(
                         catalog,
                     )
             except (KeyError, TypeError, ValueError) as error:
-                st.error(f"Afinidades não salvas: {error}")
+                st.error(f"Could not save affinities: {error}")
             else:
-                st.session_state["suggestion_notice"] = "Afinidades do comandante salvas."
+                st.session_state["suggestion_notice"] = "Commander affinities saved."
                 st.rerun()
 
 
 def _bump_catalog_version(data: dict[str, object], field: str) -> None:
     version = data.get(field)
     if not isinstance(version, str):
-        raise ValueError(f"Versão ausente no campo {field}.")
+        raise ValueError(f"Missing version in field {field}.")
     parts = version.split(".")
     if len(parts) != 3 or not all(part.isdigit() for part in parts):
-        raise ValueError(f"Versão inválida no campo {field}: {version}.")
+        raise ValueError(f"Invalid version in field {field}: {version}.")
     parts[2] = str(int(parts[2]) + 1)
     data[field] = ".".join(parts)
 
@@ -765,14 +765,14 @@ def _write_catalog_files(updates: dict[str, dict[str, object]]) -> StrategyCatal
             temp_path = path.with_suffix(path.suffix + ".restore.tmp")
             temp_path.write_bytes(original)
             temp_path.replace(path)
-        raise ValueError(f"Alteração não salva: {error}") from error
+        raise ValueError(f"Change was not saved: {error}") from error
 
 
 def _render_catalog_admin(session: Session) -> None:
-    st.header("Catálogo de estratégias e funções")
+    st.header("Strategy and Role Catalog")
     st.caption(
-        "O catálogo é versionado em arquivos locais. Mudanças invalidam a "
-        "classificação anterior e pedem uma reclassificação explícita."
+        "The catalog is versioned in local files. Changes make previous "
+        "classifications stale and require an explicit reclassification."
     )
     strategies_data = json.loads(
         (DEFAULT_CATALOG_DIR / "strategy_catalog.json").read_text(encoding="utf-8")
@@ -785,16 +785,16 @@ def _render_catalog_admin(session: Session) -> None:
     )
     strategy_ids = [item["id"] for item in strategies_data["strategies"]]
     role_ids = [item["id"] for item in roles_data["roles"]]
-    strategy_tab, role_tab = st.tabs(["Estratégias", "Funções"])
+    strategy_tab, role_tab = st.tabs(["Strategies", "Roles"])
 
     with strategy_tab:
         st.dataframe(
             [
                 {
-                    "Estratégia": item["name"],
+                    "Strategy": item["name"],
                     "ID": item["id"],
-                    "Estado": "Ativa" if item["active"] else "Inativa",
-                    "Descrição": item["description"],
+                    "Status": "Active" if item["active"] else "Inactive",
+                    "Description": item["description"],
                 }
                 for item in strategies_data["strategies"]
             ],
@@ -802,15 +802,15 @@ def _render_catalog_admin(session: Session) -> None:
             width="stretch",
         )
         action = st.segmented_control(
-            "Ação para estratégias",
-            options=["Editar", "Adicionar"],
-            default="Editar",
+            "Strategy action",
+            options=["Edit", "Add"],
+            default="Edit",
             key="catalog_strategy_action",
         )
         selected = None
-        if action == "Editar" and strategy_ids:
+        if action == "Edit" and strategy_ids:
             selected = st.selectbox(
-                "Estratégia",
+                "Strategy",
                 options=strategy_ids,
                 format_func=lambda item_id: next(
                     item["name"] for item in strategies_data["strategies"]
@@ -827,31 +827,31 @@ def _render_catalog_admin(session: Session) -> None:
                 "ID",
                 value=current["id"] if current else "",
                 disabled=current is not None,
-                help="ID único em snake_case; IDs existentes não podem ser renomeados.",
+                help="Unique snake_case ID. Existing IDs cannot be renamed.",
             )
             name = st.text_input("Nome", value=current["name"] if current else "")
             description = st.text_area(
-                "Descrição", value=current["description"] if current else ""
+                "Description", value=current["description"] if current else ""
             )
             active = st.checkbox(
-                "Estratégia ativa", value=current["active"] if current else True
+                "Active strategy", value=current["active"] if current else True
             )
             nature = st.text_input(
-                "Natureza (separe valores por vírgula)",
+                "Nature (comma-separated values)",
                 value=", ".join(current["nature"]) if current else "resource_engine",
             )
             tag_weights = st.text_area(
-                "Tags e pesos (uma por linha: id_da_tag=0.8)",
+                "Tags and weights (one per line: tag_id=0.8)",
                 value="\n".join(
                     f"{item['tag_id']}={item['weight']}"
                     for item in current["tag_affinities"]
                 ) if current else "",
             )
             notes = st.text_area(
-                "Notas (uma por linha)",
+                "Notes (one per line)",
                 value="\n".join(current["notes"]) if current else "",
             )
-            save_strategy = st.form_submit_button("Salvar estratégia", type="primary")
+            save_strategy = st.form_submit_button("Save Strategy", type="primary")
         if save_strategy:
             try:
                 affinities = []
@@ -879,18 +879,18 @@ def _render_catalog_admin(session: Session) -> None:
             except (ValueError, KeyError) as error:
                 st.error(str(error))
             else:
-                st.success("Estratégia salva. Reclassifique a coleção para aplicar a versão nova.")
+                st.success("Strategy saved. Reclassify the collection to apply the new version.")
                 st.rerun()
         if current is not None:
             strategy_delete_confirmed = st.checkbox(
-                "Confirmo a exclusão e a remoção das afinidades e correções vinculadas.",
+                "I confirm deletion and removal of linked affinities and overrides.",
                 key=f"confirm_delete_strategy_{current['id']}",
             )
             if st.button(
-                "Excluir estratégia", key=f"delete_strategy_{current['id']}"
+                "Delete Strategy", key=f"delete_strategy_{current['id']}"
             ):
                 if not strategy_delete_confirmed:
-                    st.warning("Confirme a exclusão antes de continuar.")
+                    st.warning("Confirm the deletion before continuing.")
                 else:
                     strategy_id_to_delete = current["id"]
                     tag_data = json.loads(
@@ -945,21 +945,21 @@ def _render_catalog_admin(session: Session) -> None:
                     except ValueError as error:
                         st.error(str(error))
                     else:
-                        st.success("Estratégia excluída; o histórico de classificações foi preservado.")
+                        st.success("Strategy deleted. Classification history was preserved.")
                         st.rerun()
 
     with role_tab:
         st.dataframe(
             [
                 {
-                    "Função": item["name"],
+                    "Role": item["name"],
                     "Grupo": (
-                        "Serviço do deck"
+                        "Deck Service"
                         if item["group"] == "deck_service"
-                        else "Sinergia da estratégia"
+                        else "Synergy Role"
                     ),
-                    "Termos Oracle": ", ".join(item.get("oracle_keywords", [])),
-                    "Descrição": item["description"],
+                    "Oracle Terms": ", ".join(item.get("oracle_keywords", [])),
+                    "Description": item["description"],
                 }
                 for item in roles_data["roles"]
             ],
@@ -967,15 +967,15 @@ def _render_catalog_admin(session: Session) -> None:
             width="stretch",
         )
         action = st.segmented_control(
-            "Ação para funções",
-            options=["Editar", "Adicionar"],
-            default="Editar",
+            "Role action",
+            options=["Edit", "Add"],
+            default="Edit",
             key="catalog_role_action",
         )
         selected = None
-        if action == "Editar" and role_ids:
+        if action == "Edit" and role_ids:
             selected = st.selectbox(
-                "Função",
+                "Role",
                 options=role_ids,
                 format_func=lambda item_id: next(
                     item["name"] for item in roles_data["roles"]
@@ -991,7 +991,7 @@ def _render_catalog_admin(session: Session) -> None:
                 "ID",
                 value=current["id"] if current else "",
                 disabled=current is not None,
-                help="ID único em snake_case; IDs existentes não podem ser renomeados.",
+                help="Unique snake_case ID. Existing IDs cannot be renamed.",
             )
             name = st.text_input("Nome", value=current["name"] if current else "")
             group = st.selectbox(
@@ -1002,19 +1002,19 @@ def _render_catalog_admin(session: Session) -> None:
                     if current else 0
                 ),
                 format_func=lambda value: {
-                    "deck_service": "Serviço do deck",
-                    "synergy_role": "Sinergia da estratégia",
+                    "deck_service": "Deck Service",
+                    "synergy_role": "Synergy Role",
                 }[value],
             )
             description = st.text_area(
-                "Descrição", value=current["description"] if current else ""
+                "Description", value=current["description"] if current else ""
             )
             oracle_keywords = st.text_area(
-                "Termos Oracle (um por linha)",
+                "Oracle Terms (one per line)",
                 value="\n".join(current.get("oracle_keywords", [])) if current else "",
-                help="Correspondências literais, sem distinção entre maiúsculas e minúsculas. Cada termo pode sugerir a função; a classificação permanece heurística.",
+                help="Literal, case-insensitive matches. Any term can suggest this role; classifications remain heuristic.",
             )
-            save_role = st.form_submit_button("Salvar função", type="primary")
+            save_role = st.form_submit_button("Save Role", type="primary")
         if save_role:
             record = {
                 "id": role_id.strip(),
@@ -1042,16 +1042,16 @@ def _render_catalog_admin(session: Session) -> None:
             except ValueError as error:
                 st.error(str(error))
             else:
-                st.success("Função salva. Reclassifique a coleção para aplicar a versão nova.")
+                st.success("Role saved. Reclassify the collection to apply the new version.")
                 st.rerun()
         if current is not None:
             role_delete_confirmed = st.checkbox(
-                "Confirmo a exclusão e a remoção das regras e correções vinculadas.",
+                "I confirm deletion and removal of linked rules and overrides.",
                 key=f"confirm_delete_role_{current['id']}",
             )
-            if st.button("Excluir função", key=f"delete_role_{current['id']}"):
+            if st.button("Delete Role", key=f"delete_role_{current['id']}"):
                 if not role_delete_confirmed:
-                    st.warning("Confirme a exclusão antes de continuar.")
+                    st.warning("Confirm the deletion before continuing.")
                 else:
                     role_id_to_delete = current["id"]
                     rules_data["rules"] = [
@@ -1092,7 +1092,7 @@ def _render_catalog_admin(session: Session) -> None:
                     except ValueError as error:
                         st.error(str(error))
                     else:
-                        st.success("Função excluída; o histórico de classificações foi preservado.")
+                        st.success("Role deleted. Classification history was preserved.")
                         st.rerun()
 
 
@@ -1104,7 +1104,7 @@ def _render_suggestion_correction(
     score = suggestion.score
     target_labels = {
         **{
-            f"strategy:{item.id}": f"Estratégia — {item.name}"
+            f"strategy:{item.id}": f"Strategy — {item.name}"
             for item in catalog.strategies
         },
         **{
@@ -1112,7 +1112,7 @@ def _render_suggestion_correction(
             for item in catalog.tags
         },
         **{
-            f"role:{item.id}": f"Função — {item.name}"
+            f"role:{item.id}": f"Role — {item.name}"
             for item in catalog.roles
         },
     }
@@ -1153,47 +1153,47 @@ def _render_suggestion_correction(
         selected_target = default_target
     existing_override = overrides_by_target.get(selected_target)
     action_labels = (
-        "Forçar inclusão",
-        "Forçar exclusão",
-        "Voltar ao automático",
+        "Force Include",
+        "Force Exclude",
+        "Reset to Automatic",
     )
     action_values: dict[str, OverrideAction | Literal["reset"]] = {
-        "Forçar inclusão": "force_include",
-        "Forçar exclusão": "force_exclude",
-        "Voltar ao automático": "reset",
+        "Force Include": "force_include",
+        "Force Exclude": "force_exclude",
+        "Reset to Automatic": "reset",
     }
 
-    with st.expander("Corrigir classificação desta carta"):
+    with st.expander("Correct This Card's Classification"):
         st.caption(
-            "A correção fica vinculada a esta carta; a evidência automática "
-            "original permanece armazenada."
+            "This correction applies only to this card. Original automatic "
+            "evidence is preserved."
         )
         with st.form(f"card_correction_{score.card_oracle_id}"):
             target_ref = st.selectbox(
-                "Classificação",
+                "Classification",
                 options=target_options,
                 index=target_options.index(selected_target),
                 format_func=lambda value: target_labels[value],
                 key=target_widget_key,
             )
             action_label = st.selectbox(
-                "Decisão",
+                "Decision",
                 options=action_labels,
                 index=(
-                    action_labels.index("Forçar exclusão")
+                    action_labels.index("Force Exclude")
                     if existing_override
                     and existing_override.action == "force_exclude"
-                    else action_labels.index("Forçar inclusão")
+                    else action_labels.index("Force Include")
                 ),
                 key=f"correction_action_{score.card_oracle_id}",
             )
             reason = st.text_area(
-                "Justificativa",
+                "Rationale",
                 value=existing_override.reason or "" if existing_override else "",
                 key=f"correction_reason_{score.card_oracle_id}",
             )
             submitted = st.form_submit_button(
-                "Aplicar correção",
+                "Apply Correction",
                 key=f"apply_correction_{score.card_oracle_id}",
             )
         if not submitted:
@@ -1228,9 +1228,9 @@ def _render_suggestion_correction(
             st.error(str(error))
             return
         st.session_state["suggestion_notice"] = (
-            "Correção manual salva; a evidência automática foi preservada."
+            "Manual override saved; automatic evidence was preserved."
             if action != "reset"
-            else "Correção removida; a classificação voltou ao automático."
+            else "Override removed; classification reverted to automatic."
         )
         st.rerun()
 
@@ -1265,12 +1265,12 @@ def _render_collection_suggestion(
         if details:
             st.caption(" · ".join(details))
         st.caption(
-            f"Disponíveis na coleção após considerar o deck: "
+            f"Available in collection after accounting for this deck: "
             f"{score.available_quantity}"
         )
         if matches:
             st.markdown(
-                "**Correspondências:** "
+                "**Matches:** "
                 + ", ".join(
                     (
                         strategy_names[item.target_id]
@@ -1288,10 +1288,10 @@ def _render_collection_suggestion(
             if item.target_type == "role"
         ]
         st.caption(
-            "Funções detectadas: "
-            + (", ".join(detected_roles) if detected_roles else "nenhuma")
+            "Detected roles: "
+            + (", ".join(detected_roles) if detected_roles else "none")
         )
-        with st.expander("Evidências e explicação do score"):
+        with st.expander("Evidence and Score Breakdown"):
             for decision in decisions:
                 label = (
                     strategy_names[decision.target_id]
@@ -1303,7 +1303,7 @@ def _render_collection_suggestion(
                 evidence = "; ".join(
                     item.evidence_label for item in decision.automatic_evidence
                 )
-                state = "incluída" if decision.included else "excluída"
+                state = "included" if decision.included else "excluded"
                 st.markdown(
                     f"- **{label}** — {state}; origem: {decision.source}."
                 )
@@ -1313,12 +1313,12 @@ def _render_collection_suggestion(
                     st.caption(f"Justificativa manual: {decision.override.reason}")
                 if decision.conflict:
                     st.warning(
-                        f"A correção manual contradiz evidência automática para {label}."
+                        f"Manual override contradicts automatic evidence for {label}."
                     )
-            st.markdown("**Componentes**")
+            st.markdown("**Components**")
             for component, value in score.components.items():
                 st.text(f"{component}: {value:.3f}")
-            st.markdown("**Razões do score**")
+            st.markdown("**Score Reasons**")
             for reason in score.reasons:
                 detail = f" — {reason.detail}" if reason.detail else ""
                 st.text(f"{reason.code}: {reason.contribution:+.2f}{detail}")
@@ -1326,16 +1326,16 @@ def _render_collection_suggestion(
 
 
 def _render_collection_suggestions(session: Session) -> None:
-    st.header("Sugestões de cartas")
+    st.header("Card Suggestions")
     st.caption(
-        "Sugestões determinísticas da sua coleção; legalidade e identidade de "
-        "cor são filtros, não pontos. Nenhuma chamada externa é feita."
+        "Deterministic suggestions from your collection. Legality and color "
+        "identity are filters, not score bonuses. No external service is called."
     )
     catalog = load_strategy_catalog()
     commanders = _load_commander_options(session)
     if not commanders:
         st.warning(
-            "Nenhum comandante disponível. Importe sua coleção e execute "
+            "No commanders are available. Import your collection and run "
             "`sync-scryfall` primeiro."
         )
         return
@@ -1351,7 +1351,7 @@ def _render_collection_suggestions(session: Session) -> None:
         else 0
     )
     commander_id = st.selectbox(
-        "Comandante",
+        "Commander",
         options=commander_ids,
         index=commander_index,
         key="suggestion_commander_id",
@@ -1381,7 +1381,7 @@ def _render_collection_suggestions(session: Session) -> None:
         else strategy_ids.index(current_affinity_id)
     )
     strategy_id = st.selectbox(
-        "Estratégia alvo",
+        "Target Strategy",
         options=strategy_ids,
         index=strategy_index,
         key="suggestion_strategy_id",
@@ -1392,24 +1392,24 @@ def _render_collection_suggestions(session: Session) -> None:
     role_names = {item.id: item.name for item in catalog.roles}
     service_role_ids = [item.id for item in catalog.roles if item.group == "deck_service"]
     synergy_role_ids = [item.id for item in catalog.roles if item.group == "synergy_role"]
-    with st.expander("Priorizar funções nas sugestões", expanded=False):
+    with st.expander("Prioritize Roles in Suggestions", expanded=False):
         service_roles = st.multiselect(
-            "Serviços do deck",
+            "Deck Services",
             options=service_role_ids,
             format_func=lambda value: role_names[value],
             key="suggestion_service_roles",
-            help="Ramp, compra, interação, proteção e outras funções de suporte.",
+            help="Ramp, card draw, interaction, protection, and other support roles.",
         )
         synergy_roles = st.multiselect(
-            "Sinergias da estratégia",
+            "Strategy Synergies",
             options=synergy_role_ids,
             format_func=lambda value: role_names[value],
             key="suggestion_synergy_roles",
-            help="Funções temáticas como gerar fichas, habilitar sacrifícios ou converter uma mecânica em valor.",
+            help="Thematic roles such as creating tokens, enabling sacrifices, or turning a mechanic into value.",
         )
     required_roles = [*service_roles, *synergy_roles]
     search_clicked = st.button(
-        "Buscar sugestões",
+        "Find Suggestions",
         type="primary",
         key="search_collection_suggestions",
     )
@@ -1426,7 +1426,7 @@ def _render_collection_suggestions(session: Session) -> None:
     _render_commander_affinity_editor(session, commander_id, catalog)
 
     if st.button(
-        "Reclassificar cartas da coleção",
+        "Reclassify Collection Cards",
         key="reclassify_collection_for_suggestions",
     ):
         oracle_ids = collection_oracle_ids(session)
@@ -1443,15 +1443,15 @@ def _render_collection_suggestions(session: Session) -> None:
             st.error(str(error))
             return
         st.session_state["suggestion_notice"] = (
-            f"Classificação concluída: {summary.classified} atualizadas, "
-            f"{summary.skipped} sem alterações."
+            f"Classification complete: {summary.classified} updated, "
+            f"{summary.skipped} unchanged."
         )
         st.rerun()
 
     saved_query = st.session_state.get("suggestion_query")
     active_query = (commander_id, strategy_id, tuple(required_roles))
     if saved_query != active_query:
-        st.info("Escolha os filtros e clique em **Buscar sugestões**.")
+        st.info("Choose filters and click **Find Suggestions**.")
         return
 
     used_quantities: dict[str, int] = {}
@@ -1476,19 +1476,19 @@ def _render_collection_suggestions(session: Session) -> None:
         return
 
     metrics = st.columns(3)
-    metrics[0].metric("Cartas da coleção", batch.total_candidates)
-    metrics[1].metric("Sem classificação atual", batch.unclassified_count)
-    metrics[2].metric("Inelegíveis", batch.ineligible_count)
+    metrics[0].metric("Collection Cards", batch.total_candidates)
+    metrics[1].metric("Not Currently Classified", batch.unclassified_count)
+    metrics[2].metric("Ineligible", batch.ineligible_count)
     if batch.unclassified_count:
         st.info(
-            "Há cartas sem classificação atual. Use **Reclassificar cartas da "
-            "coleção**; essa ação é local e não baixa dados."
+            "Some cards do not have current classifications. Use **Reclassify "
+            "Collection Cards**. This is local and does not download data."
         )
     if not batch.suggestions:
-        st.info("Nenhuma carta elegível encontrada para esses filtros.")
+        st.info("No eligible cards were found for these filters.")
         return
     st.subheader(
-        f"Melhores correspondências para {batch.strategy_name} — "
+        f"Best matches for {batch.strategy_name} — "
         f"{batch.commander.name}"
     )
     for suggestion in batch.suggestions:
@@ -1496,15 +1496,15 @@ def _render_collection_suggestions(session: Session) -> None:
 
 
 def _render_deck_builder(session: Session) -> None:
-    st.header("Construtor de deck")
+    st.header("Deck Builder")
     st.caption(
-        "Você escolhe o comandante. O gerador usa somente sua coleção e "
-        "prioriza sinais de estratégia quando houver um perfil configurado."
+        "Choose a commander. The builder uses only your collection and "
+        "prioritizes strategy signals when a profile is configured."
     )
     commanders = _load_commander_options(session)
     if not commanders:
         st.warning(
-            "Nenhum comandante disponível. Importe sua coleção e execute "
+            "No commanders are available. Import your collection and run "
             "`sync-scryfall` primeiro."
         )
         return
@@ -1516,7 +1516,7 @@ def _render_deck_builder(session: Session) -> None:
     commander_ids = list(commander_by_id)
     with st.form("build_deck"):
         commander_id = st.selectbox(
-            "Comandante",
+            "Commander",
             options=commander_ids,
             key="builder_commander_id",
             format_func=lambda oracle_id: (
@@ -1525,24 +1525,24 @@ def _render_deck_builder(session: Session) -> None:
             ),
         )
         st.selectbox(
-            "Modo de estratégia",
+            "Strategy Mode",
             options=("legacy", "catalog"),
             format_func=lambda value: (
-                "Legado" if value == "legacy" else "Estratégia do catálogo"
+                "Legacy" if value == "legacy" else "Catalog Strategy"
             ),
             key="builder_generation_mode",
         )
         if strategies:
             st.selectbox(
-                "Estratégia do catálogo",
+                "Catalog Strategy",
                 options=tuple(strategy_names),
                 format_func=lambda value: strategy_names[value],
                 key="builder_strategy_id",
             )
         else:
-            st.warning("Não há estratégias ativas no catálogo.")
+            st.warning("There are no active strategies in the catalog.")
         st.number_input(
-            "Quantidade de terrenos",
+            "Land Count",
             min_value=0,
             max_value=99,
             value=38,
@@ -1550,7 +1550,7 @@ def _render_deck_builder(session: Session) -> None:
             key="builder_land_count",
         )
         st.form_submit_button(
-            "Gerar deck",
+            "Build Deck",
             type="primary",
             on_click=_generate_deck_from_form,
             key="build_deck_submit",
@@ -1562,25 +1562,25 @@ def _render_deck_builder(session: Session) -> None:
         strategy_name = strategy_names.get(selected_strategy_id)
         if strategy_name:
             st.caption(
-                f"Modo catálogo: {strategy_name}. O score complementa o "
-                "balanceamento de funções, curva e terrenos."
+                f"Catalog mode: {strategy_name}. The score complements role, "
+                "curve, and land balancing."
             )
     elif selected_profile:
         st.caption(
-            f"Perfil: {selected_profile.name} — "
+            f"Profile: {selected_profile.name} — "
             f"{', '.join(selected_profile.themes)}. "
-            "Os sinais estratégicos são heurísticos."
+            "Strategy signals are heuristic."
         )
     else:
         st.caption(
-            "Sem perfil estratégico específico; será usada a pontuação geral "
-            "de funções e curva de mana."
+            "No specific strategy profile; general role and mana-curve scores "
+            "will be used."
         )
 
     if "deck_build_error" in st.session_state:
         st.error(st.session_state["deck_build_error"])
     if st.session_state.get("deck_cards"):
-        st.info("Deck gerado. Abra **Deck** na navegação para visualizá-lo.")
+        st.info("Deck built. Open **Deck** in the navigation to view it.")
 
 
 def main() -> None:
@@ -1697,14 +1697,14 @@ def main() -> None:
     )
 
     page = st.sidebar.radio(
-        "Navegação",
-        ["Construtor", "Deck", "Sugestões", "Catálogo"],
+        "Navigation",
+        ["Deck Builder", "Deck", "Suggestions", "Catalog"],
         key="page_navigation",
     )
-    if page == "Construtor":
+    if page == "Deck Builder":
         st.title("Mana Architect")
         st.caption(
-            "Sua coleção é a fonte de verdade. Decks e regras são verificados localmente."
+            "Your collection is the source of truth. Decks and rules are checked locally."
         )
     else:
         st.caption("Mana Architect")
@@ -1714,18 +1714,18 @@ def main() -> None:
         metadata = session.get(SyncMetadata, "bulk_updated_at")
         if metadata is None:
             st.info(
-                "Dados de cartas ainda não sincronizados. Execute "
-                "`python -m mana_architect sync-scryfall` antes de usar filtros "
-                "de Commander e deckbuilding."
+                "Card data has not been synchronized. Run "
+                "`python -m mana_architect sync-scryfall` before using Commander "
+                "filters and deckbuilding."
             )
         else:
-            st.caption(f"Snapshot Scryfall: {metadata.value}")
+            st.caption(f"Scryfall snapshot: {metadata.value}")
 
-        if page == "Construtor":
+        if page == "Deck Builder":
             _render_deck_builder(session)
-        elif page == "Sugestões":
+        elif page == "Suggestions":
             _render_collection_suggestions(session)
-        elif page == "Catálogo":
+        elif page == "Catalog":
             _render_catalog_admin(session)
         else:
             _render_deck_page(session)

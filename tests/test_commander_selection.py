@@ -161,7 +161,7 @@ def test_collection_filter_uses_chosen_commander_identity_and_legality(
 
 def test_unknown_or_ineligible_commander_is_reported(commander_database) -> None:
     with Session(commander_database) as session:
-        with pytest.raises(CommanderError, match="não corresponde"):
+        with pytest.raises(CommanderError, match="does not match"):
             resolve_commander(session, "Ordinary Creature")
 
 
@@ -173,8 +173,8 @@ def test_initial_card_roles_are_explicitly_heuristic() -> None:
     )
 
     assert roles == (
-        "Ramp (heurística)",
-        "Compra de cartas (heurística)",
-        "Remoção (heurística)",
+        "Ramp (heuristic)",
+        "Card Draw (heuristic)",
+        "Removal (heuristic)",
     )
     assert classify_card_roles("Basic Land — Island", None) == ("Terreno",)

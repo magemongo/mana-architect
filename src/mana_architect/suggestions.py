@@ -83,7 +83,7 @@ def suggest_collection_cards(
             or not isinstance(quantity, int)
             or quantity < 0
         ):
-            raise ValueError("already_used deve mapear Oracle IDs a inteiros não negativos.")
+            raise ValueError("already_used must map Oracle IDs to non-negative integers.")
 
     commander = resolve_commander(session, commander_identifier)
     profile = load_commander_affinity_profile(
@@ -96,8 +96,8 @@ def suggest_collection_cards(
         for affinity in profile.strategy_affinities
     ):
         raise ValueError(
-            "Cadastre a afinidade do comandante para essa estratégia antes "
-            "de pedir sugestões."
+            "Add a commander affinity for this strategy before requesting "
+            "suggestions."
         )
     strategy = next(
         (
@@ -108,7 +108,7 @@ def suggest_collection_cards(
         None,
     )
     if strategy is None:
-        raise ValueError(f"Estratégia ativa inexistente no catálogo: '{strategy_id}'.")
+        raise ValueError(f"Active strategy does not exist in the catalog: '{strategy_id}'.")
 
     rows = session.execute(
         select(Card, func.sum(CollectionPrinting.quantity))

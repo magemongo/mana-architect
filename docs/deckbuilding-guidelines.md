@@ -1,37 +1,37 @@
-# Diretrizes iniciais de deckbuilding
+# Initial Deckbuilding Guidelines
 
-Este documento descreve objetivos e compromissos do gerador; nao e uma lista
-de regras de legalidade. O validador continua sendo a autoridade para tamanho,
-identidade de cor, singleton, estoque e legalidade conforme o snapshot local.
+This document describes generator goals and tradeoffs; it is not a legality
+rules list. The validator remains authoritative for deck size, color identity,
+singleton rules, collection availability, and legality in the local snapshot.
 
-## Principios
+## Principles
 
-- A colecao fisica e a unica fonte de cartas selecionaveis.
-- Preferencias estrategicas alteram a prioridade; nao excluem cartas por si
-  so. Estoque, identidade de cor e legalidade continuam sendo filtros duros.
-- Quantidades de categorias sao metas configuraveis, nao proporcoes universais.
-- Cada sinal estrategico usado pelo motor deve ser apresentado como heuristica
-  e poder ser rastreado ate o texto Oracle, tipo ou dado estrutural.
-- A base de mana deve primeiro cobrir as cores do comandante, favorecendo
-  fontes que ajudam mais de uma cor; terrenos utilitarios entram como uma
-  preferencia configuravel e competem por espaco com fontes coloridas.
-- O power level deve ser contextual e explicavel. Nunca deve ser uma nota
-  absoluta que remova automaticamente uma carta da colecao.
+- The physical collection is the only source of selectable cards.
+- Strategic preferences change priority; they do not exclude cards by themselves.
+  Availability, color identity, and legality remain hard filters.
+- Category counts are configurable targets, not universal ratios.
+- Every strategic signal used by the engine should be presented as a heuristic
+  and traceable to Oracle text, card type, or structural data.
+- The mana base should first cover the commander's colors, favoring sources that
+  help cover multiple colors. Utility lands are configurable preferences and
+  compete for slots with colored sources.
+- Power level should be contextual and explainable. It must never be an absolute
+  grade that automatically removes a card from the collection.
 
-## Perfis estruturados
+## Structured Profiles
 
-`config/strategy_profiles.toml` armazena sinais, pesos iniciais e preferencias
-especificas de comandante em formato legivel por pessoas e maquinas. Pesos sao
-prioridades relativas para ordenar candidatos, nao pontuacoes de qualidade.
-Os padroes de texto sao aproximacoes e podem gerar falsos positivos; revise os
-perfis com decks de referencia e testes.
+`config/strategy_profiles.toml` stores signals, initial weights, and commander-
+specific preferences in a format readable by people and machines. Weights are
+relative priorities for ranking candidates, not quality scores. Text patterns
+are approximations and can produce false positives; review profiles against
+reference decks and tests.
 
-O perfil inicial de Anowon cobre Rogues tribais, mill e dano de combate. Um
-comandante sem perfil continua usando a pontuacao geral de funcoes e curva.
+Anowon's initial profile covers Rogue tribal, mill, and combat damage. A
+commander without a profile still uses the general role and mana-curve scoring.
 
-## Evolucao
+## Evolution
 
-Antes de adicionar metas numericas de ramp, compra, remocao, protecao ou
-terrenos, comparar decks de referencia e colecoes distintas. Futuramente,
-preferencias do usuario e contexto do deck podem ajustar esses objetivos sem
-alterar regras de legalidade.
+Before adding numeric targets for ramp, card draw, removal, protection, or lands,
+compare reference decks and different collections. In the future, user
+preferences and deck context may adjust these targets without changing legality
+rules.
