@@ -17,7 +17,7 @@ def test_loads_versioned_catalog_and_all_initial_strategy_roles() -> None:
     catalog = load_strategy_catalog()
 
     assert catalog.catalog_version == "1.1.0"
-    assert catalog.ruleset_version == "1.1.0"
+    assert catalog.ruleset_version == "1.3.0"
     assert catalog.scoring_version == "1.0.0"
     assert len(catalog.strategies) == 15
     assert {strategy.id for strategy in catalog.strategies} == {

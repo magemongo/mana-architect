@@ -14,6 +14,8 @@
   limitations.
 - [Catalog persistence](./classification-storage.md) — schema, versions,
   transactions, and reclassification guidance.
+- [Oracle text parser](./oracle-text-parser.md) — parser foundation, current
+  integration boundary, and migration steps.
 - [Catalog-guided deck generation](./catalog-guided-deck-generation.md) — scope,
   acceptance criteria, and implementation record.
 

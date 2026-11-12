@@ -37,15 +37,18 @@ from mana_architect.overrides import (
     ManualOverride,
     resolve_classification_overrides,
 )
+from mana_architect.oracle_text import OracleParse, PARSER_VERSION
 
 
-NORMALIZER_VERSION = "1.0.0"
+NORMALIZER_VERSION = "2.0.0"
 _CATALOG_FILES = (
     "strategy_catalog.json",
     "synergy_tags.json",
     "card_roles.json",
     "classification_rules.json",
     "scoring.json",
+    "oracle_lexicon.json",
+    "oracle_mechanics.json",
 )
 
 
@@ -104,12 +107,23 @@ def _classification_configuration_hash(
         ) from error
     semantics = {
         "normalizer_version": NORMALIZER_VERSION,
+        "oracle_parser_version": PARSER_VERSION,
         "strategy_ids": sorted(strategy.id for strategy in catalog.strategies),
         "tag_ids": sorted(tag.id for tag in catalog.tags),
         "role_ids": sorted(role.id for role in catalog.roles),
         "role_oracle_keywords": {
             role.id: role.oracle_keywords for role in catalog.roles
         },
+        "oracle_lexicon": [
+            {"id": entry.id, "category": entry.category,
+             "phrase": entry.phrase, "aliases": entry.aliases}
+            for entry in catalog.oracle_lexicon
+        ],
+        "oracle_mechanical_patterns": [
+            {"id": item.id, "matcher": item.matcher,
+             "mechanic_id": item.mechanic_id, "attributes": item.attributes}
+            for item in catalog.oracle_mechanical_patterns
+        ],
         "rules": rules_data,
     }
     encoded = json.dumps(
@@ -184,6 +198,7 @@ def reclassify_cards(
             classification_hash=classification_hash,
             input_fingerprint=fingerprint,
             card_updated_at=card.scryfall_updated_at,
+            oracle_parse=result.oracle_parse.to_json() if result.oracle_parse else None,
             classified_at=datetime.now(timezone.utc),
         )
         session.add(run)
@@ -229,9 +244,12 @@ def load_latest_classification(
                 requires_review=record.requires_review,
                 evidence_label=record.evidence_label,
                 face_index=record.face_index,
+                span_start=record.span_start,
+                span_end=record.span_end,
             )
             for record in records
-        )
+        ),
+        oracle_parse=OracleParse.from_json(run.oracle_parse),
     )
 
 
@@ -291,13 +309,16 @@ def load_current_classifications(
             records_by_run[record.run_id].append(record)
 
     return {
-        oracle_id: _classification_result(records_by_run[run.run_id])
+        oracle_id: _classification_result(
+            records_by_run[run.run_id], OracleParse.from_json(run.oracle_parse)
+        )
         for oracle_id, run in latest_runs.items()
     }
 
 
 def _classification_result(
     records: list[ClassificationEvidenceRecord],
+    oracle_parse: OracleParse | None = None,
 ) -> ClassificationResult:
     return ClassificationResult(
         evidence=tuple(
@@ -312,9 +333,12 @@ def _classification_result(
                 requires_review=record.requires_review,
                 evidence_label=record.evidence_label,
                 face_index=record.face_index,
+                span_start=record.span_start,
+                span_end=record.span_end,
             )
             for record in records
-        )
+        ),
+        oracle_parse=oracle_parse,
     )
 
 
@@ -700,8 +724,14 @@ def _card_input_fingerprint(card: Card, catalog: StrategyCatalog) -> str:
             for field in rule.source_fields
         }
     )
+    relevant_fields = sorted(set(relevant_fields) | {"oracle_text"})
     if any(role.oracle_keywords for role in catalog.roles):
         relevant_fields = sorted(set(relevant_fields) | {"oracle_text", "keywords"})
+    if {"oracle_features", "oracle_mechanics"}.intersection(relevant_fields):
+        relevant_fields = sorted(
+            (set(relevant_fields) - {"oracle_features", "oracle_mechanics"})
+            | {"oracle_text"}
+        )
     payload = {field: values[field] for field in relevant_fields}
     encoded = json.dumps(
         payload,
@@ -747,6 +777,8 @@ def _persist_classification_result(
             requires_review=evidence.requires_review,
             evidence_label=evidence.evidence_label[:512],
             face_index=evidence.face_index,
+            span_start=evidence.span_start,
+            span_end=evidence.span_end,
         )
         for evidence in result.evidence
     )

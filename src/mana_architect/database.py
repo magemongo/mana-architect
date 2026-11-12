@@ -11,6 +11,7 @@ from mana_architect.models import Base, SchemaMigration
 
 CLASSIFICATION_SCHEMA_VERSION = "classification-storage-v1"
 CARD_CLASSIFICATION_OVERRIDES_SCHEMA_VERSION = "card-classification-overrides-v1"
+ORACLE_PARSER_RESULTS_SCHEMA_VERSION = "oracle-parser-results-v1"
 
 
 def create_database_engine(database_path: Path | None = None) -> Engine:
@@ -42,10 +43,20 @@ def initialize_database(engine: Engine) -> None:
     if "produced_mana" not in columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE cards ADD COLUMN produced_mana JSON"))
+    run_columns = {column["name"] for column in inspect(engine).get_columns("classification_runs")}
+    if "oracle_parse" not in run_columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE classification_runs ADD COLUMN oracle_parse JSON"))
+    evidence_columns = {column["name"] for column in inspect(engine).get_columns("classification_evidence")}
+    for column in ("span_start", "span_end"):
+        if column not in evidence_columns:
+            with engine.begin() as connection:
+                connection.execute(text(f"ALTER TABLE classification_evidence ADD COLUMN {column} INTEGER"))
     with engine.begin() as connection:
         versions = (
             CLASSIFICATION_SCHEMA_VERSION,
             CARD_CLASSIFICATION_OVERRIDES_SCHEMA_VERSION,
+            ORACLE_PARSER_RESULTS_SCHEMA_VERSION,
         )
         for version in versions:
             existing_version = connection.scalar(

@@ -124,6 +124,22 @@ def test_burn_evidence_is_separate_from_combat_damage(catalog: StrategyCatalog) 
     assert "noncombat_damage" not in combat_targets
 
 
+def test_lifegain_rule_uses_actor_attribute_to_exclude_opponents() -> None:
+    catalog = load_strategy_catalog()
+    self_gain = classify_card(
+        CardClassificationInput(oracle_text="You gain 3 life."), catalog
+    )
+    opponent_gain = classify_card(
+        CardClassificationInput(oracle_text="Each opponent gains 3 life."), catalog
+    )
+
+    assert any(
+        item.target_type == "strategy" and item.target_id == "lifegain"
+        for item in self_gain.evidence
+    )
+    assert all(item.target_id != "lifegain" for item in opponent_gain.evidence)
+
+
 def test_land_drop_and_expensive_creature_are_not_ramp_or_reanimation(
     catalog: StrategyCatalog,
 ) -> None:

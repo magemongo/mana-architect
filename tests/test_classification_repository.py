@@ -31,6 +31,7 @@ from mana_architect.commander_affinity import (
 from mana_architect.database import (
     CARD_CLASSIFICATION_OVERRIDES_SCHEMA_VERSION,
     CLASSIFICATION_SCHEMA_VERSION,
+    ORACLE_PARSER_RESULTS_SCHEMA_VERSION,
     create_database_engine,
     initialize_database,
 )
@@ -137,6 +138,7 @@ def test_initialization_adds_new_tables_and_records_schema_version(database) -> 
     assert set(versions) == {
         CLASSIFICATION_SCHEMA_VERSION,
         CARD_CLASSIFICATION_OVERRIDES_SCHEMA_VERSION,
+        ORACLE_PARSER_RESULTS_SCHEMA_VERSION,
     }
 
 
@@ -236,6 +238,8 @@ def test_reclassification_persists_reproducible_evidence_and_skips_unchanged_car
         "card_roles.json",
         "classification_rules.json",
         "scoring.json",
+        "oracle_lexicon.json",
+        "oracle_mechanics.json",
     }
     assert all(candidate.source == "automatic" for candidate in candidates)
 

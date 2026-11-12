@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 import re
 from types import MappingProxyType
@@ -11,6 +11,8 @@ from mana_architect.catalog import (
     MatchPredicate,
     StrategyCatalog,
 )
+from mana_architect.oracle_text import OracleParse, parse_oracle_text
+from mana_architect.oracle_text import LexiconEntry
 
 
 _WHITESPACE = re.compile(r"\s+")
@@ -67,11 +69,16 @@ class ClassificationEvidence:
     requires_review: bool
     evidence_label: str
     face_index: int | None = None
+    span_start: int | None = None
+    span_end: int | None = None
 
 
 @dataclass(frozen=True)
 class ClassificationResult:
     evidence: tuple[ClassificationEvidence, ...]
+    # Supplemental parse data remains outside equality for compatibility with
+    # callers that compare classification evidence only.
+    oracle_parse: OracleParse | None = field(default=None, compare=False)
 
 
 def normalize_text(value: str) -> str:
@@ -140,14 +147,29 @@ def classify_card(
 ) -> ClassificationResult:
     """Return deterministic, rule-level evidence without persistence or scoring."""
     normalized = card if isinstance(card, NormalizedCard) else normalize_card(card)
+    oracle_lexicon = list(catalog.oracle_lexicon)
+    for role in catalog.roles:
+        oracle_lexicon.extend(
+            LexiconEntry(
+                id=f"role_term_{role.id}_{term_index}",
+                category="configured_role_term",
+                phrase=term,
+            )
+            for term_index, term in enumerate(role.oracle_keywords)
+        )
+    oracle_parse = parse_oracle_text(
+        normalized.oracle_text,
+        oracle_lexicon or None,
+        catalog.oracle_mechanical_patterns or None,
+    )
     evidence: list[ClassificationEvidence] = []
     for rule in catalog.rules:
         if not rule.enabled:
             continue
-        match = _match_rule(normalized, rule)
+        match = _match_rule(normalized, rule, oracle_parse)
         if match is None:
             continue
-        source_field, matched_value, face_index = match
+        source_field, matched_value, face_index, span_start, span_end = match
         evidence.append(
             ClassificationEvidence(
                 rule_id=rule.id,
@@ -160,6 +182,8 @@ def classify_card(
                 requires_review=rule.requires_review,
                 evidence_label=rule.evidence_label,
                 face_index=face_index,
+                span_start=span_start,
+                span_end=span_end,
             )
         )
     classified_roles = {
@@ -169,26 +193,19 @@ def classify_card(
         if not role.oracle_keywords or role.id in classified_roles:
             continue
         for term_index, term in enumerate(role.oracle_keywords):
-            normalized_term = normalize_text(term)
-            matched_field = next(
-                (
-                    "oracle_text_normalized"
-                    for segment in normalized.oracle_text_faces
-                    if normalized_term in segment
-                ),
+            feature_id = f"role_term_{role.id}_{term_index}"
+            matched_feature = next(
+                (feature for feature in oracle_parse.features if feature.id == feature_id),
                 None,
             )
-            matched_value = term if matched_field else None
-            if matched_field is None:
-                keyword_values = normalized.normalized_fields.get("keywords") or ()
-                matched_keyword = next(
-                    (value for value in keyword_values if normalized_term == value),
-                    None,
-                )
-                if matched_keyword is not None:
-                    matched_field = "keywords"
-                    matched_value = str(matched_keyword)
-            if matched_field is not None and matched_value is not None:
+            keyword_values = normalized.normalized_fields.get("keywords") or ()
+            matched_keyword = next(
+                (value for value in keyword_values if normalize_text(term) == value),
+                None,
+            )
+            if matched_feature is not None or matched_keyword is not None:
+                matched_field = "oracle_features" if matched_feature else "keywords"
+                matched_value = matched_feature.surface if matched_feature else str(matched_keyword)
                 evidence.append(
                     ClassificationEvidence(
                         rule_id=f"role_keyword_{role.id}_{term_index}",
@@ -203,10 +220,12 @@ def classify_card(
                             f"A configured term for the {role.name} role "
                             "appears in the card's Oracle data."
                         ),
+                        span_start=matched_feature.start if matched_feature else None,
+                        span_end=matched_feature.end if matched_feature else None,
                     )
                 )
                 break
-    return ClassificationResult(evidence=tuple(evidence))
+    return ClassificationResult(evidence=tuple(evidence), oracle_parse=oracle_parse)
 
 
 def _normalize_oracle_faces(value: str | None) -> tuple[str, ...]:
@@ -229,8 +248,44 @@ def _normalize_values(values: tuple[str, ...] | None) -> tuple[str, ...] | None:
 def _match_rule(
     card: NormalizedCard,
     rule: ClassificationRule,
-) -> tuple[str, str, int | None] | None:
+    oracle_parse: OracleParse,
+) -> tuple[str, str, int | None, int | None, int | None] | None:
     predicate = rule.match
+    if predicate.type == "oracle_feature_any":
+        for feature in oracle_parse.features:
+            if feature.id in predicate.values:
+                return (
+                    "oracle_features", feature.id, None, feature.start, feature.end
+                )
+        return None
+    if predicate.type == "oracle_mechanic_any":
+        for mechanic in oracle_parse.mechanics:
+            attributes = dict(mechanic.attributes)
+            if mechanic.id in predicate.values and all(
+                attributes.get(key) == expected
+                for key, expected in predicate.where
+            ):
+                source_text = oracle_parse.oracle_text[
+                    mechanic.evidence_start:mechanic.evidence_end
+                ]
+                matched_value = normalize_text(source_text)
+                if mechanic.id == "token.create":
+                    token_phrase = re.search(
+                        r"\bcreate(?:s|d)?\s+(?:a|one|two|\d+)\s+tokens?\b",
+                        source_text,
+                        re.IGNORECASE,
+                    )
+                    if token_phrase:
+                        matched_value = normalize_text(token_phrase.group())
+                ability_index = int(mechanic.ability_id[1:]) - 1
+                return (
+                    # Keep the established text source field for downstream
+                    # evidence consumers; the offsets identify the exact span
+                    # and the rule itself matched the structured mechanic.
+                    "oracle_text_normalized", matched_value, ability_index,
+                    mechanic.evidence_start, mechanic.evidence_end,
+                )
+        return None
     for source_field in rule.source_fields:
         segments = _field_segments(card, source_field)
         if predicate.type in {"phrase_any", "phrase_all"}:
@@ -246,7 +301,7 @@ def _match_rule(
                 if source_field in _ORACLE_FIELDS
                 else None
             )
-            return source_field, matched_value, face_index
+            return source_field, matched_value, face_index, None, None
     return None
 
 

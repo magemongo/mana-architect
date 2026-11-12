@@ -4,7 +4,9 @@
 
 `initialize_database(engine)` creates classification tables additively through
 `Base.metadata.create_all` and records `classification-storage-v1` and
-`card-classification-overrides-v1` in `schema_migrations`. The second migration
+`card-classification-overrides-v1` in `schema_migrations`. The additive
+`oracle-parser-results-v1` migration adds the parser document to classification
+runs and source offsets to evidence rows. The second migration
 adds manual per-card overrides linked to an Oracle ID without changing the
 existing global overrides table. `cards.oracle_id` remains the canonical card
 key; printings and physical quantities remain in `collection_printings`.
@@ -33,8 +35,10 @@ another field used by rules reclassifies only the affected card. Rule or
 classification-catalog changes invalidate affected results when
 reclassification is requested. Changes limited to `scoring.json` register a
 new catalog version without repeating classification. Each registered version
-stores the hash, declared versions, normalizer version, and contents of the five
-configuration files.
+stores the hash, declared versions, normalizer version, and contents of the
+strategy, tag, role, rule, scoring, Oracle lexicon, and Oracle mechanics
+configuration files. New classification runs store their parser output and
+parser version; older runs remain readable without a parser document.
 
 On the Catalog page, saving a strategy or role increments catalog and ruleset
 versions as applicable. A role's Oracle terms participate in classification

@@ -119,6 +119,7 @@ class ClassificationRun(Base):
     classification_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     input_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     card_updated_at: Mapped[str | None] = mapped_column(String(40))
+    oracle_parse: Mapped[dict[str, object] | None] = mapped_column(JSON)
     classified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
@@ -199,6 +200,8 @@ class ClassificationEvidenceRecord(Base):
     requires_review: Mapped[bool] = mapped_column(nullable=False)
     evidence_label: Mapped[str] = mapped_column(String(512), nullable=False)
     face_index: Mapped[int | None] = mapped_column(Integer)
+    span_start: Mapped[int | None] = mapped_column(Integer)
+    span_end: Mapped[int | None] = mapped_column(Integer)
 
 
 class ManualOverrideRecord(Base):

@@ -8,6 +8,8 @@ import re
 from types import MappingProxyType
 from typing import Iterable, Mapping
 
+from mana_architect.oracle_text import LexiconEntry, MechanicalPattern
+
 
 DEFAULT_CATALOG_DIR = Path(__file__).resolve().parents[2] / "config"
 _ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -19,6 +21,8 @@ _RULE_SOURCE_FIELDS = {
     "keywords",
     "mana_cost",
     "oracle_text_normalized",
+    "oracle_features",
+    "oracle_mechanics",
     "produced_mana",
     "type_line",
     "type_line_normalized",
@@ -30,6 +34,8 @@ _PREDICATE_TYPES = {
     "keyword_contains",
     "numeric_threshold",
     "field_equals",
+    "oracle_feature_any",
+    "oracle_mechanic_any",
 }
 _SCORING_COMPONENTS = {
     "strategy_evidence",
@@ -85,6 +91,7 @@ class MatchPredicate:
     field: str | None = None
     operator: str | None = None
     value: str | int | float | bool | None = None
+    where: tuple[tuple[str, str | int | float | bool], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -128,6 +135,8 @@ class StrategyCatalog:
     rules: tuple[ClassificationRule, ...]
     scoring_version: str
     scoring: ScoringConfig
+    oracle_lexicon: tuple[LexiconEntry, ...] = ()
+    oracle_mechanical_patterns: tuple[MechanicalPattern, ...] = ()
 
 
 def load_strategy_catalog(config_dir: Path | None = None) -> StrategyCatalog:
@@ -138,6 +147,8 @@ def load_strategy_catalog(config_dir: Path | None = None) -> StrategyCatalog:
     role_data = _read_json(directory, "card_roles.json")
     rule_data = _read_json(directory, "classification_rules.json")
     scoring_data = _read_json(directory, "scoring.json")
+    lexicon_data = _read_json(directory, "oracle_lexicon.json")
+    mechanic_data = _read_json(directory, "oracle_mechanics.json")
 
     catalog_version = _version(strategy_data, "strategy_catalog.json", "catalog_version")
     strategies = _parse_strategies(strategy_data)
@@ -147,6 +158,8 @@ def load_strategy_catalog(config_dir: Path | None = None) -> StrategyCatalog:
     rules = _parse_rules(rule_data)
     scoring_version = _version(scoring_data, "scoring.json", "scoring_version")
     scoring = _parse_scoring(scoring_data)
+    oracle_lexicon = _parse_oracle_lexicon(lexicon_data)
+    oracle_mechanical_patterns = _parse_oracle_mechanics(mechanic_data)
     _validate_references(strategies, tags, roles, rules)
     _validate_scoring(scoring, "scoring.json")
 
@@ -159,7 +172,64 @@ def load_strategy_catalog(config_dir: Path | None = None) -> StrategyCatalog:
         rules=rules,
         scoring_version=scoring_version,
         scoring=scoring,
+        oracle_lexicon=oracle_lexicon,
+        oracle_mechanical_patterns=oracle_mechanical_patterns,
     )
+
+
+def _parse_oracle_lexicon(data: dict[str, object]) -> tuple[LexiconEntry, ...]:
+    filename = "oracle_lexicon.json"
+    _version(data, filename, "lexicon_version")
+    entries: list[LexiconEntry] = []
+    for index, record in enumerate(_records(data, filename, "entries")):
+        path = f"entries[{index}]"
+        entries.append(
+            LexiconEntry(
+                id=_identifier(record, filename, f"{path}.id"),
+                category=_identifier(record, filename, f"{path}.category"),
+                phrase=_string(record, filename, f"{path}.phrase", path),
+                aliases=_optional_string_tuple(record, filename, f"{path}.aliases"),
+            )
+        )
+    _unique_ids((item.id for item in entries), filename, "entries")
+    if not entries:
+        raise _error(filename, "entries", "the lexicon must contain at least one entry")
+    return tuple(entries)
+
+
+def _parse_oracle_mechanics(data: dict[str, object]) -> tuple[MechanicalPattern, ...]:
+    filename = "oracle_mechanics.json"
+    _version(data, filename, "mechanic_catalog_version")
+    entries: list[MechanicalPattern] = []
+    supported_matchers = {
+        "token_create", "counter_put", "counter_double",
+        "token_create_replacement", "counter_placement_replacement",
+        "card_draw", "life_gain", "life_gain_trigger",
+        "noncombat_damage_opponents", "combat_damage", "land_search", "land_ramp",
+        "creature_return_from_graveyard",
+        "creature_plus_one_plus_one_modifier",
+    }
+    for index, record in enumerate(_records(data, filename, "patterns")):
+        path = f"patterns[{index}]"
+        matcher = _string(record, filename, f"{path}.matcher", path)
+        if matcher not in supported_matchers:
+            raise _error(filename, f"{path}.matcher", f"unsupported matcher: {matcher}")
+        raw_attributes = record.get("attributes", {})
+        if not isinstance(raw_attributes, dict) or not all(
+            isinstance(key, str) and isinstance(value, (str, int, float, bool))
+            for key, value in raw_attributes.items()
+        ):
+            raise _error(filename, f"{path}.attributes", "expected a scalar object")
+        entries.append(MechanicalPattern(
+            id=_identifier(record, filename, f"{path}.id"),
+            matcher=matcher,
+            mechanic_id=_string(record, filename, f"{path}.mechanic_id", path),
+            attributes=tuple(sorted((str(key), value) for key, value in raw_attributes.items())),
+        ))
+    _unique_ids((item.id for item in entries), filename, "patterns")
+    if not entries:
+        raise _error(filename, "patterns", "the mechanic catalog must contain at least one pattern")
+    return tuple(entries)
 
 
 def _read_json(directory: Path, filename: str) -> dict[str, object]:
@@ -340,6 +410,8 @@ def _parse_predicate(
         "phrase_all",
         "type_line_contains",
         "keyword_contains",
+        "oracle_feature_any",
+        "oracle_mechanic_any",
     }:
         values = _string_tuple(raw, filename, f"{path}.values")
         if not values:
@@ -347,6 +419,8 @@ def _parse_predicate(
         required_field = {
             "type_line_contains": {"type_line", "type_line_normalized"},
             "keyword_contains": {"keywords"},
+            "oracle_feature_any": {"oracle_features"},
+            "oracle_mechanic_any": {"oracle_mechanics"},
         }.get(predicate_type)
         if required_field is not None and not required_field.intersection(source_fields):
             raise _error(
@@ -355,7 +429,20 @@ def _parse_predicate(
                 f"o predicado {predicate_type} exige source_fields com "
                 f"{' ou '.join(sorted(required_field))}",
             )
-        return MatchPredicate(type=predicate_type, values=values)
+        where: tuple[tuple[str, str | int | float | bool], ...] = ()
+        if predicate_type == "oracle_mechanic_any":
+            raw_where = raw.get("where", {})
+            if not isinstance(raw_where, dict) or not all(
+                isinstance(key, str)
+                and isinstance(value, (str, int, float, bool))
+                and not (isinstance(value, float) and not math.isfinite(value))
+                for key, value in raw_where.items()
+            ):
+                raise _error(filename, f"{path}.where", "expected an object of scalar attributes")
+            where = tuple(sorted(raw_where.items()))
+        elif "where" in raw:
+            raise _error(filename, f"{path}.where", "where is supported only for oracle_mechanic_any")
+        return MatchPredicate(type=predicate_type, values=values, where=where)
 
     field = _identifier(raw, filename, f"{path}.field")
     if field not in source_fields:

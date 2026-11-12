@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "mechanic_catalog_version": "1.2.0",
+  "patterns": [
+    {"id":"token_create_replacement","matcher":"token_create_replacement","mechanic_id":"token.create_replacement","attributes":{"multiplier":2}},
+    {"id":"counter_placement_replacement","matcher":"counter_placement_replacement","mechanic_id":"counter.placement_replacement","attributes":{"multiplier":2}},
+    {"id":"counter_double","matcher":"counter_double","mechanic_id":"counter.double","attributes":{"counter_type":"+1/+1"}},
+    {"id":"counter_put","matcher":"counter_put","mechanic_id":"counter.put"},
+    {"id":"token_create","matcher":"token_create","mechanic_id":"token.create"},
+    {"id":"card_draw","matcher":"card_draw","mechanic_id":"card.draw"},
+    {"id":"life_gain","matcher":"life_gain","mechanic_id":"life.gain"},
+    {"id":"life_gain_trigger","matcher":"life_gain_trigger","mechanic_id":"life.gain_trigger"},
+    {"id":"noncombat_damage_opponents","matcher":"noncombat_damage_opponents","mechanic_id":"damage.noncombat_opponents"},
+    {"id":"combat_damage","matcher":"combat_damage","mechanic_id":"damage.combat"},
+    {"id":"land_search","matcher":"land_search","mechanic_id":"land.search_library"},
+    {"id":"land_ramp","matcher":"land_ramp","mechanic_id":"land.search_to_battlefield"},
+    {"id":"creature_return_from_graveyard","matcher":"creature_return_from_graveyard","mechanic_id":"creature.return_from_graveyard"},
+    {"id":"creature_plus_one_plus_one_modifier","matcher":"creature_plus_one_plus_one_modifier","mechanic_id":"creature.plus_one_plus_one_modifier"}
+  ]
+}

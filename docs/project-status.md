@@ -1,8 +1,10 @@
 # Project Status and Roadmap
 
 - **Reviewed:** 2026-11-12
-- **Last fully audited revision:** `5533668`
-- **Approved development scope:** catalog, role, and affinity administration
+- **Last fully audited revision:** `5533668` (the parser integration below has
+  not received a full test-suite audit)
+- **Approved development scope:** catalog, role, affinity administration, and
+  Oracle text parser integration requested on 2026-11-12
 - **Product language:** English
 
 This is the canonical summary of the product and its known roadmap. The status
@@ -103,7 +105,13 @@ related validation and generation tests.
 - Roles use the `deck_service` and `synergy_role` groups, shown separately in
   Suggestions and its filters.
 - Roles accept `oracle_keywords`, literal terms that produce reviewable
-  classification evidence. Versioned rules support more specific combinations.
+  classification evidence. Terms now pass through parser-backed lexical
+  extraction before the compatibility mapping to role evidence.
+- The Oracle parser uses versioned lexicon and mechanic catalogs, supports
+  parser-backed classification predicates, and persists the parse document and
+  source spans additively. All seven Oracle-text classification rules now use
+  mechanical IDs; broader target/zone modeling and corpus review remain. See
+  [oracle-text-parser.md](./oracle-text-parser.md).
 - The Catalog page can view, create, edit, and delete strategies and roles.
   After confirmation, deletion removes linked rules, affinities, and current
   manual overrides while preserving classification history. Changes are saved
