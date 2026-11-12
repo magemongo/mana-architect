@@ -13,7 +13,11 @@ from mana_architect.catalog import (
 )
 from mana_architect.oracle_text import OracleParse, parse_oracle_text
 from mana_architect.oracle_text import LexiconEntry
-from mana_architect.roles import classify_card_roles, has_card_selection
+from mana_architect.roles import (
+    classify_card_roles,
+    has_card_selection,
+    has_neutral_draw_discard,
+)
 
 
 _WHITESPACE = re.compile(r"\s+")
@@ -249,17 +253,34 @@ def with_deck_role_heuristics(
     }
     role_ids = {item.id for item in catalog.roles}
     tag_ids = {item.id for item in catalog.tags}
+    evidence = list(classification.evidence)
+    if (
+        has_neutral_draw_discard(oracle_text)
+        and "Card Advantage (heuristic)"
+        not in classify_card_roles(type_line, oracle_text)
+    ):
+        # Saved automatic classifications can outlive heuristic changes. A
+        # neutral draw/discard sequence is direct evidence against the old
+        # card-advantage label unless another current effect proves otherwise.
+        evidence = [
+            item
+            for item in evidence
+            if not (
+                item.rule_id.startswith("heuristic_")
+                and item.target_id == "card_advantage"
+                and item.target_type in {"role", "tag"}
+            )
+        ]
     existing_roles = {
         item.target_id
-        for item in classification.evidence
+        for item in evidence
         if item.target_type == "role"
     }
     existing_tags = {
         item.target_id
-        for item in classification.evidence
+        for item in evidence
         if item.target_type == "tag"
     }
-    evidence = list(classification.evidence)
     for label in classify_card_roles(type_line, oracle_text):
         role_id = role_ids_by_label.get(label)
         if role_id is None or role_id not in role_ids:

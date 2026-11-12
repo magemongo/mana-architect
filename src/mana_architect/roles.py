@@ -48,13 +48,11 @@ _DRAW_THEN_TOPDECK_PATTERN = re.compile(
     r"cards?\s+from your hand\s+on top of your library",
     re.IGNORECASE,
 )
-_LOOT_PATTERN = re.compile(
-    r"\bdraw\s+(?P<draw>a|one|two|three|four|five|\d+)\s+cards?\b"
-    r"[^.\n]{0,100}\bdiscard\s+(?P<discard>a|one|two|three|four|five|\d+)\s+cards?\b",
-    re.IGNORECASE,
-)
-_DISCARD_FOR_DRAW_PATTERN = re.compile(
-    r"\bdiscard\s+(?:a|one)\s+card\b[^.\n]{0,100}\bdraw\s+(?:a|one)\s+card\b",
+_DRAW_DISCARD_SEQUENCE_PATTERN = re.compile(
+    r"(?:\bdraw\s+(?P<draw_first>a|one|two|three|four|five|\d+)\s+cards?\b"
+    r"[^.\n]{0,120}\bdiscard\s+(?P<discard_second>a|one|two|three|four|five|\d+)\s+cards?\b"
+    r"|\bdiscard\s+(?P<discard_first>a|one|two|three|four|five|\d+)\s+cards?\b"
+    r"[^.\n]{0,120}\bdraw\s+(?P<draw_second>a|one|two|three|four|five|\d+)\s+cards?\b)",
     re.IGNORECASE,
 )
 _SPOT_INTERACTION_PATTERNS = (
@@ -120,11 +118,6 @@ def _has_card_advantage(text: str) -> bool:
             # on top do not increase the hand, and a sacrificed source costs
             # another card. This is selection, not net card advantage.
             continue
-        loot = _LOOT_PATTERN.search(segment)
-        if loot and _quantity_value(loot.group("draw")) <= _quantity_value(
-            loot.group("discard")
-        ):
-            continue
         draw_count = sum(
             _quantity_value(match.group("count").casefold())
             for match in _CARD_DRAW_PATTERN.finditer(segment)
@@ -151,10 +144,21 @@ def has_card_selection(text: str | None) -> bool:
     source = text or ""
     return bool(
         _DRAW_THEN_TOPDECK_PATTERN.search(source)
-        or _LOOT_PATTERN.search(source)
-        or _DISCARD_FOR_DRAW_PATTERN.search(source)
+        or _DRAW_DISCARD_SEQUENCE_PATTERN.search(source)
         or re.search(r"\b(?:scry|surveil)\s+\d+\b", source, re.IGNORECASE)
     )
+
+
+def has_neutral_draw_discard(text: str | None) -> bool:
+    """Return whether an ability draws and discards equal quantities in sequence."""
+    for match in _DRAW_DISCARD_SEQUENCE_PATTERN.finditer(text or ""):
+        draw_count = match.group("draw_first") or match.group("draw_second")
+        discard_count = match.group("discard_second") or match.group("discard_first")
+        if _quantity_value(draw_count.casefold()) == _quantity_value(
+            discard_count.casefold()
+        ):
+            return True
+    return False
 
 
 def _is_ramp(type_line: str | None, text: str) -> bool:

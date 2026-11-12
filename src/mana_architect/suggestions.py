@@ -209,14 +209,13 @@ def suggest_collection_cards_by_identity(
             if strategy_scores[strategy_id] > 0
         )
         matched_priorities = len(found_roles & set(prioritized_roles))
-        if best_strategy_score <= 0 and matched_priorities == 0:
+        if prioritized_roles and matched_priorities == 0:
             continue
-        role_bonus = (
-            15 * matched_priorities / len(prioritized_roles)
-            if prioritized_roles
-            else 0.0
-        )
-        combined_score = min(100.0, best_strategy_score + role_bonus)
+        if not prioritized_roles and best_strategy_score <= 0:
+            continue
+        # Roles are hard inclusion filters; strategy compatibility ranks the
+        # cards that pass that filter instead of adding a constant role bonus.
+        combined_score = best_strategy_score
         suggestions.append(
             IdentityCollectionSuggestion(
                 oracle_id=card.oracle_id,

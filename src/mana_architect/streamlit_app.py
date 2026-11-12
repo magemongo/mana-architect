@@ -1479,8 +1479,8 @@ def _render_collection_suggestions(session: Session) -> None:
         "strategy. Legality is checked for Commander; no commander is required."
     )
     st.caption(
-        "Cards are sorted by their strongest selected-strategy score. Optional "
-        "core-role priorities can add up to 15 points."
+        "A selected core role filters the results. Strategy scores rank the "
+        "remaining cards by synergy."
     )
     catalog = load_strategy_catalog()
     color_options = _color_identity_options()
@@ -1505,16 +1505,14 @@ def _render_collection_suggestions(session: Session) -> None:
                 placeholder="Choose one or more strategies",
             )
         )
-        role_ids = tuple(
-            st.multiselect(
-                "Prioritize core roles (optional)",
-                options=[item.id for item in catalog.roles],
-                format_func=lambda value: role_names[value],
-                key="suggestion_role_ids",
-                placeholder="No role priority",
-                help="Selected roles add a ranking preference; they do not exclude other cards.",
-            )
+        selected_role_id = st.selectbox(
+            "Core role (optional)",
+            options=[None, *(item.id for item in catalog.roles)],
+            format_func=lambda value: "No role filter" if value is None else role_names[value],
+            key="suggestion_role_id",
+            help="When selected, only cards in this core role are shown.",
         )
+        role_ids = (selected_role_id,) if selected_role_id is not None else ()
         search_clicked = st.form_submit_button(
             "Find suggestions",
             type="primary",
