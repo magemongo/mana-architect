@@ -50,12 +50,16 @@ rules are applied after the formula and shown in the reasons.
 ## Collection Integration
 
 The Suggestions page reads cards and physical quantities from the collection,
-excludes the commander, and applies legality, color identity, already-used
-cards, and required roles before showing rankings. Results include score, tier,
-detected roles, evidence, and remaining quantity. Only classifications whose
-fingerprint still matches card data and the current rules are scored. The page
-offers an explicit action to reclassify only cards in the collection; opening
-the app does not trigger reclassification.
+excludes the commander, and applies legality, color identity, and classification
+filters before showing rankings. The page accepts one or more strategies and
+zero or one core role. Without a role, cards need evidence for at least one
+selected strategy. With a role selected, only cards in that role remain; the
+strongest selected-strategy score orders those cards. Role membership does not
+add a score bonus. Results include score, matched strategies, detected roles,
+evidence, and remaining quantity. Only classifications whose fingerprint still
+matches card data and the current rules are scored. The page offers an explicit
+action to reclassify only cards in the collection; opening the app does not
+trigger reclassification.
 
 Commander affinities can be edited on this page and are persisted with a manual
 source. Strategy, tag, and role overrides are linked to a card's Oracle ID,
@@ -64,11 +68,25 @@ exclusions are shown as conflicts; removing an override restores the automatic
 classification.
 
 The core role catalog contains `spot_interaction`, `mass_interaction`, `ramp`,
-and `card_advantage`. Heuristic role evidence is calculated from Oracle text for
-deck selection and Suggestions. Card draw and recursion remain mechanics: a
-one-for-one replacement or one-shot recovery is not automatically card
-advantage. `main_strategy` is a dynamic deckbuilding role derived from evidence
-matching the selected strategy's tag affinities, not a universal card label.
+and `card_advantage`. `card_selection` is a separate optional mechanical tag,
+not a core role. Role evidence is calculated from Oracle text for deck
+selection and Suggestions. The current card-advantage heuristic distinguishes
+net-positive or repeatable access from filtering and one-for-one replacement:
+
+- A draw/discard sequence in either order is recognized as card selection.
+  Equal draw and discard quantities do not create card advantage.
+- Activated draw abilities are evaluated with their cost and effect. Discarding
+  or sacrificing a card/token as the activation cost prevents a one-card draw
+  from being treated as repeatable advantage; discarding after drawing also
+  offsets the draw.
+- A single Clue's reminder text does not count as a reusable activated draw.
+  Repeated triggers that generate Clues can still qualify as a recurring value
+  engine when the trigger itself can happen repeatedly.
+
+These are deterministic text heuristics; they do not model every rules cost,
+condition, or game-state interaction. `main_strategy` is a dynamic deckbuilding
+role derived from evidence matching the selected strategy's tag affinities, not
+a universal card label.
 Configured role rules can also consume classified tags: counterspell, spot
 removal, and single-target protection support `spot_interaction`; board wipes
 and mass protection support `mass_interaction`. Strategy tag affinities are a

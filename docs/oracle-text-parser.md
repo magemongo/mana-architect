@@ -48,6 +48,27 @@ time. New classification runs store the parser version, ability segmentation,
 feature spans, and mechanics as JSON. Evidence rows also store source offsets.
 Older runs remain readable with `oracle_parse=None`.
 
+## Downstream card-advantage and selection heuristics
+
+Deckbuilding role assignment currently adds a separate, reviewable heuristic
+on top of parser classification. It keeps `card_selection` as an optional tag
+and `card_advantage` as a core role. It does not rewrite the parser's lexical
+features or mechanical facts.
+
+- A draw/discard sequence in either order is detected as selection. Equal
+  quantities are neutral and cannot establish card advantage by themselves.
+- Activated draw is evaluated by reading the cost before the colon and the
+  draw/discard effect after it. A card-consuming cost or offsetting discard
+  prevents a one-card effect from being misread as reusable advantage.
+- Reminder text that gives a Clue a sacrifice-to-draw ability does not make
+  that one Clue source repeatable. The surrounding trigger must be capable of
+  recurring for it to count as a recurring card-advantage source.
+
+This role heuristic is broader than the structured parser patterns and remains
+conservative. It uses text patterns rather than a complete ability-cost syntax
+tree or game-state simulation; ambiguous wording should be reviewed through
+the Catalog Oracle Parser inspector and classification evidence.
+
 ## UI inspection
 
 Open **Catalog → Oracle Parser** to search cards in the local collection and

@@ -1,8 +1,8 @@
 # Project Status and Roadmap
 
 - **Reviewed:** 2026-11-12
-- **Last fully audited revision:** `a99dea1`; subsequent role and strategy
-  mapping changes are in progress and need a full test audit
+- **Latest reviewed implementation revision:** `43b0a7d`; a full test audit of
+  the recent suggestions and classification changes remains outstanding
 - **Approved development scope:** catalog, role, affinity administration, and
   Oracle text parser integration requested on 2026-11-12
 - **Product language:** English
@@ -41,7 +41,8 @@ their administration in the UI. That work is in progress:
 | Status | Work item | Current state |
 |---|---|---|
 | In progress | Multiple strategies per commander and a responsive editor for all three affinity levels | Domain and table editor support multiple strategies and levels on one screen; visual and workflow review remains |
-| In progress | Use four core deck roles and calculate strategy contribution dynamically | Catalog roles are spot/mass interaction, ramp, and card advantage; `main_strategy` is derived from selected-strategy evidence |
+| Implemented | Filter suggestions by one optional core role and rank by strategy synergy | A selected role is a hard filter; selected strategies score and order the remaining cards |
+| Implemented | Use four core deck roles and calculate strategy contribution dynamically | Catalog roles are spot/mass interaction, ramp, and card advantage; `main_strategy` is derived from selected-strategy evidence |
 | In progress | Admin screen for strategies and core roles | Admin screen is implemented; visual review and delete/save workflow review remain |
 | Later | Manually add, remove, or replace cards in a generated list and revalidate | Deferred; direct decklist editing is unavailable |
 | Later | Save and manage multiple decks and versions | Not implemented; decks have no dedicated persistence |
@@ -90,7 +91,7 @@ related validation and generation tests.
 
 ### Catalog and interface
 
-- Versioned JSON configuration with **15 strategies, 107 tags, 4 core roles, and
+- Versioned JSON configuration with **15 strategies, 108 tags, 4 core roles, and
   26 classification rules**. `main_strategy` is calculated dynamically; land
   remains a card type and deck-composition property, not a role.
 - Deterministic rule-based classification with evidence, fingerprints, and
@@ -100,6 +101,10 @@ related validation and generation tests.
   classifications, evidence, manual overrides, and affinities.
 - Deterministic scorer explains its components and reasons. Suggestions are
   filtered by collection, legality, and color identity.
+- The Suggestions page accepts multiple strategies and zero or one core role.
+  A selected role filters out cards outside that role; the strongest selected
+  strategy score sorts the remaining cards. With no role selected, strategy
+  evidence alone determines inclusion and ranking.
 - The domain and UI support multiple strategy and tag affinities per commander,
   with `primary`, `secondary`, and `complementary` levels. The responsive table
   editor still needs visual verification.
@@ -113,8 +118,12 @@ related validation and generation tests.
 - Initial Aristocrats signals now include creature sacrifice, sacrifice outlets,
   creature-death triggers/payoffs, death-drain patterns, and token creation.
   These phrase rules are reviewable heuristics, not a complete rules parser.
-- Initial role heuristics are reviewable and do not equate one-for-one draw or
-  filtering with card advantage.
+- `card_selection` is an optional mechanical tag, not a core role. Draw/discard
+  sequences in either order are recognized as selection; neutral sequences do
+  not count as card advantage. Activated draw checks account for card-consuming
+  costs and the ability's draw/discard effect, so reminder text for a one-use
+  Clue is not mistaken for a reusable draw engine. These remain explainable
+  Oracle-text heuristics, not a complete rules interpreter.
 - The Oracle parser uses versioned lexicon and mechanic catalogs, supports
   parser-backed classification predicates, and persists the parse document and
   source spans additively. Oracle rules combine structured mechanics with

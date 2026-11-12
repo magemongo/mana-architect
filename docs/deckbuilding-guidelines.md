@@ -52,8 +52,19 @@ ratio is a starting heuristic, not a calibrated recommendation. Configure its
 ratio and weight in `config/scoring.json`. Card selection and neutral card
 replacement are useful optional signals, but are not universal deck quotas.
 
-Card advantage is an outcome, not a synonym for drawing or recursion. A
-one-for-one cantrip or loot effect does not qualify by itself; repeatable or
-net-positive access to resources can. The current Oracle text heuristic is
-conservative and should be refined as the parser captures quantities, costs,
-repeatability, and selection choices more precisely.
+Card advantage is an outcome, not a synonym for drawing or recursion. The
+current Oracle text heuristic evaluates draw and discard quantities together,
+whether discard appears before or after the draw. Equal quantities are neutral
+and can contribute the optional `card_selection` tag, but do not establish the
+`card_advantage` role. Activated draw abilities are checked against their
+activation cost and effect; card-consuming costs and a later discard are not
+treated as free repeatable draws. A single Clue's reminder text is not itself a
+repeatable engine, while a trigger that can generate Clues repeatedly may be
+advantageous over time. These checks are deterministic heuristics, not a full
+simulation of rules, costs, or game-state repetition.
+
+On **Suggestions**, select one or more strategies and optionally one core role.
+Without a role filter, matching strategy evidence determines which cards are
+shown. With a role selected, cards outside that role are excluded, and the
+selected strategies rank the remaining cards by synergy. `card_selection` is a
+tag and is not selectable as a core role.
