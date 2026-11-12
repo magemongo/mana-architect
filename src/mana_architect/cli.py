@@ -113,6 +113,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Quantidade de terrenos no rascunho (padrão: 38).",
     )
     build_command.add_argument(
+        "--strategy",
+        help=(
+            "ID de uma estratégia ativa do catálogo; exige afinidade cadastrada "
+            "para o comandante. Sem esta opção, usa o gerador legado."
+        ),
+    )
+    build_command.add_argument(
         "--output",
         type=Path,
         required=True,
@@ -289,9 +296,21 @@ def main(argv: list[str] | None = None) -> int:
                     session,
                     commander_identifier=args.commander,
                     land_count=args.lands,
+                    strategy_id=args.strategy,
                 )
             export_deck(result, args.output, overwrite=args.overwrite)
             print(f"Rascunho para {result.commander.name}")
+            if result.catalog_strategy_name:
+                print(
+                    "Estratégia do catálogo: "
+                    f"{result.catalog_strategy_name} ({result.catalog_strategy_id})"
+                )
+            if result.unclassified_count:
+                print(
+                    "AVISO: "
+                    f"{result.unclassified_count} cartas não tinham classificação "
+                    "atual e não foram consideradas pelo modo do catálogo."
+                )
             print(f"Cartas: {sum(card.quantity for card in result.cards)}/100")
             print(f"Terrenos: {result.land_count}")
             print(f"Status do validador: {result.validation.status}")

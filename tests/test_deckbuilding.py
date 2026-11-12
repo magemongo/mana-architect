@@ -2,8 +2,19 @@ import json
 from pathlib import Path
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from mana_architect.catalog import DEFAULT_CATALOG_DIR, load_strategy_catalog
+from mana_architect.classification_repository import (
+    reclassify_cards,
+    save_commander_affinity_profile,
+)
+from mana_architect.commander_affinity import (
+    CommanderAffinityProfile,
+    CommanderStrategyAffinity,
+    CommanderTagAffinity,
+)
 from mana_architect.deckbuilding import (
     DeckBuildError,
     analyze_deck,
@@ -12,7 +23,12 @@ from mana_architect.deckbuilding import (
     export_decklist,
 )
 from mana_architect.database import create_database_engine, initialize_database
-from mana_architect.models import Card, CollectionPrinting, SyncMetadata
+from mana_architect.models import (
+    Card,
+    ClassificationRun,
+    CollectionPrinting,
+    SyncMetadata,
+)
 from mana_architect.validation import DeckCard, load_deck_file
 
 
@@ -100,6 +116,57 @@ def make_deck_database(
     return engine
 
 
+def make_catalog_deck_database(
+    path: Path,
+    *,
+    classified_ids: tuple[str, ...] = ("island", "token-card", "plain-card"),
+    with_affinity: bool = True,
+):
+    engine = make_deck_database(path)
+    with Session(engine) as session, session.begin():
+        add_card(
+            session,
+            "token-card",
+            "Z Token Plan",
+            1,
+            "Sorcery",
+            "Create a token.",
+            cmc=1,
+        )
+        add_card(
+            session,
+            "plain-card",
+            "A Plain Plan",
+            1,
+            "Sorcery",
+            "Scry 1.",
+            cmc=1,
+        )
+
+    catalog = load_strategy_catalog()
+    with Session(engine) as session, session.begin():
+        if with_affinity:
+            save_commander_affinity_profile(
+                session,
+                CommanderAffinityProfile(
+                    commander_oracle_id="commander",
+                    strategy_affinities=(
+                        CommanderStrategyAffinity("tokens", "primary", 0.8),
+                    ),
+                    tag_affinities=(CommanderTagAffinity("create_tokens"),),
+                ),
+                catalog,
+            )
+        if classified_ids:
+            reclassify_cards(
+                session,
+                catalog,
+                DEFAULT_CATALOG_DIR,
+                classified_ids,
+            )
+    return engine, catalog
+
+
 def test_build_deck_uses_only_owned_cards_and_validates_draft(tmp_path: Path) -> None:
     engine = make_deck_database(tmp_path / "build.db", with_spell=True)
     with Session(engine) as session:
@@ -116,6 +183,95 @@ def test_build_deck_uses_only_owned_cards_and_validates_draft(tmp_path: Path) ->
     assert result.land_count == 98
     assert result.validation.status == "valid"
     assert result.role_counts["Compra de cartas (heurística)"] == 1
+
+
+def test_catalog_strategy_prioritizes_cards_without_changing_legacy_mode(
+    tmp_path: Path,
+) -> None:
+    engine, _ = make_catalog_deck_database(tmp_path / "catalog-guided.db")
+    with Session(engine) as session:
+        legacy_result = build_deck(
+            session,
+            commander_identifier="commander",
+            land_count=98,
+        )
+        catalog_result = build_deck(
+            session,
+            commander_identifier="commander",
+            land_count=98,
+            strategy_id="tokens",
+        )
+        repeated_result = build_deck(
+            session,
+            commander_identifier="commander",
+            land_count=98,
+            strategy_id="tokens",
+        )
+    engine.dispose()
+
+    legacy_ids = {card.oracle_id for card in legacy_result.cards}
+    catalog_ids = {card.oracle_id for card in catalog_result.cards}
+    assert "plain-card" in legacy_ids
+    assert "token-card" not in legacy_ids
+    assert "token-card" in catalog_ids
+    assert "plain-card" not in catalog_ids
+    assert catalog_result.catalog_strategy_id == "tokens"
+    assert catalog_result.catalog_strategy_name == "Tokens"
+    assert catalog_result.validation.status == "valid"
+    assert repeated_result.cards == catalog_result.cards
+
+    output = tmp_path / "catalog-guided.json"
+    export_deck(catalog_result, output)
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["draft"]["catalog_strategy"] == {
+        "id": "tokens",
+        "name": "Tokens",
+    }
+
+
+def test_catalog_strategy_requires_explicit_commander_affinity(
+    tmp_path: Path,
+) -> None:
+    engine, _ = make_catalog_deck_database(
+        tmp_path / "missing-affinity.db",
+        with_affinity=False,
+        classified_ids=(),
+    )
+    with Session(engine) as session:
+        with pytest.raises(DeckBuildError, match="Cadastre a afinidade"):
+            build_deck(
+                session,
+                commander_identifier="commander",
+                land_count=98,
+                strategy_id="tokens",
+            )
+    engine.dispose()
+
+
+def test_catalog_generation_reports_unclassified_cards_without_persisting_them(
+    tmp_path: Path,
+) -> None:
+    engine, _ = make_catalog_deck_database(
+        tmp_path / "unclassified.db",
+        classified_ids=("island", "token-card"),
+    )
+    with Session(engine) as session:
+        result = build_deck(
+            session,
+            commander_identifier="commander",
+            land_count=98,
+            strategy_id="tokens",
+        )
+        unclassified_runs = session.scalars(
+            select(ClassificationRun).where(
+                ClassificationRun.oracle_id == "plain-card"
+            )
+        ).all()
+    engine.dispose()
+
+    assert "token-card" in {card.oracle_id for card in result.cards}
+    assert result.unclassified_count == 1
+    assert unclassified_runs == []
 
 
 def test_build_deck_requires_sufficient_physical_land_copies(tmp_path: Path) -> None:

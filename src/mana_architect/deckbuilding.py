@@ -8,8 +8,21 @@ import re
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from mana_architect.catalog import (
+    DEFAULT_CATALOG_DIR,
+    StrategyCatalog,
+    load_strategy_catalog,
+)
+from mana_architect.classification_repository import (
+    load_card_classification_overrides,
+    load_commander_affinity_profile,
+    load_current_classifications,
+)
 from mana_architect.commanders import CommanderOption, resolve_commander
+from mana_architect.classification import ClassificationResult
+from mana_architect.commander_affinity import CommanderAffinityProfile
 from mana_architect.models import Card, CollectionPrinting
+from mana_architect.overrides import ManualOverride
 from mana_architect.roles import classify_card_roles
 from mana_architect.strategy import (
     CommanderStrategyProfile,
@@ -17,6 +30,7 @@ from mana_architect.strategy import (
     match_strategy_signals,
     strategy_signal_score,
 )
+from mana_architect.synergy import CardScoreInput, score_card_for_strategy
 from mana_architect.validation import (
     DeckCard,
     DeckValidationResult,
@@ -39,6 +53,7 @@ ROLE_NAMES = (
     "Remoção (heurística)",
     "Recursão (heurística)",
 )
+_CATALOG_SCORE_WEIGHT = 0.25
 
 
 class DeckBuildError(ValueError):
@@ -52,6 +67,9 @@ class DeckBuildResult:
     land_count: int
     role_counts: dict[str, int]
     validation: DeckValidationResult
+    catalog_strategy_id: str | None = None
+    catalog_strategy_name: str | None = None
+    unclassified_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -89,6 +107,7 @@ class _Candidate:
     quantity: int
     roles: tuple[str, ...]
     strategy_signals: tuple[str, ...] = ()
+    catalog_synergy_score: float | None = None
 
 
 def _basic_land_color(card: Card) -> str | None:
@@ -118,7 +137,11 @@ def _candidate_score(
         if candidate.card.cmc is not None
         else 0.0
     )
-    synergy_score = strategy_signal_score(profile, candidate.strategy_signals)
+    synergy_score = (
+        candidate.catalog_synergy_score
+        if candidate.catalog_synergy_score is not None
+        else strategy_signal_score(profile, candidate.strategy_signals)
+    )
     return (
         -(role_score + curve_score + synergy_score),
         candidate.card.cmc if candidate.card.cmc is not None else float("inf"),
@@ -132,6 +155,7 @@ def _select_lands(
     count: int,
     commander_identity: set[str],
     utility_land_limit: int,
+    unclassified_count: int = 0,
 ) -> list[_Candidate]:
     selected: list[_Candidate] = []
     selected_quantities: Counter[str] = Counter()
@@ -213,7 +237,9 @@ def _select_lands(
         if not available:
             return None
 
-        def rank(candidate: _Candidate) -> tuple[float, float, str, str]:
+        def rank(
+            candidate: _Candidate,
+        ) -> tuple[float, float, float, str, str]:
             supported_colors = produced_colors(candidate)
             coverage = sum(
                 1 / (1 + color_sources[color]) for color in supported_colors
@@ -231,6 +257,11 @@ def _select_lands(
             )
             return (
                 -(coverage + multicolor_bonus + utility_bonus - enters_tapped_penalty),
+                -(
+                    candidate.catalog_synergy_score
+                    if candidate.catalog_synergy_score is not None
+                    else 0.0
+                ),
                 candidate.card.cmc if candidate.card.cmc is not None else float("inf"),
                 candidate.card.name.casefold(),
                 candidate.card.oracle_id,
@@ -278,10 +309,16 @@ def _select_lands(
         add(candidate)
 
     if len(selected) != count:
-        raise DeckBuildError(
+        message = (
             f"Foram solicitados {count} terrenos, mas há apenas {len(selected)} "
             "identidades de terreno legais e disponíveis na coleção."
         )
+        if unclassified_count:
+            message += (
+                f" {unclassified_count} cartas não foram consideradas por falta "
+                "de classificação atual; reclassifique a coleção e tente novamente."
+            )
+        raise DeckBuildError(message)
     return selected
 
 
@@ -289,16 +326,57 @@ def build_deck(
     session: Session,
     commander_identifier: str,
     land_count: int = 38,
+    *,
+    strategy_id: str | None = None,
+    config_dir: Path = DEFAULT_CATALOG_DIR,
 ) -> DeckBuildResult:
     if isinstance(land_count, bool) or not isinstance(land_count, int):
         raise DeckBuildError("A quantidade de terrenos deve ser um inteiro.")
     if not 0 <= land_count <= 99:
         raise DeckBuildError("A quantidade de terrenos deve estar entre 0 e 99.")
+    if strategy_id is not None and (
+        not isinstance(strategy_id, str) or not strategy_id.strip()
+    ):
+        raise DeckBuildError("strategy_id deve ser um texto não vazio ou None.")
 
     commander = resolve_commander(session, commander_identifier)
     commander_card = session.get(Card, commander.oracle_id)
     if commander_card is None:
         raise DeckBuildError("Os dados do comandante não estão disponíveis.")
+
+    catalog: StrategyCatalog | None = None
+    catalog_strategy_name: str | None = None
+    commander_affinities: CommanderAffinityProfile | None = None
+    unclassified_count = 0
+    catalog_scores: dict[str, float] = {}
+    if strategy_id is not None:
+        catalog = load_strategy_catalog(config_dir)
+        strategy = next(
+            (
+                item
+                for item in catalog.strategies
+                if item.id == strategy_id and item.active
+            ),
+            None,
+        )
+        if strategy is None:
+            raise DeckBuildError(
+                f"Estratégia ativa inexistente no catálogo: '{strategy_id}'."
+            )
+        catalog_strategy_name = strategy.name
+        commander_affinities = load_commander_affinity_profile(
+            session,
+            commander.oracle_id,
+            catalog,
+        )
+        if commander_affinities is None or not any(
+            affinity.strategy_id == strategy_id
+            for affinity in commander_affinities.strategy_affinities
+        ):
+            raise DeckBuildError(
+                "Cadastre a afinidade do comandante para essa estratégia na "
+                "página Sugestões antes de gerar o deck."
+            )
 
     candidate_rows = session.execute(
         select(Card, func.sum(CollectionPrinting.quantity))
@@ -309,24 +387,105 @@ def build_deck(
         )
         .group_by(Card.oracle_id)
         .order_by(Card.name, Card.oracle_id)
-    )
+    ).all()
     commander_identity = set(commander.color_identity)
+    candidate_oracle_ids = tuple(
+        card.oracle_id
+        for card, _ in candidate_rows
+        if card.oracle_id != commander.oracle_id
+        and card.color_identity is not None
+        and set(card.color_identity).issubset(commander_identity)
+    )
+    candidate_oracle_id_set = set(candidate_oracle_ids)
+    classifications: dict[str, ClassificationResult] = {}
+    overrides: dict[str, tuple[ManualOverride, ...]] = {}
+    if catalog is not None:
+        classifications = load_current_classifications(
+            session,
+            candidate_oracle_ids,
+            catalog,
+            config_dir,
+        )
+        overrides = load_card_classification_overrides(
+            session,
+            candidate_oracle_ids,
+            catalog,
+        )
+        unclassified_count = len(
+            set(candidate_oracle_ids) - set(classifications)
+        )
+        if commander_affinities is None:
+            raise DeckBuildError(
+                "O perfil de afinidade do comandante não está disponível."
+            )
+        for card, quantity in candidate_rows:
+            if (
+                card.oracle_id == commander.oracle_id
+                or card.oracle_id not in candidate_oracle_id_set
+            ):
+                continue
+            classification = classifications.get(card.oracle_id)
+            if classification is None:
+                continue
+            score = score_card_for_strategy(
+                card=CardScoreInput(
+                    oracle_id=card.oracle_id,
+                    name=card.name,
+                    color_identity=tuple(card.color_identity),
+                    format_legal=True,
+                    classifications=classification,
+                    available_quantity=int(quantity),
+                ),
+                commander_oracle_id=commander.oracle_id,
+                commander_color_identity=tuple(commander.color_identity),
+                commander_affinities=commander_affinities,
+                strategy_id=strategy_id,
+                catalog=catalog,
+                only_collection=True,
+                overrides=overrides.get(card.oracle_id, ()),
+            )
+            if not score.eligible:
+                continue
+            if not score.rankable or score.score is None:
+                raise DeckBuildError(
+                    f"Não foi possível calcular o score de '{card.name}' "
+                    f"para a estratégia '{strategy_id}'."
+                )
+            score_minimum = catalog.scoring.normalization.minimum
+            score_range = (
+                catalog.scoring.normalization.maximum - score_minimum
+            )
+            if score_range <= 0:
+                raise DeckBuildError(
+                    "A faixa de normalização do score do catálogo é inválida."
+                )
+            catalog_scores[card.oracle_id] = (
+                _CATALOG_SCORE_WEIGHT
+                * (score.score - score_minimum)
+                / score_range
+            )
+
     profile = load_strategy_profile(commander.oracle_id)
     candidates = [
         _Candidate(
             card=card,
-            quantity=quantity,
+            quantity=int(quantity),
             roles=classify_card_roles(card.type_line, card.oracle_text),
             strategy_signals=match_strategy_signals(
                 profile,
                 card.type_line,
                 card.oracle_text,
             ),
+            catalog_synergy_score=catalog_scores.get(card.oracle_id),
         )
         for card, quantity in candidate_rows
         if card.oracle_id != commander.oracle_id
         and card.color_identity is not None
         and set(card.color_identity).issubset(commander_identity)
+        and (
+            strategy_id is None
+            or card.oracle_id in catalog_scores
+        )
     ]
 
     land_candidates = [
@@ -342,6 +501,7 @@ def build_deck(
         profile.utility_land_limit
         if profile is not None
         else max(1, land_count // 10),
+        unclassified_count=unclassified_count,
     )
 
     selected: dict[str, int] = {commander.oracle_id: 1}
@@ -411,10 +571,17 @@ def build_deck(
         selected_nonlands += copies
 
     if selected_nonlands != target_nonlands:
+        classification_note = (
+            f" {unclassified_count} cartas da coleção não foram consideradas por "
+            "falta de classificação atual; reclassifique a coleção e tente novamente."
+            if unclassified_count
+            else ""
+        )
         raise DeckBuildError(
             f"Não há cartas não-terreno distintas suficientes: eram necessárias "
             f"{target_nonlands}, mas apenas {selected_nonlands} puderam ser "
             "selecionadas respeitando coleção, legalidade e singleton."
+            f"{classification_note}"
         )
 
     deck_cards = tuple(
@@ -443,6 +610,9 @@ def build_deck(
         land_count=land_count,
         role_counts={role: actual_role_counts[role] for role in ROLE_NAMES},
         validation=validation,
+        catalog_strategy_id=strategy_id,
+        catalog_strategy_name=catalog_strategy_name,
+        unclassified_count=unclassified_count,
     )
 
 
@@ -452,21 +622,28 @@ def export_deck(result: DeckBuildResult, path: Path, overwrite: bool = False) ->
             f"O arquivo '{path}' já existe. Use --overwrite para substituí-lo."
         )
     path.parent.mkdir(parents=True, exist_ok=True)
+    draft = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "land_count": result.land_count,
+        "validation_status": result.validation.status,
+        "data_as_of": result.validation.data_as_of,
+        "rules_source": result.validation.rules_source,
+        "legality_source": result.validation.legality_source,
+        "role_counts_heuristic": result.role_counts,
+    }
+    if result.catalog_strategy_id is not None:
+        draft["catalog_strategy"] = {
+            "id": result.catalog_strategy_id,
+            "name": result.catalog_strategy_name,
+        }
+        draft["unclassified_count"] = result.unclassified_count
     payload = {
         "commander": result.commander.oracle_id,
         "cards": [
             {"oracle_id": entry.oracle_id, "quantity": entry.quantity}
             for entry in result.cards
         ],
-        "draft": {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "land_count": result.land_count,
-            "validation_status": result.validation.status,
-            "data_as_of": result.validation.data_as_of,
-            "rules_source": result.validation.rules_source,
-            "legality_source": result.validation.legality_source,
-            "role_counts_heuristic": result.role_counts,
-        },
+        "draft": draft,
     }
     temporary_path = path.with_suffix(path.suffix + ".tmp")
     try:

@@ -141,7 +141,29 @@ def _mana_curve_markup(mana_curve: dict[float, int]) -> str:
     )
 
 
-def _deck_json(analysis: DeckAnalysis) -> str:
+def _deck_json(
+    analysis: DeckAnalysis,
+    catalog_strategy_id: str | None = None,
+    catalog_strategy_name: str | None = None,
+) -> str:
+    draft = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "validation_status": analysis.validation.status,
+        "data_as_of": analysis.validation.data_as_of,
+        "land_count": analysis.land_count,
+        "rules_source": analysis.validation.rules_source,
+        "legality_source": analysis.validation.legality_source,
+        "role_counts_heuristic": analysis.role_counts,
+        "strategy_profile": analysis.strategy_name,
+        "strategy_themes_heuristic": analysis.strategy_themes,
+    }
+    if catalog_strategy_id is not None:
+        draft.pop("strategy_profile")
+        draft.pop("strategy_themes_heuristic")
+        draft["catalog_strategy"] = {
+            "id": catalog_strategy_id,
+            "name": catalog_strategy_name,
+        }
     return json.dumps(
         {
             "commander": next(
@@ -151,25 +173,20 @@ def _deck_json(analysis: DeckAnalysis) -> str:
                 {"oracle_id": card.oracle_id, "quantity": card.quantity}
                 for card in analysis.cards
             ],
-            "draft": {
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-                "validation_status": analysis.validation.status,
-                "data_as_of": analysis.validation.data_as_of,
-                "land_count": analysis.land_count,
-                "rules_source": analysis.validation.rules_source,
-                "legality_source": analysis.validation.legality_source,
-                "role_counts_heuristic": analysis.role_counts,
-                "strategy_profile": analysis.strategy_name,
-                "strategy_themes_heuristic": analysis.strategy_themes,
-            },
+            "draft": draft,
         },
         ensure_ascii=False,
         indent=2,
     ) + "\n"
 
 
-def _deck_text(analysis: DeckAnalysis) -> str:
+def _deck_text(
+    analysis: DeckAnalysis,
+    catalog_strategy_name: str | None = None,
+) -> str:
     lines = [f"# Commander: {analysis.commander_name}"]
+    if catalog_strategy_name:
+        lines.append(f"# Estratégia do catálogo: {catalog_strategy_name}")
     lines.extend(
         f"{card.quantity} {card.name}"
         for card in analysis.cards
@@ -187,15 +204,43 @@ def _deck_text(analysis: DeckAnalysis) -> str:
 def _generate_deck_from_form() -> None:
     commander_id = st.session_state["builder_commander_id"]
     land_count = int(st.session_state["builder_land_count"])
+    generation_mode = st.session_state["builder_generation_mode"]
+    strategy_id = (
+        st.session_state.get("builder_strategy_id")
+        if generation_mode == "catalog"
+        else None
+    )
+    if generation_mode not in {"legacy", "catalog"}:
+        st.session_state["deck_build_error"] = (
+            "Modo de geração desconhecido; escolha Legado ou Catálogo."
+        )
+        return
+    if generation_mode == "catalog" and not strategy_id:
+        st.session_state["deck_build_error"] = (
+            "Não há uma estratégia ativa disponível no catálogo."
+        )
+        return
     try:
         with Session(get_engine()) as session:
-            result = build_deck(session, commander_id, land_count)
+            result = build_deck(
+                session,
+                commander_id,
+                land_count,
+                strategy_id=strategy_id,
+            )
     except (ValueError, RuntimeError) as error:
         st.session_state["deck_build_error"] = str(error)
         return
 
     st.session_state.pop("deck_build_error", None)
     st.session_state["deck_commander_id"] = commander_id
+    if result.catalog_strategy_id is not None:
+        st.session_state["deck_catalog_strategy_id"] = result.catalog_strategy_id
+        st.session_state["deck_catalog_strategy_name"] = result.catalog_strategy_name
+    else:
+        st.session_state.pop("deck_catalog_strategy_id", None)
+        st.session_state.pop("deck_catalog_strategy_name", None)
+    st.session_state["deck_unclassified_count"] = result.unclassified_count
     st.session_state["deck_cards"] = [
         {"oracle_id": card.oracle_id, "quantity": card.quantity}
         for card in result.cards
@@ -369,10 +414,19 @@ def _render_deck_page(session: Session) -> None:
         return
 
     st.title(analysis.commander_name)
-    if analysis.strategy_name:
+    catalog_strategy_name = st.session_state.get("deck_catalog_strategy_name")
+    if catalog_strategy_name:
+        st.caption(f"Estratégia do catálogo: {catalog_strategy_name}")
+    elif analysis.strategy_name:
         st.caption(
             f"{analysis.strategy_name} · "
             f"{' · '.join(analysis.strategy_themes)}"
+        )
+    unclassified_count = st.session_state.get("deck_unclassified_count", 0)
+    if unclassified_count:
+        st.warning(
+            f"{unclassified_count} cartas sem classificação atual foram "
+            "desconsideradas pelo gerador do catálogo."
         )
 
     metric_columns = st.columns(4)
@@ -410,7 +464,11 @@ def _render_deck_page(session: Session) -> None:
     if analysis.validation.status == "valid":
         actions[0].download_button(
             "Baixar JSON",
-            data=_deck_json(analysis),
+            data=_deck_json(
+                analysis,
+                st.session_state.get("deck_catalog_strategy_id"),
+                catalog_strategy_name,
+            ),
             file_name="mana-architect-deck.json",
             mime="application/json",
             key="download_json",
@@ -418,7 +476,7 @@ def _render_deck_page(session: Session) -> None:
         )
         actions[1].download_button(
             "Baixar decklist TXT",
-            data=_deck_text(analysis),
+            data=_deck_text(analysis, catalog_strategy_name),
             file_name="mana-architect-deck.txt",
             mime="text/plain",
             key="download_text",
@@ -1103,6 +1161,9 @@ def _render_deck_builder(session: Session) -> None:
         )
         return
 
+    catalog = load_strategy_catalog()
+    strategies = tuple(item for item in catalog.strategies if item.active)
+    strategy_names = {item.id: item.name for item in strategies}
     commander_by_id = {commander.oracle_id: commander for commander in commanders}
     commander_ids = list(commander_by_id)
     with st.form("build_deck"):
@@ -1115,6 +1176,23 @@ def _render_deck_builder(session: Session) -> None:
                 f"{_format_identity(commander_by_id[oracle_id].color_identity)}"
             ),
         )
+        st.selectbox(
+            "Modo de estratégia",
+            options=("legacy", "catalog"),
+            format_func=lambda value: (
+                "Legado" if value == "legacy" else "Estratégia do catálogo"
+            ),
+            key="builder_generation_mode",
+        )
+        if strategies:
+            st.selectbox(
+                "Estratégia do catálogo",
+                options=tuple(strategy_names),
+                format_func=lambda value: strategy_names[value],
+                key="builder_strategy_id",
+            )
+        else:
+            st.warning("Não há estratégias ativas no catálogo.")
         st.number_input(
             "Quantidade de terrenos",
             min_value=0,
@@ -1127,10 +1205,19 @@ def _render_deck_builder(session: Session) -> None:
             "Gerar deck",
             type="primary",
             on_click=_generate_deck_from_form,
+            key="build_deck_submit",
         )
 
     selected_profile = load_strategy_profile(commander_id)
-    if selected_profile:
+    if st.session_state.get("builder_generation_mode") == "catalog":
+        selected_strategy_id = st.session_state.get("builder_strategy_id")
+        strategy_name = strategy_names.get(selected_strategy_id)
+        if strategy_name:
+            st.caption(
+                f"Modo catálogo: {strategy_name}. O score complementa o "
+                "balanceamento de funções, curva e terrenos."
+            )
+    elif selected_profile:
         st.caption(
             f"Perfil: {selected_profile.name} — "
             f"{', '.join(selected_profile.themes)}. "

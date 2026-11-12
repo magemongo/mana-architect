@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 pytest.importorskip("streamlit")
+import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 from mana_architect.catalog import DEFAULT_CATALOG_DIR, load_strategy_catalog
@@ -10,6 +11,12 @@ from mana_architect.classification_repository import (
     load_card_classification_overrides,
     load_latest_classification,
     reclassify_cards,
+    save_commander_affinity_profile,
+)
+from mana_architect.commander_affinity import (
+    CommanderAffinityProfile,
+    CommanderStrategyAffinity,
+    CommanderTagAffinity,
 )
 from mana_architect.database import create_database_engine, initialize_database
 from mana_architect.streamlit_app import (
@@ -151,6 +158,7 @@ def test_suggestions_page_saves_affinity_shows_cards_and_persists_corrections(
 ) -> None:
     database_path = tmp_path / "streamlit-suggestions.db"
     monkeypatch.setenv("MANA_ARCHITECT_DB_PATH", str(database_path))
+    st.cache_resource.clear()
     get_engine.clear()
     engine = create_database_engine(database_path)
     initialize_database(engine)
@@ -262,6 +270,7 @@ def test_suggestions_page_saves_affinity_shows_cards_and_persists_corrections(
         app_engine = get_engine()
         app_engine.dispose()
         get_engine.clear()
+        st.cache_resource.clear()
 
     engine = create_database_engine(database_path)
     try:
@@ -285,3 +294,97 @@ def test_suggestions_page_saves_affinity_shows_cards_and_persists_corrections(
         )
     finally:
         engine.dispose()
+
+
+def test_builder_generates_with_selected_catalog_strategy(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "streamlit-catalog-builder.db"
+    monkeypatch.setenv("MANA_ARCHITECT_DB_PATH", str(database_path))
+    st.cache_resource.clear()
+    get_engine.clear()
+    engine = create_database_engine(database_path)
+    initialize_database(engine)
+    catalog = load_strategy_catalog()
+    cards = (
+        ("ui-commander", "Blue Captain", "Legendary Creature — Human", "", 1, ["U"]),
+        ("ui-island", "Island", "Basic Land — Island", "", 99, ["U"]),
+        ("ui-token", "Z Token Plan", "Sorcery", "Create a token.", 1, []),
+        ("ui-plain", "A Plain Plan", "Sorcery", "Scry 1.", 1, []),
+    )
+    with Session(engine) as session, session.begin():
+        for oracle_id, name, type_line, oracle_text, quantity, identity in cards:
+            session.add(
+                Card(
+                    oracle_id=oracle_id,
+                    name=name,
+                    mana_cost=None,
+                    cmc=1 if type_line == "Sorcery" else None,
+                    colors=identity,
+                    color_identity=identity,
+                    produced_mana=["U"] if "Basic Land" in type_line else None,
+                    type_line=type_line,
+                    oracle_text=oracle_text,
+                    keywords=[],
+                    legalities={"commander": "legal"},
+                    image_uri=None,
+                    scryfall_updated_at="2026-11-11T12:00:00Z",
+                )
+            )
+            session.add(
+                CollectionPrinting(
+                    scryfall_id=f"printing-{oracle_id}",
+                    oracle_id=oracle_id,
+                    name=name,
+                    set_code="tst",
+                    collector_number="1",
+                    language="en",
+                    finish="nonfoil",
+                    quantity=quantity,
+                    condition="near_mint",
+                )
+            )
+        save_commander_affinity_profile(
+            session,
+            CommanderAffinityProfile(
+                commander_oracle_id="ui-commander",
+                strategy_affinities=(
+                    CommanderStrategyAffinity("tokens", "primary", 0.8),
+                ),
+                tag_affinities=(CommanderTagAffinity("create_tokens"),),
+            ),
+            catalog,
+        )
+        reclassify_cards(
+            session,
+            catalog,
+            DEFAULT_CATALOG_DIR,
+            ("ui-island", "ui-token", "ui-plain"),
+        )
+    engine.dispose()
+
+    try:
+        app = AppTest.from_file(
+            str(Path(__file__).parents[1] / "src" / "mana_architect" / "streamlit_app.py")
+        ).run()
+        app.selectbox(key="builder_commander_id").select("ui-commander")
+        app.selectbox(key="builder_generation_mode").select("catalog")
+        app.selectbox(key="builder_strategy_id").select("tokens")
+        app.number_input(key="builder_land_count").set_value(98)
+        app.form_submit_button(key="build_deck_submit").click().run()
+
+        assert not app.exception
+        assert app.session_state["deck_catalog_strategy_id"] == "tokens"
+        assert "ui-token" in {
+            card["oracle_id"] for card in app.session_state["deck_cards"]
+        }
+        assert any(
+            "Estratégia do catálogo: Tokens" in item.value
+            for item in app.caption
+        )
+    finally:
+        app_engine = get_engine()
+        app_engine.dispose()
+        get_engine.clear()
+        st.cache_resource.clear()

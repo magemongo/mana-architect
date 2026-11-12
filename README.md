@@ -36,13 +36,14 @@ ainda não tem edição direta. A interface usa o banco local configurado em
 
 O perfil operacional atual de Anowon prioriza sinais de Rogues tribais, mill e
 dano de combate; esse perfil legado permanece em
-`config/strategy_profiles.toml`. O novo catálogo versionado de estratégias,
-tags, funções, regras e parâmetros fica nos arquivos JSON em `config/`;
-ele ainda não substitui o perfil legado nem está conectado ao construtor. As
-diretrizes estão em `docs/deckbuilding-guidelines.md`. Comandantes sem perfil
-usam os critérios gerais de função e curva. O seletor de terrenos favorece
-fontes que cobrem cores da identidade do comandante e pode incluir terrenos
-utilitários; esses limites são heurísticos e configuráveis no perfil.
+`config/strategy_profiles.toml` e continua sendo o padrão do gerador. O catálogo
+versionado de estratégias, tags, funções, regras e parâmetros fica nos arquivos
+JSON em `config/`. No **Construtor** ou na CLI, você pode escolher uma estratégia
+do catálogo para guiar a seleção; isso exige uma afinidade explícita entre o
+comandante e a estratégia, cadastrada na página **Sugestões**. As diretrizes
+gerais estão em `docs/deckbuilding-guidelines.md`. O catálogo prioriza
+candidatos, mas o gerador continua equilibrando funções e curva, respeitando a
+coleção, legalidade, identidade de cor e cobertura de cores da base de mana.
 
 O classificador por regras versionadas produz evidências candidatas e mantém
 revisão humana para sinais ambíguos. Os resultados e suas evidências podem ser
@@ -62,13 +63,15 @@ incremental, acionada pelo usuário e não roda automaticamente ao abrir o app.
 Consulte
 `docs/classification-storage.md` antes de executar a persistência na coleção.
 
-O scorer determinístico calcula sinergia por estratégia explicitamente
-selecionada e, na página **Sugestões**, consulta cartas da coleção para o
-comandante, estratégia e funções escolhidos. A tela apresenta score, razões do
-match, funções detectadas e quantidade disponível; legalidade e identidade de
-cor continuam filtros separados. A geração automática de deck ainda não usa
-esse scorer. A fórmula e suas limitações estão descritas em
-`docs/synergy-scoring.md`.
+O scorer determinístico calcula sinergia para uma estratégia explicitamente
+selecionada. Na página **Sugestões**, consulta a coleção e apresenta score,
+razões do match, funções detectadas e quantidade disponível. Na geração guiada
+pelo catálogo, o score também prioriza candidatos junto ao balanceamento de
+funções e curva. Classificações ausentes ou desatualizadas não são recalculadas
+automaticamente: reclassifique a coleção na página **Sugestões**; cartas sem
+classificação atual são informadas e não entram no modo guiado. Legalidade e
+identidade de cor continuam filtros separados. A fórmula, a integração e suas
+limitações estão descritas em `docs/synergy-scoring.md`.
 
 Se o comando `py` não estiver disponível, instale o Python e habilite o
 launcher durante a instalação, ou crie o ambiente com o caminho completo
@@ -205,6 +208,18 @@ da identidade quando disponíveis e usa os rótulos heurísticos (ramp,
 compra, remoção e recursão), com custo de mana como critério secundário,
 para ordenar as outras opções. A composição não é uma recomendação
 estratégica garantida: revise sinergia, curva, terrenos e plano de jogo.
+Para usar o catálogo em vez do perfil legado como sinal estratégico, informe
+uma estratégia ativa e tenha cadastrado a afinidade do comandante na página
+**Sugestões**:
+
+```powershell
+python -m mana_architect build-deck "Anowon, the Ruin Thief" --strategy tokens --output .\data\decks\anowon-tokens.json
+```
+
+O score do catálogo complementa funções e curva; não é uma ordenação isolada
+das cartas. Sem `--strategy`, a CLI mantém o modo legado. No modo do catálogo,
+cartas sem classificação atual são desconsideradas e informadas; a geração não
+reclassifica nem persiste classificações automaticamente.
 O rascunho só é salvo se tiver 100 cartas e não houver violações
 determinísticas conhecidas; se os dados não permitirem completar a lista,
 o programa informa a limitação e não grava um deck incompleto. Se a

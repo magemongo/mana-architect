@@ -65,7 +65,24 @@ ID da carta, exigem justificativa e ficam separadas das evidências automáticas
 Uma exclusão contraditória é exibida como conflito; remover a correção retorna
 à classificação automática.
 
+O gerador também aceita uma estratégia explícita do catálogo. Nesse modo,
+`build_deck` pontua os candidatos legais, compatíveis com a identidade de cor e
+disponíveis na coleção usando classificações atuais e overrides. A pontuação é
+normalizada para `[0, 1]` conforme a escala configurada e contribui com peso
+`0.25` ao lado do balanceamento dinâmico de funções e curva. A cobertura de
+funções do scorer não é ativada nessa chamada: o próprio gerador já atualiza
+funções conforme seleciona cartas. Para terrenos, o score só desempata escolhas
+com o mesmo resultado estrutural de cobertura de cores, utilidade e terreno
+entrando virado.
+
+O modo guiado exige afinidade explícita entre comandante e estratégia. Cartas
+sem classificação atual não são pontuadas nem selecionadas; sua quantidade é
+informada, e classificações não são persistidas automaticamente. A CLI usa o
+modo legado quando `--strategy` é omitido, assim como o **Construtor** quando o
+modo do catálogo não é escolhido. A geração final continua sujeita à validação
+Commander existente.
+
 O ajuste de prioridade do usuário é uma preferência, não evidência da carta.
 Os pesos e caps são iniciais, precisam de validação com uso real e não
 representam calibração empírica. A tela de sugestões não altera a decklist e
-não substitui a heurística atual do construtor.
+não oferece edição manual da decklist.
