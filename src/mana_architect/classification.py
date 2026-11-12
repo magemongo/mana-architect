@@ -164,10 +164,15 @@ def classify_card(
         catalog.oracle_mechanical_patterns or None,
     )
     evidence: list[ClassificationEvidence] = []
-    for rule in catalog.rules:
+    # Resolve mechanical tags first. Roles and strategy labels can then be
+    # derived from those normalized tags instead of reparsing Oracle phrases.
+    ordered_rules = tuple(
+        rule for rule in catalog.rules if rule.target_type == "tag"
+    ) + tuple(rule for rule in catalog.rules if rule.target_type != "tag")
+    for rule in ordered_rules:
         if not rule.enabled:
             continue
-        match = _match_rule(normalized, rule, oracle_parse)
+        match = _match_rule(normalized, rule, oracle_parse, tuple(evidence))
         if match is None:
             continue
         source_field, matched_value, face_index, span_start, span_end = match
@@ -323,6 +328,7 @@ def _match_rule(
     card: NormalizedCard,
     rule: ClassificationRule,
     oracle_parse: OracleParse,
+    existing_evidence: tuple[ClassificationEvidence, ...] = (),
 ) -> tuple[str, str, int | None, int | None, int | None] | None:
     predicate = rule.match
     if predicate.type == "oracle_feature_any":
@@ -359,6 +365,16 @@ def _match_rule(
                     "oracle_text_normalized", matched_value, ability_index,
                     mechanic.evidence_start, mechanic.evidence_end,
                 )
+        return None
+    if predicate.type == "classification_tag_any":
+        tags = {
+            item.target_id: item
+            for item in existing_evidence
+            if item.target_type == "tag"
+        }
+        for tag_id in predicate.values:
+            if tag_id in tags:
+                return "classification_tags", tag_id, None, None, None
         return None
     for source_field in rule.source_fields:
         segments = _field_segments(card, source_field)

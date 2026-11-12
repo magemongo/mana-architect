@@ -141,6 +141,65 @@ def test_lifegain_rule_uses_actor_attribute_to_exclude_opponents() -> None:
     assert all(item.target_id != "lifegain" for item in opponent_gain.evidence)
 
 
+def test_spot_interaction_role_is_derived_from_mechanical_tag(catalog: StrategyCatalog) -> None:
+    result = classify_card(
+        CardClassificationInput(
+            type_line="Instant",
+            oracle_text="Counter target spell.",
+        ),
+        catalog,
+    )
+
+    targets = {(item.target_type, item.target_id) for item in result.evidence}
+    assert ("tag", "counterspell") in targets
+    assert ("role", "spot_interaction") in targets
+    role_evidence = next(
+        item for item in result.evidence
+        if item.target_type == "role" and item.target_id == "spot_interaction"
+    )
+    assert role_evidence.rule_id == "role_spot_interaction_from_mechanical_tags"
+    assert role_evidence.source_field == "classification_tags"
+    assert role_evidence.matched_value == "counterspell"
+
+
+def test_mass_interaction_role_is_derived_from_board_wipe_tag(catalog: StrategyCatalog) -> None:
+    result = classify_card(
+        CardClassificationInput(
+            type_line="Sorcery",
+            oracle_text="Destroy all creatures.",
+        ),
+        catalog,
+    )
+
+    targets = {(item.target_type, item.target_id) for item in result.evidence}
+    assert ("tag", "board_wipe") in targets
+    assert ("role", "mass_interaction") in targets
+
+
+def test_aristocrats_strategy_signals_are_classified_as_tags(
+    catalog: StrategyCatalog,
+) -> None:
+    result = classify_card(
+        CardClassificationInput(
+            type_line="Enchantment",
+            oracle_text=(
+                "Whenever another creature dies, each opponent loses 1 life. "
+                "Sacrifice a creature: Draw a card."
+            ),
+        ),
+        catalog,
+    )
+
+    tag_ids = {item.target_id for item in result.evidence if item.target_type == "tag"}
+    assert {
+        "sacrifice_creature",
+        "sacrifice_outlet",
+        "dies_trigger",
+        "aristocrats_payoff",
+        "death_drain",
+    } <= tag_ids
+
+
 def test_land_drop_and_expensive_creature_are_not_ramp_or_reanimation(
     catalog: StrategyCatalog,
 ) -> None:

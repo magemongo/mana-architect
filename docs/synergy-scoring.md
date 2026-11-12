@@ -69,7 +69,18 @@ deck selection and Suggestions. Card draw and recursion remain mechanics: a
 one-for-one replacement or one-shot recovery is not automatically card
 advantage. `main_strategy` is a dynamic deckbuilding role derived from evidence
 matching the selected strategy's tag affinities, not a universal card label.
-Catalog role terms remain available for user-configured rules and are reviewable.
+Configured role rules can also consume classified tags: counterspell, spot
+removal, and single-target protection support `spot_interaction`; board wipes
+and mass protection support `mass_interaction`. Strategy tag affinities are a
+separate mapping, so the same tag can inform a generic role and one or more
+strategy plans without conflating those concepts. Catalog role terms remain
+available for user-configured rules and are reviewable.
+
+For example, the Aristocrats strategy consumes tags such as
+`sacrifice_creature`, `dies_trigger`, `aristocrats_payoff`, `death_drain`,
+`sacrifice_outlet`, and `create_tokens` through its configured affinities.
+These tags come from reviewable classification rules; they are not roles, and
+no single one alone proves that a card belongs in an Aristocrats deck.
 
 The generator also accepts an explicit catalog strategy. In that mode,
 `build_deck` scores legal, color-identity-compatible cards available in the

@@ -740,9 +740,14 @@ def _card_input_fingerprint(card: Card, catalog: StrategyCatalog) -> str:
     relevant_fields = sorted(set(relevant_fields) | {"oracle_text"})
     if any(role.oracle_keywords for role in catalog.roles):
         relevant_fields = sorted(set(relevant_fields) | {"oracle_text", "keywords"})
-    if {"oracle_features", "oracle_mechanics"}.intersection(relevant_fields):
+    if {"oracle_features", "oracle_mechanics", "classification_tags"}.intersection(
+        relevant_fields
+    ):
         relevant_fields = sorted(
-            (set(relevant_fields) - {"oracle_features", "oracle_mechanics"})
+            (
+                set(relevant_fields)
+                - {"oracle_features", "oracle_mechanics", "classification_tags"}
+            )
             | {"oracle_text"}
         )
     payload = {field: values[field] for field in relevant_fields}

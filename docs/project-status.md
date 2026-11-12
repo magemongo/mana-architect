@@ -1,8 +1,8 @@
 # Project Status and Roadmap
 
 - **Reviewed:** 2026-11-12
-- **Last fully audited revision:** `5533668` (the parser integration below has
-  not received a full test-suite audit)
+- **Last fully audited revision:** `a99dea1`; subsequent role and strategy
+  mapping changes are in progress and need a full test audit
 - **Approved development scope:** catalog, role, affinity administration, and
   Oracle text parser integration requested on 2026-11-12
 - **Product language:** English
@@ -90,8 +90,8 @@ related validation and generation tests.
 
 ### Catalog and interface
 
-- Versioned JSON configuration with **15 strategies, 108 tags, 4 core roles, and
-  19 classification rules**. `main_strategy` is calculated dynamically; land
+- Versioned JSON configuration with **15 strategies, 107 tags, 4 core roles, and
+  26 classification rules**. `main_strategy` is calculated dynamically; land
   remains a card type and deck-composition property, not a role.
 - Deterministic rule-based classification with evidence, fingerprints, and
   review indicators. Per-card overrides and commander affinities are persisted
@@ -108,6 +108,11 @@ related validation and generation tests.
   dynamically from evidence associated with the selected strategy. Card
   selection, interaction modes, and other mechanics remain separate tags or
   parser facts.
+- Classification rules can derive generic interaction roles from classified
+  mechanical tags. Strategy affinity remains a separate tag-to-strategy mapping.
+- Initial Aristocrats signals now include creature sacrifice, sacrifice outlets,
+  creature-death triggers/payoffs, death-drain patterns, and token creation.
+  These phrase rules are reviewable heuristics, not a complete rules parser.
 - Initial role heuristics are reviewable and do not equate one-for-one draw or
   filtering with card advantage.
 - The Oracle parser uses versioned lexicon and mechanic catalogs, supports

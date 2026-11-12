@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "ruleset_version": "1.5.0",
+  "ruleset_version": "1.6.0",
   "rules": [
     {
       "id": "tag_create_tokens_oracle_text",
@@ -286,6 +286,111 @@
       "weight": 0.75,
       "confidence": 0.65,
       "evidence_label": "Oracle text suggests protection for multiple permanents or players.",
+      "requires_review": true
+    },
+    {
+      "id": "role_spot_interaction_from_mechanical_tags",
+      "enabled": true,
+      "target_type": "role",
+      "target_id": "spot_interaction",
+      "source_fields": ["classification_tags"],
+      "match": {
+        "type": "classification_tag_any",
+        "values": ["counterspell", "spot_removal", "protect_single_creature"]
+      },
+      "weight": 0.8,
+      "confidence": 0.75,
+      "evidence_label": "A classified single-target answer or protection effect provides spot interaction.",
+      "requires_review": true
+    },
+    {
+      "id": "role_mass_interaction_from_mechanical_tags",
+      "enabled": true,
+      "target_type": "role",
+      "target_id": "mass_interaction",
+      "source_fields": ["classification_tags"],
+      "match": {
+        "type": "classification_tag_any",
+        "values": ["board_wipe", "mass_protection"]
+      },
+      "weight": 0.8,
+      "confidence": 0.75,
+      "evidence_label": "A classified broad answer or protection effect provides mass interaction.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_sacrifice_creature_oracle_text",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "sacrifice_creature",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {
+        "type": "phrase_any",
+        "values": ["sacrifice a creature", "sacrifice another creature", "sacrifice two creatures", "sacrifice three creatures"]
+      },
+      "weight": 0.8,
+      "confidence": 0.7,
+      "evidence_label": "Oracle text uses a creature as a sacrifice cost or resource.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_sacrifice_outlet_oracle_text",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "sacrifice_outlet",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {
+        "type": "phrase_any",
+        "values": ["sacrifice a creature:", "sacrifice another creature:", "sacrifice a token:"]
+      },
+      "weight": 0.8,
+      "confidence": 0.7,
+      "evidence_label": "Oracle text offers a repeatable sacrifice outlet as an activated ability.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_dies_trigger_oracle_text",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "dies_trigger",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {
+        "type": "phrase_any",
+        "values": ["whenever a creature you control dies", "whenever another creature dies", "whenever one or more creatures you control die", "whenever a creature dies"]
+      },
+      "weight": 0.8,
+      "confidence": 0.7,
+      "evidence_label": "Oracle text triggers on a creature dying.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_aristocrats_payoff_oracle_text",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "aristocrats_payoff",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {
+        "type": "phrase_any",
+        "values": ["whenever a creature dies", "whenever another creature dies", "whenever one or more creatures die"]
+      },
+      "weight": 0.7,
+      "confidence": 0.6,
+      "evidence_label": "Oracle text may reward creature deaths; payoff context should be reviewed.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_death_drain_oracle_text",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "death_drain",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {
+        "type": "phrase_all",
+        "values": ["whenever", "creature", "dies", "each opponent loses"]
+      },
+      "weight": 0.5,
+      "confidence": 0.45,
+      "evidence_label": "A life-loss effect may be an Aristocrats death payoff when paired with a death trigger.",
       "requires_review": true
     }
   ]

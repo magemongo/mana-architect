@@ -25,8 +25,16 @@ returned on `ClassificationResult.oracle_parse`.
   multiplier attributes and all facts carry source spans.
 - Rule predicates `oracle_feature_any` and `oracle_mechanic_any` consume those
   outputs. Mechanic rules can constrain exact scalar attributes with `where`
-  (currently used to distinguish your life gain from an opponent's). All seven
-  former literal Oracle-text rules now use mechanic IDs.
+  (currently used to distinguish your life gain from an opponent's).
+- Classification runs evaluate tag rules before dependent rules. The
+  `classification_tag_any` predicate lets a role rule consume already
+  classified mechanical tags. For example, `counterspell`, `spot_removal`,
+  and `protect_single_creature` can support `spot_interaction`, while
+  `board_wipe` and `mass_protection` can support `mass_interaction`.
+- Strategy matching consumes the same tag evidence through each strategy's
+  `tag_affinities`. The selected strategy determines dynamic
+  `main_strategy` contribution; tag and role evidence remain independently
+  visible and explainable.
 - Configured role terms are parsed as `configured_role_term` features before
   the compatibility mapping to role evidence, removing raw substring search
   while preserving existing role behavior.
@@ -55,8 +63,8 @@ The next migration should:
 2. Expand structured attributes and exact-match `where` predicates to cover
   targets, controller scope, zone transitions, and polarity. Keep ability words
   as lexical evidence; do not infer mechanics from a label.
-3. Gradually replace `roles[].oracle_keywords` with explicit feature/mechanic
-  rules; the compatibility mapping currently consumes parsed feature spans.
+3. Gradually replace remaining `roles[].oracle_keywords` compatibility terms
+  and text heuristics with explicit feature/mechanic and tag-to-role rules.
 4. Compare classifications against a broader Oracle fixture corpus and review
   false positives as the parser catalog grows.
 

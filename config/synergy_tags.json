@@ -788,19 +788,6 @@
       "manual_review_recommended": true
     },
     {
-      "id": "token_generation",
-      "name": "Token Generation",
-      "description": "Creates tokens that can serve as bodies or resources.",
-      "family": "tokens",
-      "related_strategy_ids": [
-        "aristocrats"
-      ],
-      "aliases": [
-        "Create Tokens"
-      ],
-      "manual_review_recommended": true
-    },
-    {
       "id": "noncombat_damage",
       "name": "Noncombat Damage",
       "description": "Deals damage without relying on combat damage.",

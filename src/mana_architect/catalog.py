@@ -23,6 +23,7 @@ _RULE_SOURCE_FIELDS = {
     "oracle_text_normalized",
     "oracle_features",
     "oracle_mechanics",
+    "classification_tags",
     "produced_mana",
     "type_line",
     "type_line_normalized",
@@ -36,6 +37,7 @@ _PREDICATE_TYPES = {
     "field_equals",
     "oracle_feature_any",
     "oracle_mechanic_any",
+    "classification_tag_any",
 }
 _SCORING_COMPONENTS = {
     "strategy_evidence",
@@ -414,6 +416,7 @@ def _parse_predicate(
         "keyword_contains",
         "oracle_feature_any",
         "oracle_mechanic_any",
+        "classification_tag_any",
     }:
         values = _string_tuple(raw, filename, f"{path}.values")
         if not values:
@@ -423,6 +426,7 @@ def _parse_predicate(
             "keyword_contains": {"keywords"},
             "oracle_feature_any": {"oracle_features"},
             "oracle_mechanic_any": {"oracle_mechanics"},
+            "classification_tag_any": {"classification_tags"},
         }.get(predicate_type)
         if required_field is not None and not required_field.intersection(source_fields):
             raise _error(
@@ -443,7 +447,7 @@ def _parse_predicate(
                 raise _error(filename, f"{path}.where", "expected an object of scalar attributes")
             where = tuple(sorted(raw_where.items()))
         elif "where" in raw:
-            raise _error(filename, f"{path}.where", "where is supported only for oracle_mechanic_any")
+            raise _error(filename, f"{path}.where", "where is supported only for mechanic predicates")
         return MatchPredicate(type=predicate_type, values=values, where=where)
 
     field = _identifier(raw, filename, f"{path}.field")
@@ -578,6 +582,14 @@ def _validate_references(
                 f"rules[{rule.id}].target_id",
                 f"{rule.target_type} inexistente: {rule.target_id}",
             )
+        if rule.match.type == "classification_tag_any":
+            unknown_tags = set(rule.match.values) - tag_ids
+            if unknown_tags:
+                raise _error(
+                    "classification_rules.json",
+                    f"rules[{rule.id}].match.values",
+                    f"tag_ids inexistentes: {', '.join(sorted(unknown_tags))}",
+                )
 
 
 def _validate_scoring(scoring: ScoringConfig, filename: str) -> None:

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.3.0",
+  "catalog_version": "1.4.0",
   "strategies": [
     {
       "id": "tokens",
@@ -430,7 +430,7 @@
           "weight": 0.6
         },
         {
-          "tag_id": "token_generation",
+          "tag_id": "create_tokens",
           "weight": 0.7
         }
       ],
