@@ -1,4 +1,8 @@
-# Sprint 6 — Integrar o catálogo estratégico ao gerador
+# Integração do catálogo estratégico ao gerador
+
+> **Status: concluída.** Registro dos requisitos e critérios de aceite da
+> integração do catálogo à geração automática. Esta página documenta a entrega,
+> não o roadmap futuro; consulte [project-status.md](./project-status.md).
 
 ## Objetivo
 
@@ -7,7 +11,7 @@ priorizar cartas da coleção, sem abrir mão da estrutura do deck, das restriç
 de Commander ou do comportamento atual quando a pessoa não escolhe uma
 estratégia do catálogo.
 
-Esta sprint liga o catálogo ao gerador. A edição manual do deck a partir da
+Esta integração liga o catálogo ao gerador. A edição manual do deck a partir da
 página **Sugestões** fica para uma etapa posterior.
 
 ## Contexto atual
@@ -136,9 +140,20 @@ mantém o comportamento atual.
 4. Verificar a validação, os downloads e a regressão do modo legado; validar
    manualmente os dois fluxos.
 
-## Limite para considerar a sprint concluída
+## Critério de conclusão
 
-A sprint termina quando o catálogo influencia de forma observável e
+A integração é considerada concluída quando o catálogo influencia de forma observável e
 determinística a seleção automática, preservando as restrições e a composição
 estrutural, e quando o modo legado continua disponível. A edição manual de
 decklists permanece como trabalho posterior.
+
+## Evidências de conclusão
+
+- Implementação: `src/mana_architect/deckbuilding.py`,
+  `src/mana_architect/cli.py` e `src/mana_architect/streamlit_app.py`.
+- Testes da integração: `tests/test_deckbuilding.py`,
+  `tests/test_cli.py` e `tests/test_streamlit_app.py`.
+- Suíte completa na revisão `5533668`: `python -m pytest -q` — **131 passed**.
+- Exercício manual no Streamlit com banco temporário: estratégia Tokens,
+  deck **100/100**, 98 terrenos e validação aprovada. O banco de teste foi
+  removido após a verificação.

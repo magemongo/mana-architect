@@ -3,6 +3,10 @@
 Aplicação local para organizar uma coleção de Magic: The Gathering e ajudar
 a montar decks Commander usando somente cartas que o usuário possui.
 
+Para consultar o objetivo, o estado implementado e o roadmap reconhecido, veja
+o [estado do projeto](docs/project-status.md) e o
+[índice da documentação](docs/README.md).
+
 ## Quickstart (Windows / PowerShell)
 
 Requer Python 3.11 ou superior. No terminal, na pasta do projeto:
@@ -282,11 +286,7 @@ contêm determinado idioma.
 
 ## Escopo atual
 
-O projeto inclui importação e pesquisa de coleção pela CLI, sincronização de
-cartas, seleção explícita de comandante, validação e geração determinística
-de rascunhos, análise e exportação de decklists. A interface Streamlit local
-separa o construtor da visualização do deck, com lista agrupada e prévia de
-cartas. A seleção considera o perfil estratégico inicial de Anowon e a
-cobertura de cores da base de mana; as classificações, os sinais de sinergia
-e a composição continuam heurísticos, não recomendações estratégicas
-garantidas.
+O estado detalhado das capacidades, limitações e próximos candidatos está em
+[docs/project-status.md](docs/project-status.md). Este README é o guia de
+instalação e uso; o [índice da documentação](docs/README.md) identifica as
+referências técnicas e os documentos históricos.

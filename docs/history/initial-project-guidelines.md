@@ -4,6 +4,10 @@
 **Status:** Documento inicial de orientação para o agente de
 desenvolvimento (Codex)
 
+> **Documento histórico.** Este arquivo registra a visão e o roadmap originais.
+> O plano de sprints e as instruções de kickoff não são atuais; consulte
+> [`../project-status.md`](../project-status.md) antes de qualquer trabalho.
+
 ## 1. Visão do projeto
 
 Desenvolver uma aplicação desktop local chamada **Mana Architect**, um
@@ -103,7 +107,7 @@ Utilizar inicialmente:
   ORM                     SQLAlchemy              Acesso ao banco
 
   Manipulação de CSV      Pandas (ou módulo csv   Importação
-                          quando suficiente)      
+                          quando suficiente)
 
   Dados de cartas         Scryfall Bulk Data /    Enriquecimento dos
                           API                     dados

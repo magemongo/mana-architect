@@ -1,6 +1,6 @@
 # Mana Architect — Diretrizes de implementação do catálogo de estratégias
 
-> Especificação para implementação do catálogo de estratégias, classificação de cartas e comandantes e pontuação determinística de sinergia. Este arquivo é destinado à raiz do repositório e deve ser tratado como requisito de produto e engenharia.
+> Especificação original do catálogo de estratégias, classificação de cartas e comandantes e pontuação determinística de sinergia. O núcleo descrito foi implementado e evoluiu; este arquivo é mantido para contexto e auditoria, não como roadmap ou instrução ativa. Consulte [`../project-status.md`](../project-status.md) para o estado atual.
 
 ## 1. Objetivo e contexto
 
@@ -514,7 +514,11 @@ Não encerrar a implementação só porque módulos importam. Incluir testes uni
 - Chaves estrangeiras, unicidade e rollback verificados.
 - Atualização do catálogo conserva overrides e marca/recalcula classificações conforme política documentada.
 
-## 13. Fases de implementação
+## 13. Sequência original de implementação (histórica)
+
+As fases abaixo registram a sequência proposta antes da implementação. Não
+reinicie essas fases; seu estado atual e as lacunas restantes estão em
+[`../project-status.md`](../project-status.md).
 
 Implementar incrementalmente e manter cada etapa utilizável. Não misturar alterações de interface, integração externa e regras do domínio numa única mudança.
 
@@ -563,7 +567,13 @@ Implementar incrementalmente e manter cada etapa utilizável. Não misturar alte
 - Permitir correção manual sem perder proveniência e sem depender de LLM.
 - Considerar uma futura etapa de UX/IA apenas depois de o núcleo estar validado.
 
-## 14. Instruções explícitas ao agente de código (Copilot/Codex)
+## 14. Instruções originais para agentes (históricas; não executar)
+
+> **Instruções históricas:** o prompt de kickoff original pedia começar pela
+> Fase 0. Esse reconhecimento e as fases subsequentes pertencem ao histórico;
+> não execute o prompt inicial abaixo. Para trabalho futuro, siga o índice em
+> [`../README.md`](../README.md), o estado atual em
+> [`../project-status.md`](../project-status.md) e o escopo solicitado pelo usuário.
 
 Ao receber este documento, siga estas instruções:
 
@@ -583,7 +593,7 @@ Ao receber este documento, siga estas instruções:
 ### Prompt inicial sugerido para o agente
 
 ```text
-Leia integralmente `Mana_Architect_Diretrizes_Catalogo_Estrategias.md` e as instruções do repositório. Comece exclusivamente pela Fase 0: inspecione a estrutura, o banco, as migrações, o modelo de cartas e os testes existentes. Não implemente funcionalidades ainda. Entregue um resumo da arquitetura atual, identifique conflitos ou decisões em aberto em relação ao documento e proponha o menor próximo passo para a Fase 1. Não altere dados reais nem faça chamadas externas.
+Leia integralmente `docs/history/strategy-catalog-implementation-spec.md` e as instruções do repositório. Comece exclusivamente pela Fase 0: inspecione a estrutura, o banco, as migrações, o modelo de cartas e os testes existentes. Não implemente funcionalidades ainda. Entregue um resumo da arquitetura atual, identifique conflitos ou decisões em aberto em relação ao documento e proponha o menor próximo passo para a Fase 1. Não altere dados reais nem faça chamadas externas.
 ```
 
 ## 15. Decisões que podem evoluir sem quebrar o contrato
