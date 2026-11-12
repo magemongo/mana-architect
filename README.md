@@ -61,9 +61,14 @@ sugestão. Também valida perfis de afinidade de comandante com múltiplas
 estratégias e tags, níveis `primary`, `secondary` ou `complementary` e
 explicações. Scores de afinidade são valores heurísticos, não probabilidades.
 Overrides, afinidades e evidências são persistidos em tabelas aditivas do SQLite.
-Na página **Sugestões**, é possível editar afinidades e corrigir a classificação
-de uma carta sem apagar suas evidências automáticas. A reclassificação é
-incremental, acionada pelo usuário e não roda automaticamente ao abrir o app.
+Na página **Sugestões**, é possível editar múltiplas afinidades do comandante
+na mesma tabela e corrigir a classificação de uma carta sem apagar suas
+evidências automáticas. As funções são agrupadas entre serviços do deck e
+sinergias da estratégia. A página **Catálogo** permite consultar, criar, editar
+e excluir estratégias e funções, incluindo termos Oracle por função. A exclusão
+remove vínculos e correções manuais atuais após confirmação, preservando o
+histórico de classificações. Alterações versionam os arquivos em `config/`; a reclassificação é incremental, acionada
+pelo usuário e não roda automaticamente ao abrir o app.
 Consulte
 `docs/classification-storage.md` antes de executar a persistência na coleção.
 

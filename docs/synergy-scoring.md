@@ -65,6 +65,14 @@ ID da carta, exigem justificativa e ficam separadas das evidências automáticas
 Uma exclusão contraditória é exibida como conflito; remover a correção retorna
 à classificação automática.
 
+As funções são agrupadas em `deck_service` (por exemplo, ramp, compra e
+interação) e `synergy_role` (por exemplo, gerador de fichas, enabler e payoff).
+Os filtros de prioridade são opcionais e separados por grupo. Termos
+`oracle_keywords` editados na página **Catálogo** são correspondências literais
+com texto Oracle ou keywords Scryfall e geram evidência heurística marcada para
+revisão. Combinações e regras mais precisas continuam configuráveis em
+`config/classification_rules.json`.
+
 O gerador também aceita uma estratégia explícita do catálogo. Nesse modo,
 `build_deck` pontua os candidatos legais, compatíveis com a identidade de cor e
 disponíveis na coleção usando classificações atuais e overrides. A pontuação é

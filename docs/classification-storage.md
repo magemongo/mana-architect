@@ -37,6 +37,14 @@ afetados quando a reclassificação for solicitada. Alterações apenas em
 Cada versão registrada guarda o hash, as versões declaradas, a versão do
 normalizador e os conteúdos dos cinco arquivos de configuração.
 
+Na página **Catálogo**, salvar estratégia ou função incrementa as versões do
+catálogo e das regras conforme o caso. Termos Oracle de uma função participam
+da classificação e do fingerprint; editar esses termos torna os resultados
+anteriores obsoletos até uma reclassificação explícita. Excluir uma estratégia
+ou função requer confirmação e remove suas afinidades e correções manuais atuais,
+além das regras e relações configuradas. Classificações históricas e seus
+snapshots de configuração são preservados para auditoria.
+
 `save_card_classification_override` exige uma justificativa e grava uma decisão
 por carta/alvo. A evidência automática não é modificada nem apagada; o serviço
 de sugestão combina ambas ao calcular o resultado. `remove_card_classification_override`

@@ -31,28 +31,6 @@ _PREDICATE_TYPES = {
     "numeric_threshold",
     "field_equals",
 }
-_REQUIRED_ROLE_IDS = {
-    "ramp",
-    "mana_fixing",
-    "card_draw",
-    "card_selection",
-    "tutor",
-    "removal",
-    "board_wipe",
-    "counterspell",
-    "protection",
-    "recursion",
-    "graveyard_hate",
-    "token_generator",
-    "sacrifice_outlet",
-    "enabler",
-    "payoff",
-    "engine",
-    "finisher",
-    "threat",
-    "land",
-    "win_condition",
-}
 _SCORING_COMPONENTS = {
     "strategy_evidence",
     "shared_synergy_tags",
@@ -97,6 +75,7 @@ class CardRole:
     name: str
     group: str
     description: str
+    oracle_keywords: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -246,12 +225,8 @@ def _parse_strategies(data: dict[str, object]) -> tuple[StrategyDefinition, ...]
             )
         )
     _unique_ids((item.id for item in strategies), filename, "strategies")
-    if len(strategies) != 15:
-        raise _error(
-            filename,
-            "strategies",
-            f"esperadas 15 estratégias, recebidas {len(strategies)}",
-        )
+    if not strategies:
+        raise _error(filename, "strategies", "o catálogo deve ter ao menos uma estratégia")
     return tuple(strategies)
 
 
@@ -291,17 +266,15 @@ def _parse_roles(data: dict[str, object]) -> tuple[CardRole, ...]:
             description=_string(
                 record, filename, f"roles[{index}].description", f"roles[{index}]"
             ),
+            oracle_keywords=_optional_string_tuple(
+                record, filename, f"roles[{index}].oracle_keywords"
+            ),
         )
         for index, record in enumerate(records)
     )
     _unique_ids((item.id for item in roles), filename, "roles")
-    missing = _REQUIRED_ROLE_IDS - {item.id for item in roles}
-    if missing:
-        raise _error(
-            filename,
-            "roles",
-            f"funções obrigatórias ausentes: {', '.join(sorted(missing))}",
-        )
+    if not roles:
+        raise _error(filename, "roles", "o catálogo deve ter ao menos uma função")
     return roles
 
 
@@ -615,6 +588,19 @@ def _string_tuple(data: dict[str, object], filename: str, field: str) -> tuple[s
     ):
         raise _error(filename, field, "esperada uma lista de textos não vazios")
     return tuple(raw)
+
+
+def _optional_string_tuple(
+    data: dict[str, object], filename: str, field: str
+) -> tuple[str, ...]:
+    value = data.get(field.rpartition(".")[2], [])
+    if not isinstance(value, list) or not all(
+        isinstance(item, str) and item.strip() for item in value
+    ):
+        raise _error(filename, field, "esperada uma lista de textos não vazios")
+    if len(value) != len(set(value)):
+        raise _error(filename, field, "termos duplicados")
+    return tuple(value)
 
 
 def _identifier_tuple(

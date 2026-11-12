@@ -5,10 +5,12 @@ import json
 import re
 from datetime import datetime, timezone
 from itertools import combinations
+from pathlib import Path
 from typing import Literal
 
+import pandas as pd
 import streamlit as st
-from sqlalchemy import Engine
+from sqlalchemy import Engine, delete, select
 from sqlalchemy.orm import Session
 
 from mana_architect.catalog import (
@@ -25,7 +27,6 @@ from mana_architect.classification_repository import (
     save_commander_affinity_profile,
 )
 from mana_architect.commander_affinity import (
-    CommanderAffinityLevel,
     CommanderAffinityProfile,
     CommanderStrategyAffinity,
     CommanderTagAffinity,
@@ -37,7 +38,12 @@ from mana_architect.deckbuilding import (
     analyze_deck,
     build_deck,
 )
-from mana_architect.models import SyncMetadata
+from mana_architect.models import (
+    CardClassificationOverrideRecord,
+    CommanderAffinityRecord,
+    ManualOverrideRecord,
+    SyncMetadata,
+)
 from mana_architect.overrides import (
     ClassificationTargetType,
     ManualOverride,
@@ -578,181 +584,516 @@ def _render_deck_page(session: Session) -> None:
             st.text(f"{role}: {quantity}")
 
 
-def _save_strategy_affinity(
-    session: Session,
-    commander_id: str,
-    strategy_id: str,
-    level: CommanderAffinityLevel,
-    strength_score: float,
-    rationale: str,
-    selected_tag_ids: list[str],
-    catalog: StrategyCatalog,
-) -> None:
-    session.rollback()
-    with session.begin():
-        existing_profile = load_commander_affinity_profile(
-            session,
-            commander_id,
-            catalog,
-        )
-        previous_strategies = (
-            existing_profile.strategy_affinities if existing_profile else ()
-        )
-        previous_tags = (
-            {item.tag_id: item for item in existing_profile.tag_affinities}
-            if existing_profile
-            else {}
-        )
-        existing_strategy = next(
-            (
-                item
-                for item in previous_strategies
-                if item.strategy_id == strategy_id
-            ),
-            None,
-        )
-        strategy_affinities = tuple(
-            item
-            for item in previous_strategies
-            if item.strategy_id != strategy_id
-        ) + (
-            CommanderStrategyAffinity(
-                strategy_id=strategy_id,
-                level=level,
-                strength_score=strength_score,
-                evidence_ids=(
-                    existing_strategy.evidence_ids if existing_strategy else ()
-                ),
-                rationale=rationale.strip() or None,
-                source="manual",
-            ),
-        )
-        selected_tags = set(selected_tag_ids)
-        tag_affinities = tuple(
-            CommanderTagAffinity(
-                tag_id=tag.id,
-                evidence_ids=(
-                    previous_tags[tag.id].evidence_ids
-                    if tag.id in previous_tags
-                    else ()
-                ),
-                rationale=(
-                    previous_tags[tag.id].rationale
-                    if tag.id in previous_tags
-                    else None
-                ),
-                source="manual",
-            )
-            for tag in catalog.tags
-            if tag.id in selected_tags
-        )
-        save_commander_affinity_profile(
-            session,
-            CommanderAffinityProfile(
-                commander_oracle_id=commander_id,
-                strategy_affinities=tuple(
-                    sorted(strategy_affinities, key=lambda item: item.strategy_id)
-                ),
-                tag_affinities=tag_affinities,
-            ),
-            catalog,
-        )
-
-
 def _render_commander_affinity_editor(
     session: Session,
     commander_id: str,
-    strategy_id: str,
     catalog: StrategyCatalog,
 ) -> None:
     profile = load_commander_affinity_profile(session, commander_id, catalog)
-    existing_strategy = next(
-        (
-            item
-            for item in profile.strategy_affinities
-            if item.strategy_id == strategy_id
-        ),
-        None,
-    ) if profile else None
-    tag_names = {item.id: item.name for item in catalog.tags}
-    existing_tags = (
-        [item.tag_id for item in profile.tag_affinities] if profile else []
-    )
-    existing_level = existing_strategy.level if existing_strategy else "primary"
-    level_options: tuple[CommanderAffinityLevel, ...] = (
-        "primary",
-        "secondary",
-        "complementary",
-    )
-    level_labels = {
+    existing = profile.strategy_affinities if profile else ()
+    names = {item.id: item.name for item in catalog.strategies}
+    labels = {
         "primary": "Primária",
         "secondary": "Secundária",
         "complementary": "Complementar",
     }
-
-    with st.expander("Afinidade do comandante"):
+    rows = [
+        {
+            "strategy_id": item.strategy_id,
+            "nível": labels[item.level],
+            "força": item.strength_score,
+            "justificativa": item.rationale or "",
+        }
+        for item in existing
+    ]
+    with st.expander("Afinidades do comandante", expanded=True):
         st.caption(
-            "Cadastre uma afinidade curada para habilitar o score. A escala é "
-            "heurística, não uma probabilidade."
+            "Adicione várias estratégias e ajuste suas afinidades na mesma "
+            "tela. Força e níveis são heurísticos, não probabilidades."
         )
-        with st.form(
-            f"commander_affinity_{commander_id}_{strategy_id}",
-        ):
-            level = st.selectbox(
-                "Nível",
-                options=level_options,
-                index=level_options.index(existing_level),
-                format_func=lambda value: level_labels[value],
-                key=f"affinity_level_{commander_id}_{strategy_id}",
+        with st.form(f"commander_affinities_{commander_id}"):
+            affinity_rows = pd.DataFrame(
+                {
+                    "strategy_id": pd.Series(
+                        [row["strategy_id"] for row in rows], dtype="string"
+                    ),
+                    "nível": pd.Series(
+                        [row["nível"] for row in rows], dtype="string"
+                    ),
+                    "força": pd.Series(
+                        [row["força"] for row in rows], dtype="float64"
+                    ),
+                    "justificativa": pd.Series(
+                        [row["justificativa"] for row in rows], dtype="string"
+                    ),
+                }
             )
-            strength = st.slider(
-                "Força de suporte",
-                min_value=0.0,
-                max_value=1.0,
-                value=(
-                    existing_strategy.strength_score
-                    if existing_strategy
-                    else 0.5
-                ),
-                step=0.05,
-                key=f"affinity_strength_{commander_id}_{strategy_id}",
+            edited = st.data_editor(
+                affinity_rows,
+                key=f"affinity_editor_{commander_id}",
+                num_rows="dynamic",
+                hide_index=True,
+                width="stretch",
+                column_config={
+                    "strategy_id": st.column_config.SelectboxColumn(
+                        "Estratégia",
+                        options=[item.id for item in catalog.strategies],
+                        required=True,
+                        format_func=lambda value: names.get(value, value),
+                    ),
+                    "nível": st.column_config.SelectboxColumn(
+                        "Nível",
+                        options=list(labels.values()),
+                        required=True,
+                    ),
+                    "força": st.column_config.NumberColumn(
+                        "Força",
+                        min_value=0.0,
+                        max_value=1.0,
+                        step=0.05,
+                        format="%.2f",
+                    ),
+                    "justificativa": st.column_config.TextColumn("Justificativa"),
+                },
             )
+            tag_names = {item.id: item.name for item in catalog.tags}
             selected_tags = st.multiselect(
                 "Tags associadas ao comandante",
                 options=[item.id for item in catalog.tags],
-                default=existing_tags,
+                default=[item.tag_id for item in profile.tag_affinities] if profile else [],
                 format_func=lambda tag_id: tag_names[tag_id],
                 key=f"affinity_tags_{commander_id}",
             )
-            rationale = st.text_area(
-                "Justificativa",
-                value=(
-                    existing_strategy.rationale or ""
-                    if existing_strategy
-                    else ""
-                ),
-                key=f"affinity_rationale_{commander_id}_{strategy_id}",
-            )
             submitted = st.form_submit_button(
-                "Salvar afinidade",
+                "Salvar afinidades",
                 type="primary",
-                key=f"save_affinity_{commander_id}_{strategy_id}",
+                key=f"save_affinities_{commander_id}",
             )
         if submitted:
-            _save_strategy_affinity(
-                session,
-                commander_id,
-                strategy_id,
-                level,
-                strength,
-                rationale,
-                selected_tags,
-                catalog,
+            level_by_label = {label: level for level, label in labels.items()}
+            seen: set[str] = set()
+            strategy_affinities: list[CommanderStrategyAffinity] = []
+            previous = {item.strategy_id: item for item in existing}
+            try:
+                edited_rows = (
+                    edited.to_dict("records")
+                    if hasattr(edited, "to_dict")
+                    else edited
+                )
+                for row in edited_rows:
+                    strategy_id = row.get("strategy_id")
+                    if not strategy_id:
+                        continue
+                    if strategy_id in seen:
+                        raise ValueError("Cada estratégia pode aparecer uma vez.")
+                    seen.add(strategy_id)
+                    strength = row.get("força")
+                    if strength is None:
+                        strength = 0.5
+                    strategy_affinities.append(
+                        CommanderStrategyAffinity(
+                            strategy_id=strategy_id,
+                            level=level_by_label[row["nível"]],
+                            strength_score=float(strength),
+                            evidence_ids=previous[strategy_id].evidence_ids
+                            if strategy_id in previous else (),
+                            rationale=row.get("justificativa", "").strip() or None,
+                            source="manual",
+                        )
+                    )
+                previous_tags = {
+                    item.tag_id: item for item in profile.tag_affinities
+                } if profile else {}
+                tag_affinities = tuple(
+                    CommanderTagAffinity(
+                        tag_id=tag_id,
+                        evidence_ids=previous_tags[tag_id].evidence_ids
+                        if tag_id in previous_tags else (),
+                        rationale=previous_tags[tag_id].rationale
+                        if tag_id in previous_tags else None,
+                        source="manual",
+                    )
+                    for tag_id in selected_tags
+                )
+                session.rollback()
+                with session.begin():
+                    save_commander_affinity_profile(
+                        session,
+                        CommanderAffinityProfile(
+                            commander_oracle_id=commander_id,
+                            strategy_affinities=tuple(strategy_affinities),
+                            tag_affinities=tag_affinities,
+                        ),
+                        catalog,
+                    )
+            except (KeyError, TypeError, ValueError) as error:
+                st.error(f"Afinidades não salvas: {error}")
+            else:
+                st.session_state["suggestion_notice"] = "Afinidades do comandante salvas."
+                st.rerun()
+
+
+def _bump_catalog_version(data: dict[str, object], field: str) -> None:
+    version = data.get(field)
+    if not isinstance(version, str):
+        raise ValueError(f"Versão ausente no campo {field}.")
+    parts = version.split(".")
+    if len(parts) != 3 or not all(part.isdigit() for part in parts):
+        raise ValueError(f"Versão inválida no campo {field}: {version}.")
+    parts[2] = str(int(parts[2]) + 1)
+    data[field] = ".".join(parts)
+
+
+def _write_catalog_files(updates: dict[str, dict[str, object]]) -> StrategyCatalog:
+    originals: dict[str, bytes] = {}
+    paths: dict[str, Path] = {}
+    try:
+        for filename, data in updates.items():
+            path = DEFAULT_CATALOG_DIR / filename
+            paths[filename] = path
+            originals[filename] = path.read_bytes()
+            temp_path = path.with_suffix(path.suffix + ".tmp")
+            temp_path.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
             )
-            st.session_state["suggestion_notice"] = (
-                "Afinidade do comandante salva."
+            temp_path.replace(path)
+        return load_strategy_catalog(DEFAULT_CATALOG_DIR)
+    except (OSError, ValueError) as error:
+        for filename, original in originals.items():
+            path = paths[filename]
+            temp_path = path.with_suffix(path.suffix + ".restore.tmp")
+            temp_path.write_bytes(original)
+            temp_path.replace(path)
+        raise ValueError(f"Alteração não salva: {error}") from error
+
+
+def _render_catalog_admin(session: Session) -> None:
+    st.header("Catálogo de estratégias e funções")
+    st.caption(
+        "O catálogo é versionado em arquivos locais. Mudanças invalidam a "
+        "classificação anterior e pedem uma reclassificação explícita."
+    )
+    strategies_data = json.loads(
+        (DEFAULT_CATALOG_DIR / "strategy_catalog.json").read_text(encoding="utf-8")
+    )
+    roles_data = json.loads(
+        (DEFAULT_CATALOG_DIR / "card_roles.json").read_text(encoding="utf-8")
+    )
+    rules_data = json.loads(
+        (DEFAULT_CATALOG_DIR / "classification_rules.json").read_text(encoding="utf-8")
+    )
+    strategy_ids = [item["id"] for item in strategies_data["strategies"]]
+    role_ids = [item["id"] for item in roles_data["roles"]]
+    strategy_tab, role_tab = st.tabs(["Estratégias", "Funções"])
+
+    with strategy_tab:
+        st.dataframe(
+            [
+                {
+                    "Estratégia": item["name"],
+                    "ID": item["id"],
+                    "Estado": "Ativa" if item["active"] else "Inativa",
+                    "Descrição": item["description"],
+                }
+                for item in strategies_data["strategies"]
+            ],
+            hide_index=True,
+            width="stretch",
+        )
+        action = st.segmented_control(
+            "Ação para estratégias",
+            options=["Editar", "Adicionar"],
+            default="Editar",
+            key="catalog_strategy_action",
+        )
+        selected = None
+        if action == "Editar" and strategy_ids:
+            selected = st.selectbox(
+                "Estratégia",
+                options=strategy_ids,
+                format_func=lambda item_id: next(
+                    item["name"] for item in strategies_data["strategies"]
+                    if item["id"] == item_id
+                ),
+                key="catalog_strategy_selected",
             )
-            st.rerun()
+        current = next(
+            (item for item in strategies_data["strategies"] if item["id"] == selected),
+            None,
+        )
+        with st.form("catalog_strategy_form"):
+            strategy_id = st.text_input(
+                "ID",
+                value=current["id"] if current else "",
+                disabled=current is not None,
+                help="ID único em snake_case; IDs existentes não podem ser renomeados.",
+            )
+            name = st.text_input("Nome", value=current["name"] if current else "")
+            description = st.text_area(
+                "Descrição", value=current["description"] if current else ""
+            )
+            active = st.checkbox(
+                "Estratégia ativa", value=current["active"] if current else True
+            )
+            nature = st.text_input(
+                "Natureza (separe valores por vírgula)",
+                value=", ".join(current["nature"]) if current else "resource_engine",
+            )
+            tag_weights = st.text_area(
+                "Tags e pesos (uma por linha: id_da_tag=0.8)",
+                value="\n".join(
+                    f"{item['tag_id']}={item['weight']}"
+                    for item in current["tag_affinities"]
+                ) if current else "",
+            )
+            notes = st.text_area(
+                "Notas (uma por linha)",
+                value="\n".join(current["notes"]) if current else "",
+            )
+            save_strategy = st.form_submit_button("Salvar estratégia", type="primary")
+        if save_strategy:
+            try:
+                affinities = []
+                for line in tag_weights.splitlines():
+                    if not line.strip():
+                        continue
+                    tag_id, raw_weight = line.split("=", maxsplit=1)
+                    affinities.append({"tag_id": tag_id.strip(), "weight": float(raw_weight)})
+                record = {
+                    "id": strategy_id.strip(),
+                    "name": name.strip(),
+                    "description": description.strip(),
+                    "nature": [item.strip() for item in nature.split(",") if item.strip()],
+                    "active": active,
+                    "tag_affinities": affinities,
+                    "notes": [item.strip() for item in notes.splitlines() if item.strip()],
+                }
+                strategies_data["strategies"] = [
+                    item for item in strategies_data["strategies"]
+                    if item["id"] != record["id"]
+                ]
+                strategies_data["strategies"].append(record)
+                _bump_catalog_version(strategies_data, "catalog_version")
+                _write_catalog_files({"strategy_catalog.json": strategies_data})
+            except (ValueError, KeyError) as error:
+                st.error(str(error))
+            else:
+                st.success("Estratégia salva. Reclassifique a coleção para aplicar a versão nova.")
+                st.rerun()
+        if current is not None:
+            strategy_delete_confirmed = st.checkbox(
+                "Confirmo a exclusão e a remoção das afinidades e correções vinculadas.",
+                key=f"confirm_delete_strategy_{current['id']}",
+            )
+            if st.button(
+                "Excluir estratégia", key=f"delete_strategy_{current['id']}"
+            ):
+                if not strategy_delete_confirmed:
+                    st.warning("Confirme a exclusão antes de continuar.")
+                else:
+                    strategy_id_to_delete = current["id"]
+                    tag_data = json.loads(
+                        (DEFAULT_CATALOG_DIR / "synergy_tags.json").read_text(encoding="utf-8")
+                    )
+                    for tag in tag_data["tags"]:
+                        tag["related_strategy_ids"] = [
+                            item for item in tag["related_strategy_ids"]
+                            if item != strategy_id_to_delete
+                        ]
+                    rules_data["rules"] = [
+                        item for item in rules_data["rules"]
+                        if not (
+                            item["target_type"] == "strategy"
+                            and item["target_id"] == strategy_id_to_delete
+                        )
+                    ]
+                    strategies_data["strategies"] = [
+                        item for item in strategies_data["strategies"]
+                        if item["id"] != strategy_id_to_delete
+                    ]
+                    _bump_catalog_version(strategies_data, "catalog_version")
+                    _bump_catalog_version(rules_data, "ruleset_version")
+                    session.rollback()
+                    try:
+                        with session.begin():
+                            session.execute(
+                                delete(CommanderAffinityRecord).where(
+                                    CommanderAffinityRecord.target_type == "strategy",
+                                    CommanderAffinityRecord.target_id == strategy_id_to_delete,
+                                )
+                            )
+                            session.execute(
+                                delete(ManualOverrideRecord).where(
+                                    ManualOverrideRecord.target_type == "strategy",
+                                    ManualOverrideRecord.target_id == strategy_id_to_delete,
+                                )
+                            )
+                            session.execute(
+                                delete(CardClassificationOverrideRecord).where(
+                                    CardClassificationOverrideRecord.target_type == "strategy",
+                                    CardClassificationOverrideRecord.target_id == strategy_id_to_delete,
+                                )
+                            )
+                            _write_catalog_files(
+                                {
+                                    "strategy_catalog.json": strategies_data,
+                                    "synergy_tags.json": tag_data,
+                                    "classification_rules.json": rules_data,
+                                }
+                            )
+                    except ValueError as error:
+                        st.error(str(error))
+                    else:
+                        st.success("Estratégia excluída; o histórico de classificações foi preservado.")
+                        st.rerun()
+
+    with role_tab:
+        st.dataframe(
+            [
+                {
+                    "Função": item["name"],
+                    "Grupo": (
+                        "Serviço do deck"
+                        if item["group"] == "deck_service"
+                        else "Sinergia da estratégia"
+                    ),
+                    "Termos Oracle": ", ".join(item.get("oracle_keywords", [])),
+                    "Descrição": item["description"],
+                }
+                for item in roles_data["roles"]
+            ],
+            hide_index=True,
+            width="stretch",
+        )
+        action = st.segmented_control(
+            "Ação para funções",
+            options=["Editar", "Adicionar"],
+            default="Editar",
+            key="catalog_role_action",
+        )
+        selected = None
+        if action == "Editar" and role_ids:
+            selected = st.selectbox(
+                "Função",
+                options=role_ids,
+                format_func=lambda item_id: next(
+                    item["name"] for item in roles_data["roles"]
+                    if item["id"] == item_id
+                ),
+                key="catalog_role_selected",
+            )
+        current = next(
+            (item for item in roles_data["roles"] if item["id"] == selected), None
+        )
+        with st.form("catalog_role_form"):
+            role_id = st.text_input(
+                "ID",
+                value=current["id"] if current else "",
+                disabled=current is not None,
+                help="ID único em snake_case; IDs existentes não podem ser renomeados.",
+            )
+            name = st.text_input("Nome", value=current["name"] if current else "")
+            group = st.selectbox(
+                "Grupo",
+                options=["deck_service", "synergy_role"],
+                index=(
+                    ["deck_service", "synergy_role"].index(current["group"])
+                    if current else 0
+                ),
+                format_func=lambda value: {
+                    "deck_service": "Serviço do deck",
+                    "synergy_role": "Sinergia da estratégia",
+                }[value],
+            )
+            description = st.text_area(
+                "Descrição", value=current["description"] if current else ""
+            )
+            oracle_keywords = st.text_area(
+                "Termos Oracle (um por linha)",
+                value="\n".join(current.get("oracle_keywords", [])) if current else "",
+                help="Correspondências literais, sem distinção entre maiúsculas e minúsculas. Cada termo pode sugerir a função; a classificação permanece heurística.",
+            )
+            save_role = st.form_submit_button("Salvar função", type="primary")
+        if save_role:
+            record = {
+                "id": role_id.strip(),
+                "name": name.strip(),
+                "group": group,
+                "description": description.strip(),
+                "oracle_keywords": [
+                    item.strip() for item in oracle_keywords.splitlines() if item.strip()
+                ],
+            }
+            roles_data["roles"] = [
+                item for item in roles_data["roles"] if item["id"] != record["id"]
+            ]
+            roles_data["roles"].append(record)
+            _bump_catalog_version(strategies_data, "catalog_version")
+            _bump_catalog_version(rules_data, "ruleset_version")
+            try:
+                _write_catalog_files(
+                    {
+                        "card_roles.json": roles_data,
+                        "strategy_catalog.json": strategies_data,
+                        "classification_rules.json": rules_data,
+                    }
+                )
+            except ValueError as error:
+                st.error(str(error))
+            else:
+                st.success("Função salva. Reclassifique a coleção para aplicar a versão nova.")
+                st.rerun()
+        if current is not None:
+            role_delete_confirmed = st.checkbox(
+                "Confirmo a exclusão e a remoção das regras e correções vinculadas.",
+                key=f"confirm_delete_role_{current['id']}",
+            )
+            if st.button("Excluir função", key=f"delete_role_{current['id']}"):
+                if not role_delete_confirmed:
+                    st.warning("Confirme a exclusão antes de continuar.")
+                else:
+                    role_id_to_delete = current["id"]
+                    rules_data["rules"] = [
+                        item for item in rules_data["rules"]
+                        if not (
+                            item["target_type"] == "role"
+                            and item["target_id"] == role_id_to_delete
+                        )
+                    ]
+                    roles_data["roles"] = [
+                        item for item in roles_data["roles"]
+                        if item["id"] != role_id_to_delete
+                    ]
+                    _bump_catalog_version(strategies_data, "catalog_version")
+                    _bump_catalog_version(rules_data, "ruleset_version")
+                    session.rollback()
+                    try:
+                        with session.begin():
+                            session.execute(
+                                delete(ManualOverrideRecord).where(
+                                    ManualOverrideRecord.target_type == "role",
+                                    ManualOverrideRecord.target_id == role_id_to_delete,
+                                )
+                            )
+                            session.execute(
+                                delete(CardClassificationOverrideRecord).where(
+                                    CardClassificationOverrideRecord.target_type == "role",
+                                    CardClassificationOverrideRecord.target_id == role_id_to_delete,
+                                )
+                            )
+                            _write_catalog_files(
+                                {
+                                    "card_roles.json": roles_data,
+                                    "strategy_catalog.json": strategies_data,
+                                    "classification_rules.json": rules_data,
+                                }
+                            )
+                    except ValueError as error:
+                        st.error(str(error))
+                    else:
+                        st.success("Função excluída; o histórico de classificações foi preservado.")
+                        st.rerun()
 
 
 def _render_suggestion_correction(
@@ -1049,12 +1390,24 @@ def _render_collection_suggestions(session: Session) -> None:
         ),
     )
     role_names = {item.id: item.name for item in catalog.roles}
-    required_roles = st.multiselect(
-        "Funções que o deck ainda precisa",
-        options=[item.id for item in catalog.roles],
-        format_func=lambda value: role_names[value],
-        key="suggestion_required_roles",
-    )
+    service_role_ids = [item.id for item in catalog.roles if item.group == "deck_service"]
+    synergy_role_ids = [item.id for item in catalog.roles if item.group == "synergy_role"]
+    with st.expander("Priorizar funções nas sugestões", expanded=False):
+        service_roles = st.multiselect(
+            "Serviços do deck",
+            options=service_role_ids,
+            format_func=lambda value: role_names[value],
+            key="suggestion_service_roles",
+            help="Ramp, compra, interação, proteção e outras funções de suporte.",
+        )
+        synergy_roles = st.multiselect(
+            "Sinergias da estratégia",
+            options=synergy_role_ids,
+            format_func=lambda value: role_names[value],
+            key="suggestion_synergy_roles",
+            help="Funções temáticas como gerar fichas, habilitar sacrifícios ou converter uma mecânica em valor.",
+        )
+    required_roles = [*service_roles, *synergy_roles]
     search_clicked = st.button(
         "Buscar sugestões",
         type="primary",
@@ -1070,12 +1423,7 @@ def _render_collection_suggestions(session: Session) -> None:
     notice = st.session_state.pop("suggestion_notice", None)
     if notice:
         st.success(notice)
-    _render_commander_affinity_editor(
-        session,
-        commander_id,
-        strategy_id,
-        catalog,
-    )
+    _render_commander_affinity_editor(session, commander_id, catalog)
 
     if st.button(
         "Reclassificar cartas da coleção",
@@ -1350,7 +1698,7 @@ def main() -> None:
 
     page = st.sidebar.radio(
         "Navegação",
-        ["Construtor", "Deck", "Sugestões"],
+        ["Construtor", "Deck", "Sugestões", "Catálogo"],
         key="page_navigation",
     )
     if page == "Construtor":
@@ -1377,6 +1725,8 @@ def main() -> None:
             _render_deck_builder(session)
         elif page == "Sugestões":
             _render_collection_suggestions(session)
+        elif page == "Catálogo":
+            _render_catalog_admin(session)
         else:
             _render_deck_page(session)
 

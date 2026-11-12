@@ -107,6 +107,9 @@ def _classification_configuration_hash(
         "strategy_ids": sorted(strategy.id for strategy in catalog.strategies),
         "tag_ids": sorted(tag.id for tag in catalog.tags),
         "role_ids": sorted(role.id for role in catalog.roles),
+        "role_oracle_keywords": {
+            role.id: role.oracle_keywords for role in catalog.roles
+        },
         "rules": rules_data,
     }
     encoded = json.dumps(
@@ -697,6 +700,8 @@ def _card_input_fingerprint(card: Card, catalog: StrategyCatalog) -> str:
             for field in rule.source_fields
         }
     )
+    if any(role.oracle_keywords for role in catalog.roles):
+        relevant_fields = sorted(set(relevant_fields) | {"oracle_text", "keywords"})
     payload = {field: values[field] for field in relevant_fields}
     encoded = json.dumps(
         payload,

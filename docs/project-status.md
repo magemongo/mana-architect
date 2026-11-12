@@ -1,7 +1,8 @@
 # Estado do projeto e roadmap
 
 - **Revisado em:** 2026-11-12
-- **Revisão de código verificada:** `5533668`
+- **Última revisão integralmente auditada:** `5533668`
+- **Escopo aprovado em desenvolvimento:** administração de catálogo, funções e afinidades
 - **Idioma da documentação de produto:** português
 
 Este é o resumo canônico do produto e de seu roadmap conhecido. O estado abaixo
@@ -37,20 +38,23 @@ As capacidades abaixo estão implementadas no código atual:
 
 A integração registrada em
 [catalog-guided-deck-generation.md](./catalog-guided-deck-generation.md) está
-concluída. **Não há uma próxima sprint aprovada nos documentos atuais.**
-As opções abaixo são propostas de backlog para priorização, sem prazo nem
-compromisso de implementação:
+concluída. O usuário aprovou como próxima frente o aprimoramento do catálogo,
+das afinidades e de sua administração na interface. Essa frente está em
+desenvolvimento; os itens abaixo deixam de ser apenas propostas de backlog:
 
 | Ordem sugerida | Trabalho candidato | Estado conhecido |
 |---|---|---|
-| 1 | Editar manualmente a lista gerada — incluir/remover/substituir cartas e revalidar | Explicitamente adiado; a lista não tem edição direta |
-| 2 | Salvar e administrar múltiplos decks e suas versões | Não implementado; decks não têm persistência própria |
-| 3 | Suportar comandantes Partner/Background | Não implementado |
-| 4 | Avaliar e calibrar heurísticas com casos e decks de referência | Pendente; pesos atuais são iniciais e não calibrados empiricamente |
-| 5 | Interface opcional em linguagem natural com LLM | Ideia do documento inicial; não implementada nem aprovada como próxima sprint |
+| Em curso | Afinidades múltiplas por comandante e editor responsivo dos três níveis | Domínio e editor de tabela agora suportam várias estratégias e níveis na mesma tela; falta validação visual e de fluxo |
+| Em curso | Separar funções universais de serviço das funções específicas de sinergia | Grupos `deck_service` e `synergy_role` agora aparecem como filtros separados |
+| Em curso | Tela para consultar e administrar estratégias e funções, incluindo termos Oracle por função | Tela administrativa implementada; falta validação visual e revisão de fluxos de exclusão e salvamento |
+| Depois | Editar manualmente a lista gerada — incluir/remover/substituir cartas e revalidar | Explicitamente adiado; a lista não tem edição direta |
+| Depois | Salvar e administrar múltiplos decks e suas versões | Não implementado; decks não têm persistência própria |
+| Depois | Suportar comandantes Partner/Background | Não implementado |
+| Depois | Avaliar e calibrar heurísticas com casos e decks de referência | Pendente; pesos atuais são iniciais e não calibrados empiricamente |
+| Depois | Interface opcional em linguagem natural com LLM | Ideia do documento inicial; não implementada |
 
-A ordem é apenas uma sugestão para discussão. Não atribua números de sprint nem
-trate esses itens como compromisso até que o usuário escolha o próximo escopo.
+Os itens “Depois” continuam sem aprovação ou prazo. A frente em curso deve
+preservar o versionamento do catálogo e a rastreabilidade das classificações.
 
 ## 3. O que já está implementado
 
@@ -101,8 +105,22 @@ testes de validação e geração.
   classificações, evidências, correções manuais e afinidades.
 - Scorer determinístico que explica componentes e motivos; sugestões filtram
   por coleção, legalidade e identidade de cor.
-- Interface Streamlit local com páginas de Construtor, Deck e Sugestões;
-  afinidades e correções de classificação podem ser revistas na interface.
+- O modelo e a interface permitem múltiplas afinidades de estratégia e tag por
+  comandante, com níveis primário, secundário e complementar. A nova UI usa uma
+  tabela dinâmica e ainda precisa de verificação visual.
+- As funções têm grupos `deck_service` e `synergy_role`; a tela de sugestões
+  e os filtros agora os exibem separadamente.
+- Funções aceitam `oracle_keywords`, termos literais que viram evidências de
+  classificação com revisão recomendada. Regras versionadas continuam
+  disponíveis para combinações mais específicas.
+- A página **Catálogo** permite consultar, criar, editar e excluir estratégias
+  e funções. A exclusão remove regras, afinidades e correções manuais atuais
+  vinculadas, após confirmação; o histórico de classificações permanece. As
+  alterações são gravadas em `config/`, versionadas e exigem reclassificação
+  explícita.
+- Interface Streamlit local com páginas de Construtor, Deck, Sugestões e
+  Catálogo; afinidades e correções de classificação podem ser revistas na
+  interface.
 - Reclassificação da coleção é ação explícita do usuário, não ocorre ao abrir a
   aplicação.
 
@@ -165,8 +183,9 @@ calibrados; atualmente são heurísticas.
 
 ### Evidência desta revisão
 
-- Revisão de código: `5533668` (`feat: integrate strategy catalog into deck generation`).
-- Testes: `python -m pytest -q` — **131 passed**.
+- Revisão de código auditada: `5533668` (`feat: integrate strategy catalog into deck generation`).
+- Testes nessa revisão: `python -m pytest -q` — **131 passed**. As mudanças
+  atuais ainda não foram verificadas por teste.
 - Exercício manual em Streamlit com banco temporário: modo catálogo, estratégia
   Tokens, resultado **100/100**, 98 terrenos e validação aprovada. O banco
   temporário foi removido após o teste.

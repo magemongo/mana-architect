@@ -162,6 +162,50 @@ def classify_card(
                 face_index=face_index,
             )
         )
+    classified_roles = {
+        item.target_id for item in evidence if item.target_type == "role"
+    }
+    for role in catalog.roles:
+        if not role.oracle_keywords or role.id in classified_roles:
+            continue
+        for term_index, term in enumerate(role.oracle_keywords):
+            normalized_term = normalize_text(term)
+            matched_field = next(
+                (
+                    "oracle_text_normalized"
+                    for segment in normalized.oracle_text_faces
+                    if normalized_term in segment
+                ),
+                None,
+            )
+            matched_value = term if matched_field else None
+            if matched_field is None:
+                keyword_values = normalized.normalized_fields.get("keywords") or ()
+                matched_keyword = next(
+                    (value for value in keyword_values if normalized_term == value),
+                    None,
+                )
+                if matched_keyword is not None:
+                    matched_field = "keywords"
+                    matched_value = str(matched_keyword)
+            if matched_field is not None and matched_value is not None:
+                evidence.append(
+                    ClassificationEvidence(
+                        rule_id=f"role_keyword_{role.id}_{term_index}",
+                        target_type="role",
+                        target_id=role.id,
+                        source_field=matched_field,
+                        matched_value=matched_value,
+                        weight=0.5,
+                        confidence=0.6,
+                        requires_review=True,
+                        evidence_label=(
+                            f"O termo configurado para a função {role.name} "
+                            "aparece nos dados Oracle da carta."
+                        ),
+                    )
+                )
+                break
     return ClassificationResult(evidence=tuple(evidence))
 
 
