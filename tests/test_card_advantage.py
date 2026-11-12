@@ -1,8 +1,8 @@
 import pytest
 
 from mana_architect.card_advantage import (
-    CreatureInPlay, EquippedDeath, OpponentCast, compile_engine, compile_profile,
-    evaluate_cast, evaluate_engine, evaluate_wrath_of_god,
+    BlinkTarget, CreatureInPlay, EquippedDeath, OpponentCast, compile_engine, compile_profile,
+    evaluate_cast, evaluate_engine, evaluate_ephemerate, evaluate_wrath_of_god,
 )
 from mana_architect.catalog import load_strategy_catalog
 from mana_architect.oracle_text import parse_oracle_text
@@ -110,3 +110,30 @@ def test_wrath_of_god_depends_on_board_and_controller():
     assert reversed_result.opponent_deltas == {"caster": -1}
     countered = evaluate_wrath_of_god(board, caster_id="caster", resolves=False)
     assert countered.self_delta == -1 and countered.opponent_deltas == {}
+
+
+def test_ephemerate_reuses_only_eligible_enters_draw(parse):
+    profile = compile_profile(
+        "mulldrifter", "Creature — Elemental", "{4}{U}",
+        parse("When this creature enters, draw two cards."),
+    )
+    target = BlinkTarget("mulldrifter", profile.lines[0].draw)
+    assert evaluate_ephemerate(target).self_delta == 1
+    both = evaluate_ephemerate(target, target)
+    assert both.self_delta == 3
+    assert len({entry.event_id for entry in both.ledger}) == len(both.ledger)
+    assert evaluate_ephemerate(None).self_delta == -1
+    plain = BlinkTarget("plain")
+    assert evaluate_ephemerate(plain, plain).self_delta == -1
+    token = BlinkTarget("token", target.enters_draw, token=True)
+    result = evaluate_ephemerate(token)
+    assert (result.self_delta, result.token_delta) == (-1, -1)
+    with pytest.raises(ValueError, match="token cannot return"):
+        evaluate_ephemerate(token, token)
+    with pytest.raises(ValueError, match="successful cast from hand"):
+        evaluate_ephemerate(None, target)
+    with pytest.raises(ValueError, match="successful cast from hand"):
+        evaluate_ephemerate(target, target, cast_from_hand=False)
+    borrowed = BlinkTarget("borrowed", target.enters_draw, owned_by_caster=False)
+    result = evaluate_ephemerate(borrowed)
+    assert result.self_delta == -2 and result.opponent_deltas == {"owner": 1}

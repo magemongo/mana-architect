@@ -17,6 +17,11 @@ source is already in play and the supplied opportunities are legal. Token
 losses stay separate from strict stock. Deck forecasts and broader effective
 resource valuation are still pending.
 
+The blink increment evaluates explicit Ephemerate lines against supplied legal
+targets, including rebound and self-enters draw from compiled profiles. It
+tracks physical cards across exile and return, and models token losses
+separately. Automatic interaction discovery and deck ranking remain pending.
+
 ## 1. Scope and integration
 
 Build a deterministic evaluator between the Oracle Text Parser and the deck builder. The parser produces structured abilities and events. The evaluator calculates their resource effects, finds mechanically compatible interactions, and estimates how often those interactions matter in the proposed deck. The strategy catalog supplies deck priorities and assumptions, such as token expendability and the expected supply of sacrifice fodder.

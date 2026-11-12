@@ -6,7 +6,7 @@ from typing import Literal
 
 from mana_architect.oracle_text import OracleAbility, OracleParse
 
-EVALUATOR_VERSION = "card-stock-v2"
+EVALUATOR_VERSION = "card-stock-v3"
 Zone = Literal["hand", "stack", "battlefield", "graveyard", "exile", "library", "command"]
 _COUNTED_ZONES = frozenset({"hand", "battlefield"})
 _DRAW = r"[Dd]raw (?:a|one|two|three|four|five|\d+) cards?\."
@@ -284,3 +284,55 @@ def evaluate_wrath_of_god(
                 destination, creature.controller_id,
             ))
     return StrictResult(tuple(ledger), token_delta=token_delta, self_id=caster_id)
+
+
+@dataclass(frozen=True)
+class BlinkTarget:
+    """An eligible creature controlled by the caster at the time of targeting."""
+
+    card_id: str
+    enters_draw: Draw | None = None
+    token: bool = False
+    owned_by_caster: bool = True
+
+
+def evaluate_ephemerate(
+    first: BlinkTarget | None,
+    rebound: BlinkTarget | None = None,
+    *,
+    cast_from_hand: bool = True,
+) -> StrictResult:
+    """Replay confirmed Ephemerate resolutions, assuming no return replacement.
+
+    A missing first target represents a spell that was cast but failed to
+    resolve. A missing rebound target leaves the card in exile when rebound
+    applies. A supplied rebound target represents a second cast that resolves.
+    A target's enters draw must come from a compatible self-enters profile.
+    """
+    if rebound is not None and (not cast_from_hand or first is None):
+        raise ValueError("Rebound requires a successful cast from hand")
+    ledger = [Transition("cast", "source", "hand" if cast_from_hand else "exile", "stack")]
+    token_delta = 0
+    for index, target in enumerate((first, rebound)):
+        if target is None:
+            continue
+        event = f"blink:{index}"
+        if index == 1:
+            if first and first.token and first.card_id == target.card_id:
+                raise ValueError("An exiled token cannot return for the rebound cast")
+            if first and not first.owned_by_caster and first.card_id == target.card_id:
+                raise ValueError("The returned creature is controlled by its owner")
+            ledger.append(Transition("rebound:cast", "source", "exile", "stack"))
+        if target.token:
+            token_delta -= 1
+        else:
+            ledger.append(Transition(f"{event}:leave", target.card_id, "battlefield", "exile"))
+            controller = "self" if target.owned_by_caster else "owner"
+            ledger.append(Transition(f"{event}:return", target.card_id, "exile", "battlefield", controller))
+        destination = "exile" if index == 0 and cast_from_hand else "graveyard"
+        ledger.append(Transition(f"{event}:resolve", "source", "stack", destination))
+        if not target.token and target.owned_by_caster and target.enters_draw:
+            ledger.extend(_draw_transitions(target.enters_draw.quantity, event))
+    if first is None:
+        ledger.append(Transition("failed", "source", "stack", "graveyard"))
+    return StrictResult(tuple(ledger), token_delta=token_delta)
