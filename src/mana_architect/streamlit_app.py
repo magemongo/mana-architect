@@ -118,7 +118,6 @@ def _next_suggestion_count(current: int) -> int:
 def _suggestion_preview_markup(
     suggestions: tuple[IdentityCollectionSuggestion, ...],
     row_keys: dict[str, str],
-    default_card_id: str,
 ) -> str:
     preview_cards: list[str] = []
     hover_rules: list[str] = []
@@ -139,18 +138,20 @@ def _suggestion_preview_markup(
                 f"body:has({row_selector}) .suggestion-preview-card{{display:none}}",
                 f'body:has({row_selector}) .suggestion-preview-card[data-card-id="{card_id}"]'
                 "{display:block}",
+                f"body:has({row_selector}) .suggestion-preview-placeholder{{display:none}}",
             )
         )
-    default_id = html.escape(default_card_id, quote=True)
     return (
         "<style>"
         ".suggestion-preview-card{display:none}"
-        f'.suggestion-preview-card[data-card-id="{default_id}"]{{display:block}}'
         ".suggestion-preview-panel{position:sticky;top:1rem;width:100%;max-width:280px}"
         ".suggestion-preview-card img{display:block;width:100%;height:auto;border-radius:.65rem}"
         ".suggestion-no-image{display:block;padding:2rem;text-align:center}"
+        ".suggestion-preview-placeholder{padding:1rem;border:1px dashed var(--st-border-color);"
+        "border-radius:.5rem;color:var(--st-text-color);text-align:center}"
         + "".join(hover_rules)
         + "</style><div class=\"suggestion-preview-panel\">"
+        + '<div class="suggestion-preview-placeholder">Hover a card name to preview it.</div>'
         + "".join(preview_cards)
         + "</div>"
     )
@@ -1632,12 +1633,12 @@ def _render_collection_suggestions(session: Session) -> None:
                             f"{evidence.evidence_label}"
                         )
     with preview_column:
-        st.html(
+        st.markdown(
             _suggestion_preview_markup(
                 visible_suggestions,
                 row_keys,
-                visible_suggestions[0].oracle_id,
-            )
+            ),
+            unsafe_allow_html=True,
         )
 
     if visible_count < len(batch.suggestions):
@@ -1799,6 +1800,16 @@ def main() -> None:
         div.st-key-deck-list div[data-testid="stExpanderDetails"]
         div[data-testid="stHorizontalBlock"] {
             gap: 0.4rem;
+        }
+        div[class*="st-key-suggestion-row-"] p img {
+            width: 1rem !important;
+            height: 1rem !important;
+            max-width: 1rem !important;
+            object-fit: contain;
+            vertical-align: middle;
+        }
+        div[class*="st-key-suggestion-row-"] p {
+            margin: 0.1rem 0;
         }
         .mana-curve {
             display: flex;

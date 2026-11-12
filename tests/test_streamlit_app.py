@@ -81,11 +81,12 @@ def test_suggestion_preview_markup_switches_image_on_card_name_hover() -> None:
     markup = _suggestion_preview_markup(
         (card,),
         {"card-1": "suggestion-row-0"},
-        "card-1",
     )
 
     assert "body:has(.st-key-suggestion-row-0 p:hover)" in markup
     assert "https://example.test/card.jpg" in markup
+    assert "Hover a card name to preview it." in markup
+    assert 'data-card-id="card-1"{display:block}' not in markup
 
 
 def test_mana_curve_markup_renders_sorted_histogram_bars() -> None:
