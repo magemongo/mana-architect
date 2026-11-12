@@ -13,7 +13,7 @@ from mana_architect.catalog import (
 )
 from mana_architect.oracle_text import OracleParse, parse_oracle_text
 from mana_architect.oracle_text import LexiconEntry
-from mana_architect.roles import classify_card_roles
+from mana_architect.roles import classify_card_roles, has_card_selection
 
 
 _WHITESPACE = re.compile(r"\s+")
@@ -304,6 +304,27 @@ def with_deck_role_heuristics(
                 )
             )
             existing_tags.add("card_advantage")
+    if (
+        has_card_selection(oracle_text)
+        and "card_selection" in tag_ids
+        and "card_selection" not in existing_tags
+    ):
+        evidence.append(
+            ClassificationEvidence(
+                rule_id="heuristic_tag_card_selection",
+                target_type="tag",
+                target_id="card_selection",
+                source_field="oracle_text",
+                matched_value="card selection or filtering",
+                weight=0.5,
+                confidence=0.5,
+                requires_review=True,
+                evidence_label=(
+                    "Oracle text suggests card selection or filtering without "
+                    "establishing net card advantage. Review the Oracle text."
+                ),
+            )
+        )
     return ClassificationResult(tuple(evidence), classification.oracle_parse)
 
 

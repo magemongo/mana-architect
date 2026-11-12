@@ -29,6 +29,25 @@ _REPEATED_RESOURCE_PATTERN = re.compile(
     r"return\b[^.\n]*\bfrom your graveyard)\b",
     re.IGNORECASE,
 )
+_REPEATABLE_ACTIVATED_DRAW_PATTERN = re.compile(
+    r"(?:^|\n)[^\n:]{0,100}:\s*[^\n.]*\bdraw\s+(?:a|one)\s+cards?\b",
+    re.IGNORECASE,
+)
+_REPEATED_INVESTIGATE_PATTERN = re.compile(
+    r"\b(?:whenever|when|at the beginning of)\b[^.\n]{0,180}\binvestigate\b",
+    re.IGNORECASE,
+)
+_DRAW_THEN_TOPDECK_PATTERN = re.compile(
+    r"\bdraw\s+(?P<draw>a|one|two|three|four|five|\d+)\s+cards?\b"
+    r"[^.\n]{0,160}\bput\s+(?P<put>one|two|three|four|five|\d+)\s+"
+    r"cards?\s+from your hand\s+on top of your library",
+    re.IGNORECASE,
+)
+_LOOT_PATTERN = re.compile(
+    r"\bdraw\s+(?P<draw>a|one|two|three|four|five|\d+)\s+cards?\b"
+    r"[^.\n]{0,100}\bdiscard\s+(?P<discard>a|one|two|three|four|five|\d+)\s+cards?\b",
+    re.IGNORECASE,
+)
 _SPOT_INTERACTION_PATTERNS = (
     re.compile(r"\bcounter target\b", re.IGNORECASE),
     re.compile(r"\b(?:destroy|exile|bounce) target\b", re.IGNORECASE),
@@ -77,8 +96,23 @@ def classify_card_roles(
 
 def _has_card_advantage(text: str) -> bool:
     for segment in re.split(r"\n\s*\n", text):
-        if _REPEATED_RESOURCE_PATTERN.search(segment):
+        if (
+            _REPEATED_RESOURCE_PATTERN.search(segment)
+            or _REPEATABLE_ACTIVATED_DRAW_PATTERN.search(segment)
+            or _REPEATED_INVESTIGATE_PATTERN.search(segment)
+        ):
             return True
+        draw_then_topdeck = _DRAW_THEN_TOPDECK_PATTERN.search(segment)
+        if draw_then_topdeck:
+            # The drawn cards replace cards already in hand; cards put back
+            # on top do not increase the hand, and a sacrificed source costs
+            # another card. This is selection, not net card advantage.
+            continue
+        loot = _LOOT_PATTERN.search(segment)
+        if loot and _quantity_value(loot.group("draw")) <= _quantity_value(
+            loot.group("discard")
+        ):
+            continue
         draw_count = sum(
             _quantity_value(match.group("count").casefold())
             for match in _CARD_DRAW_PATTERN.finditer(segment)
@@ -98,6 +132,16 @@ def _has_card_advantage(text: str) -> bool:
         if draw_count - discard_count - 1 > 0:
             return True
     return False
+
+
+def has_card_selection(text: str | None) -> bool:
+    """Detect filtering/selection effects without treating them as advantage."""
+    source = text or ""
+    return bool(
+        _DRAW_THEN_TOPDECK_PATTERN.search(source)
+        or _LOOT_PATTERN.search(source)
+        or re.search(r"\b(?:scry|surveil)\s+\d+\b", source, re.IGNORECASE)
+    )
 
 
 def _is_ramp(type_line: str | None, text: str) -> bool:

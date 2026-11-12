@@ -721,6 +721,20 @@
       "manual_review_recommended": true
     },
     {
+      "id": "card_selection",
+      "name": "Card Selection",
+      "description": "Filters or reorders cards without necessarily increasing the number of cards available.",
+      "family": "value",
+      "related_strategy_ids": [
+        "control",
+        "midrange"
+      ],
+      "aliases": [
+        "Filtering"
+      ],
+      "manual_review_recommended": true
+    },
+    {
       "id": "instant_speed_interaction",
       "name": "Instant-Speed Interaction",
       "description": "Lets you answer threats at instant speed.",
