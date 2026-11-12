@@ -1,61 +1,60 @@
-# Persistência do catálogo e classificações
+# Catalog and Classification Persistence
 
-## Migração
+## Schema Migration
 
-`initialize_database(engine)` aplica de forma aditiva as tabelas da classificação
-usando `Base.metadata.create_all` e registra `classification-storage-v1` e
-`card-classification-overrides-v1` em `schema_migrations`. A segunda versão
-cria a tabela de correções manuais vinculadas ao Oracle ID, sem alterar a tabela
-de overrides preexistente. O `oracle_id` existente em `cards` continua sendo a
-chave canônica; impressões e quantidades físicas permanecem em
-`collection_printings`. A inicialização não classifica cartas, altera resultados
-existentes nem faz chamadas de rede.
+`initialize_database(engine)` creates classification tables additively through
+`Base.metadata.create_all` and records `classification-storage-v1` and
+`card-classification-overrides-v1` in `schema_migrations`. The second migration
+adds manual per-card overrides linked to an Oracle ID without changing the
+existing global overrides table. `cards.oracle_id` remains the canonical card
+key; printings and physical quantities remain in `collection_printings`.
+Initialization does not classify cards, change existing results, or make
+network requests.
 
-A atualização foi verificada em bancos SQLite temporários vazios e em um banco
-legado de teste com dados de carta. O banco real da coleção não deve ser usado
-para testes. Antes de executar uma reclassificação real, faça um backup do
-arquivo SQLite.
+The migration was checked against empty temporary SQLite databases and a legacy
+test database containing card data. Never use the real collection database for
+tests. Back up the SQLite file before a real reclassification.
 
-## Reclassificação e transações
+## Reclassification and Transactions
 
-`reclassify_cards(session, catalog, config_dir, oracle_ids=None)` classifica
-todas as cartas ou somente os Oracle IDs indicados. A função não faz commit:
-chame-a dentro de uma transação do chamador:
+`reclassify_cards(session, catalog, config_dir, oracle_ids=None)` classifies all
+cards or only the specified Oracle IDs. It does not commit; call it inside a
+transaction owned by the caller:
 
 ```python
 with Session(engine) as session, session.begin():
     summary = reclassify_cards(session, catalog, config_dir)
 ```
 
-Uma falha antes do commit deve provocar rollback da transação do chamador. A
-reclassificação grava uma nova execução e suas evidências; não apaga o histórico
-anterior. Overrides e afinidades são armazenados separadamente. Uma mudança no
-texto ou em outro campo usado por regras reclassifica apenas a carta afetada.
-Mudanças nas regras ou no catálogo de classificação invalidam os resultados
-afetados quando a reclassificação for solicitada. Alterações apenas em
-`scoring.json` registram nova versão do catálogo, mas não repetem a classificação.
-Cada versão registrada guarda o hash, as versões declaradas, a versão do
-normalizador e os conteúdos dos cinco arquivos de configuração.
+An exception before commit should roll back the caller's transaction.
+Reclassification stores a new run and its evidence without deleting history.
+Overrides and affinities are stored separately. A change to card text or
+another field used by rules reclassifies only the affected card. Rule or
+classification-catalog changes invalidate affected results when
+reclassification is requested. Changes limited to `scoring.json` register a
+new catalog version without repeating classification. Each registered version
+stores the hash, declared versions, normalizer version, and contents of the five
+configuration files.
 
-Na página **Catálogo**, salvar estratégia ou função incrementa as versões do
-catálogo e das regras conforme o caso. Termos Oracle de uma função participam
-da classificação e do fingerprint; editar esses termos torna os resultados
-anteriores obsoletos até uma reclassificação explícita. Excluir uma estratégia
-ou função requer confirmação e remove suas afinidades e correções manuais atuais,
-além das regras e relações configuradas. Classificações históricas e seus
-snapshots de configuração são preservados para auditoria.
+On the Catalog page, saving a strategy or role increments catalog and ruleset
+versions as applicable. A role's Oracle terms participate in classification
+and its fingerprint; editing them makes earlier results stale until explicit
+reclassification. Deleting a strategy or role requires confirmation and removes
+its current affinities, manual overrides, rules, and configured relationships.
+Historical classifications and their configuration snapshots are retained for
+auditing.
 
-`save_card_classification_override` exige uma justificativa e grava uma decisão
-por carta/alvo. A evidência automática não é modificada nem apagada; o serviço
-de sugestão combina ambas ao calcular o resultado. `remove_card_classification_override`
-remove somente a decisão manual e restaura a classificação automática.
+`save_card_classification_override` requires a reason and stores one decision
+per card and target. Automatic evidence is neither changed nor deleted; the
+Suggestions service combines it with the manual decision when resolving the
+result. `remove_card_classification_override` removes only the manual decision
+and restores the automatic classification.
 
 ## Rollback
 
-As alterações do esquema são aditivas. Reverter o código da aplicação não exige
-remover tabelas: elas podem permanecer sem uso, preservando overrides, afinidades
-e histórico. As escritas da classificação, overrides globais, correções por
-carta e afinidades devem ser
-agrupadas em `session.begin()`; uma exceção na transação reverte todas as
-alterações daquele lote. Não remova as tabelas manualmente como procedimento de
-rollback, pois isso apagaria dados persistidos.
+Schema changes are additive. Reverting application code does not require
+dropping tables; they can remain unused while preserving overrides, affinities,
+and history. Classification, global overrides, per-card overrides, and
+affinity writes should be grouped in `session.begin()`. An exception rolls back
+all writes in that transaction. Do not manually drop tables as a rollback step;
+that would delete persisted data.

@@ -1,15 +1,14 @@
 # Mana Architect
 
-Aplicação local para organizar uma coleção de Magic: The Gathering e ajudar
-a montar decks Commander usando somente cartas que o usuário possui.
+A local application for organizing a Magic: The Gathering collection and
+building Commander decks using cards the player owns.
 
-Para consultar o objetivo, o estado implementado e o roadmap reconhecido, veja
-o [estado do projeto](docs/project-status.md) e o
-[índice da documentação](docs/README.md).
+See [project status](docs/project-status.md) for the product roadmap and the
+[documentation index](docs/README.md) for technical references.
 
 ## Quickstart (Windows / PowerShell)
 
-Requer Python 3.11 ou superior. No terminal, na pasta do projeto:
+Requires Python 3.11 or later. From the project directory:
 
 ```powershell
 py -3 -m venv .venv
@@ -19,115 +18,103 @@ python -m pip install -e ".[dev]"
 Copy-Item .env.example .env
 ```
 
-Para instalar também a interface local:
+To install the local UI as well:
 
 ```powershell
 python -m pip install -e ".[app,dev]"
 streamlit run .\src\mana_architect\streamlit_app.py
 ```
 
-O Streamlit abre o Mana Architect no navegador. Escolha um comandante, gere o
-deck na página **Construtor** e abra **Deck** para navegar pela lista agrupada
-em três colunas compactas, na ordem Comandante, Criaturas, Artefatos,
-Encantamentos, Mágicas instantâneas, Feitiços e Terrenos; passe o cursor sobre o nome de uma carta
-para ver sua imagem e texto Oracle na prévia. A validação e os downloads JSON/TXT
-ficam na página do deck. Na tela larga, todo o painel da prévia acompanha a
-rolagem sem cobrir os detalhes nem criar uma área de rolagem própria. A análise
-mostra a curva de mana em histograma, e os custos com símbolos conhecidos
-aparecem em ícones compactos junto aos nomes, sem caixas de botão. A decklist
-ainda não tem edição direta. A interface usa o banco local configurado em
-`.env`, assim como a CLI.
+Streamlit opens Mana Architect in a browser. Choose a commander and generate a
+draft on **Deck Builder**. Open **Deck** to browse the list in three compact
+columns: Commander, Creatures, Artifacts, Enchantments, Instants, Sorceries,
+and Lands. Hover over a card name to preview its image and Oracle text. Deck
+validation and JSON/TXT downloads are on the Deck page. Analysis shows a
+mana-curve histogram and known mana-cost symbols as compact icons. Direct
+decklist editing is not available yet. The UI and CLI use the local database
+configured in `.env`.
 
-O perfil operacional atual de Anowon prioriza sinais de Rogues tribais, mill e
-dano de combate; esse perfil legado permanece em
-`config/strategy_profiles.toml` e continua sendo o padrão do gerador. O catálogo
-versionado de estratégias, tags, funções, regras e parâmetros fica nos arquivos
-JSON em `config/`. No **Construtor** ou na CLI, você pode escolher uma estratégia
-do catálogo para guiar a seleção; isso exige uma afinidade explícita entre o
-comandante e a estratégia, cadastrada na página **Sugestões**. As diretrizes
-gerais estão em `docs/deckbuilding-guidelines.md`. O catálogo prioriza
-candidatos, mas o gerador continua equilibrando funções e curva, respeitando a
-coleção, legalidade, identidade de cor e cobertura de cores da base de mana.
+Anowon's legacy profile prioritizes Rogue tribal, mill, and combat damage. It
+remains in `config/strategy_profiles.toml` and is the generator default. The
+versioned strategy, tag, role, rule, and parameter catalog lives in JSON files
+under `config/`. In Deck Builder or the CLI, choose a catalog strategy to guide
+selection; this requires an explicit commander/strategy affinity configured on
+**Suggestions**. See [deckbuilding guidelines](docs/deckbuilding-guidelines.md).
+The catalog prioritizes candidates while the generator balances roles and curve
+and respects collection availability, legality, color identity, and mana-base
+color coverage.
 
-O classificador por regras versionadas produz evidências candidatas e mantém
-revisão humana para sinais ambíguos. Os resultados e suas evidências podem ser
-persistidos por ação explícita; as regras textuais são heurísticas literais
-limitadas, não interpretam contexto ou sinergia entre cartas, e combos infinitos
-exigem curadoria explícita.
+The versioned rule classifier produces candidate evidence and retains human
+review for ambiguous signals. Results can be persisted through an explicit
+action. Text rules are limited literal heuristics: they do not interpret full
+context or cross-card synergy, and infinite combos require explicit curation.
 
-A camada de domínio permite aplicar overrides manuais em memória, preservando
-as evidências automáticas e sinalizando quando uma exclusão contradiz uma
-sugestão. Também valida perfis de afinidade de comandante com múltiplas
-estratégias e tags, níveis `primary`, `secondary` ou `complementary` e
-explicações. Scores de afinidade são valores heurísticos, não probabilidades.
-Overrides, afinidades e evidências são persistidos em tabelas aditivas do SQLite.
-Na página **Sugestões**, é possível editar múltiplas afinidades do comandante
-na mesma tabela e corrigir a classificação de uma carta sem apagar suas
-evidências automáticas. As funções são agrupadas entre serviços do deck e
-sinergias da estratégia. A página **Catálogo** permite consultar, criar, editar
-e excluir estratégias e funções, incluindo termos Oracle por função. A exclusão
-remove vínculos e correções manuais atuais após confirmação, preservando o
-histórico de classificações. Alterações versionam os arquivos em `config/`; a reclassificação é incremental, acionada
-pelo usuário e não roda automaticamente ao abrir o app.
-Consulte
-`docs/classification-storage.md` antes de executar a persistência na coleção.
+The domain layer supports manual overrides while preserving automatic evidence
+and flagging contradictory exclusions. Commander profiles support multiple
+strategy and tag affinities with `primary`, `secondary`, or `complementary`
+levels and explanations. Affinity scores are heuristics, not probabilities.
+Overrides, affinities, and evidence are stored in additive SQLite tables.
+**Suggestions** supports editing multiple affinities in one table and
+correcting a card classification without deleting automatic evidence. Roles
+are grouped into deck services and strategy synergies. **Catalog** supports
+viewing, creating, editing, and deleting strategies and roles, including
+Oracle terms per role. Confirmed deletions remove current links and manual
+overrides while preserving classification history. Config changes are
+versioned; reclassification is incremental, explicit, and does not run when
+the app opens. Read [catalog persistence](docs/classification-storage.md)
+before persisting changes to the collection.
 
-O scorer determinístico calcula sinergia para uma estratégia explicitamente
-selecionada. Na página **Sugestões**, consulta a coleção e apresenta score,
-razões do match, funções detectadas e quantidade disponível. Na geração guiada
-pelo catálogo, o score também prioriza candidatos junto ao balanceamento de
-funções e curva. Classificações ausentes ou desatualizadas não são recalculadas
-automaticamente: reclassifique a coleção na página **Sugestões**; cartas sem
-classificação atual são informadas e não entram no modo guiado. Legalidade e
-identidade de cor continuam filtros separados. A fórmula, a integração e suas
-limitações estão descritas em `docs/synergy-scoring.md`.
+The deterministic scorer evaluates synergy for an explicitly selected
+strategy. Suggestions shows scores, match reasons, detected roles, and
+available quantities. Catalog-guided generation also uses the score alongside
+role and curve balance. Missing or stale classifications are not recalculated
+automatically; explicitly reclassify the collection on **Suggestions**. Cards
+without current classifications are reported and excluded from guided mode.
+Legality and color identity remain separate filters. See
+[synergy scoring](docs/synergy-scoring.md) for details and limitations.
 
-Se o comando `py` não estiver disponível, instale o Python e habilite o
-launcher durante a instalação, ou crie o ambiente com o caminho completo
-do executável Python:
+## Configuration and Database
+
+The `.env` file is optional. Without it, the database defaults to
+`data/mana_architect.db`. Set `MANA_ARCHITECT_DB_PATH` in `.env` to use another
+path. If the `py` launcher is unavailable, install Python with the launcher
+enabled or create the environment using the full executable path:
 
 ```powershell
-& "C:\caminho\para\python.exe" -m venv .venv
+& "C:\path\to\python.exe" -m venv .venv
 ```
 
-O arquivo `.env` é opcional; sem ele, o banco padrão será
-`data/mana_architect.db`. Para importar o CSV exportado pelo ManaBox:
+## Import a ManaBox Collection
 
 ```powershell
 python -m mana_architect import-csv .\collection.csv
 ```
 
-Para pesquisar cartas e consultar a quantidade total registrada:
+The importer uses the `Name`, `Set code`, `Collector number`, `Foil`,
+`Quantity`, `Scryfall ID`, `Condition`, and `Language` columns. Invalid rows
+stop the import and report their line number; the source file is unchanged.
+Reimporting sets each printing's quantity to the CSV value instead of adding
+it again. Repeated rows for the same printing, language, finish, and condition
+are grouped. Missing records in a later import are not deleted.
+
+## Search and Sync Card Data
 
 ```powershell
 python -m mana_architect search "anowon"
-```
-
-Para baixar o Bulk Data `default_cards`, enriquecer cartas e associar
-impressões aos respectivos `oracle_id`:
-
-```powershell
 python -m mana_architect sync-scryfall
 ```
 
-O primeiro download tem aproximadamente 77 MB compactado. O arquivo fica
-em `data/cache/scryfall/` e é reutilizado enquanto a versão publicada
-pelo Scryfall não mudar. O comando consulta os metadados do Bulk Data,
-mas processa toda a associação entre coleção e cartas localmente: os IDs
-da coleção não são enviados à API. É necessária conexão com a internet
-para sincronizar; pesquisa e importação continuam locais.
+`sync-scryfall` downloads Scryfall's `default_cards` Bulk Data, enriches card
+records, and links collection printings to their `oracle_id`. The initial
+download is approximately 77 MB compressed and is cached under
+`data/cache/scryfall/`. Collection matching is local; collection IDs are not
+sent to the API. Sync requires internet, while search and import remain local.
+Existing downloads can be reprocessed from cache. Canonical card names, type
+lines, and Oracle text use Scryfall's English data; physical printing language
+remains collection metadata. Printings that cannot be linked remain in the
+collection and are reported.
 
-Após atualizar para a versão que armazena as cores de mana produzidas pelos
-terrenos, execute `sync-scryfall` novamente. Os dados já baixados podem ser
-reprocessados do cache local, sem baixar o Bulk Data outra vez.
-
-O arquivo `default_cards` contém cartas em inglês e cartas disponíveis
-somente em outros idiomas. Por isso, algumas impressões traduzidas podem
-não estar no arquivo e permanecerão sem associação a `oracle_id`. Elas
-não são removidas nem descartadas; o comando informa quantas ficaram sem
-associação.
-
-Depois da sincronização, a pesquisa aceita filtros combináveis:
+Search accepts combined filters:
 
 ```powershell
 python -m mana_architect search --color U --identity WU
@@ -135,163 +122,97 @@ python -m mana_architect search "anowon" --type Creature
 python -m mana_architect search --mana-cost "{2}{U}"
 ```
 
-Os filtros de cor e identidade exigem todos os símbolos informados. Os
-filtros de tipo e custo de mana procuram um trecho do campo.
+Color and identity filters require all specified symbols. Type and mana-cost
+filters search for a substring.
 
-## Escolha de comandante e coleção compatível
-
-Para ver os comandantes elegíveis, legais segundo a última sincronização
-e presentes na coleção:
+## Choose a Commander
 
 ```powershell
 python -m mana_architect commanders
 python -m mana_architect commanders --query "Anowon"
-```
-
-O programa apenas apresenta as opções; a escolha é do usuário. Depois,
-filtre sua coleção informando o nome exato ou `oracle_id` escolhido:
-
-```powershell
 python -m mana_architect search --commander "Anowon, the Ruin Thief"
-python -m mana_architect search --commander "COLE_AQUI_O_ORACLE_ID" --type Creature
-python -m mana_architect search --commander "COLE_AQUI_O_ORACLE_ID" --roles
+python -m mana_architect search --commander "PASTE_ORACLE_ID_HERE" --roles
 ```
 
-Esse filtro inclui apenas cartas que você possui, que estão marcadas como
-legais em Commander nos dados Scryfall sincronizados e cuja identidade de
-cor é subconjunto da identidade do comandante. Os dados de legalidade
-podem ficar desatualizados: execute `sync-scryfall` e confira a data
-exibida. A classificação de funções é heurística, baseada em trechos do
-texto Oracle, e serve apenas como ponto de partida. A seleção de pares de
-comandantes (Partner/Background) ainda não está implementada.
+The commander list shows eligible commanders that are legal in the latest
+synced data and present in the collection. The player chooses one. Commander
+search includes only owned cards marked legal by synchronized Scryfall data and
+whose color identity is a subset of the commander's. Legality data can become
+stale; sync and check the displayed date. Role classification is a heuristic
+based on Oracle text. Partner/Background commander selection is not implemented.
 
-## Validar deck Commander
+## Validate a Commander Deck
 
-Crie um arquivo JSON com o comandante escolhido e as quantidades por
-`oracle_id`. A carta do comandante precisa estar na lista e conta dentro
-das 100 cartas:
+Create a JSON file with the commander and quantities by `oracle_id`. The
+commander must appear in the list and counts toward the 100-card total:
 
 ```json
 {
-  "commander": "ORACLE_ID_DO_COMANDANTE",
+  "commander": "COMMANDER_ORACLE_ID",
   "cards": [
-    {"oracle_id": "ORACLE_ID_DO_COMANDANTE", "quantity": 1},
-    {"oracle_id": "ORACLE_ID_DE_OUTRA_CARTA", "quantity": 99}
+    {"oracle_id": "COMMANDER_ORACLE_ID", "quantity": 1},
+    {"oracle_id": "ANOTHER_CARD_ORACLE_ID", "quantity": 99}
   ]
 }
 ```
-
-Valide com:
 
 ```powershell
 python -m mana_architect validate-deck .\deck.json
 ```
 
-O validador verifica tamanho, comandante, legalidade conforme o snapshot
-Scryfall registrado, identidade de cor, singleton (incluindo terrenos
-básicos e exceções explícitas de quantidade no texto Oracle) e
-disponibilidade física. O resultado diferencia decks inválidos de
-validações incompletas quando faltam dados. O resultado `válido` é sempre
-condicionado aos dados sincronizados: a data e as fontes são exibidas, e
-isso não garante que a banlist esteja atualizada hoje. Execute
-`sync-scryfall` antes de validar. Ainda não há suporte a dois comandantes
-em parceria.
+Validation checks deck size, commander, legality from the Scryfall snapshot,
+color identity, singleton rules (including basic lands and explicit Oracle
+text exceptions), and physical availability. Missing data can make the result
+incomplete. A `valid` result is conditional on synchronized data and does not
+guarantee the ban list is current today. Run `sync-scryfall` before validating.
+Two-commander partner decks are not supported yet.
 
-## Gerar rascunho de deck
-
-Escolha um comandante listado pelo comando `commanders` e gere um
-rascunho com as cartas disponíveis e legais conforme o snapshot atual:
+## Generate a Deck Draft
 
 ```powershell
 python -m mana_architect build-deck "Anowon, the Ruin Thief" --output .\data\decks\anowon.json
-```
-
-O padrão é 38 terrenos; altere para refletir sua preferência e estratégia:
-
-```powershell
 python -m mana_architect build-deck "Anowon, the Ruin Thief" --lands 36 --output .\data\decks\anowon.json
 ```
 
-O gerador inclui o comandante, distribui terrenos básicos entre as cores
-da identidade quando disponíveis e usa os rótulos heurísticos (ramp,
-compra, remoção e recursão), com custo de mana como critério secundário,
-para ordenar as outras opções. A composição não é uma recomendação
-estratégica garantida: revise sinergia, curva, terrenos e plano de jogo.
-Para usar o catálogo em vez do perfil legado como sinal estratégico, informe
-uma estratégia ativa e tenha cadastrado a afinidade do comandante na página
-**Sugestões**:
+The default is 38 lands. The generator includes the commander, distributes
+basic lands across its colors when available, and ranks other cards using
+heuristic roles (ramp, card draw, removal, and recursion), with mana value as a
+secondary criterion. This is not a guaranteed recommendation; review synergy,
+curve, lands, and game plan.
+
+To use a catalog strategy, configure the commander affinity on **Suggestions**
+and pass an active strategy:
 
 ```powershell
 python -m mana_architect build-deck "Anowon, the Ruin Thief" --strategy tokens --output .\data\decks\anowon-tokens.json
 ```
 
-O score do catálogo complementa funções e curva; não é uma ordenação isolada
-das cartas. Sem `--strategy`, a CLI mantém o modo legado. No modo do catálogo,
-cartas sem classificação atual são desconsideradas e informadas; a geração não
-reclassifica nem persiste classificações automaticamente.
-O rascunho só é salvo se tiver 100 cartas e não houver violações
-determinísticas conhecidas; se os dados não permitirem completar a lista,
-o programa informa a limitação e não grava um deck incompleto. Se a
-validação ficar incompleta por dados ausentes, o JSON informa esse estado
-e o comando retorna código 2. O arquivo pode ser editado e verificado de
-novo com `validate-deck`.
+Catalog score complements role and curve balance. Without `--strategy`, the
+CLI stays in legacy mode. Catalog mode reports and skips cards without current
+classifications and does not reclassify or persist classifications
+automatically. A draft is saved only when it has 100 cards and no known
+deterministic violations. If data cannot complete it, no incomplete deck is
+written. Incomplete validation due to missing data is included in JSON and
+returns exit code 2. Output is not overwritten unless `--overwrite` is passed.
+Files in `data/decks/` are not tracked by Git.
 
-O arquivo de destino não é sobrescrito por padrão. Para substituí-lo
-explicitamente, acrescente `--overwrite`. Arquivos em `data/decks/` não
-são versionados no Git.
-
-## Analisar e exportar decklist
-
-Para ver os nomes, a curva de mana, a contagem de terrenos, os rótulos
-funcionais heurísticos e o resultado do validador:
+## Analyze and Export a Decklist
 
 ```powershell
 python -m mana_architect analyze-deck .\data\decks\anowon.json
-```
-
-Para também criar uma lista de texto fácil de ler ou copiar:
-
-```powershell
 python -m mana_architect analyze-deck .\data\decks\anowon.json --export-text .\data\decks\anowon.txt
 ```
 
-O arquivo `.txt` separa comandante e deck principal, usa o formato
-`quantidade nome da carta` e não é sobrescrito sem `--overwrite`.
-A curva inclui não-terrenos com valor de mana conhecido, inclusive o
-comandante. Os rótulos funcionais podem se sobrepor e são heurísticos,
-não uma avaliação estratégica.
+Analysis shows card names, mana curve, land count, heuristic roles, and
+validation. The `.txt` export separates the commander from the main deck and
+uses `quantity card name` format. It is not overwritten without `--overwrite`.
+Role labels can overlap and are not a strategic evaluation.
 
-Também é possível executar os testes:
+Run tests with `python -m pytest`.
 
-```powershell
-python -m pytest
-```
+## Current Scope
 
-O caminho do banco pode ser alterado em `.env` pela variável
-`MANA_ARCHITECT_DB_PATH`.
-
-## Importação do ManaBox
-
-O importador usa as colunas `Name`, `Set code`, `Collector number`,
-`Foil`, `Quantity`, `Scryfall ID`, `Condition` e `Language`. Linhas com
-campos inválidos interrompem a importação com o número da linha indicado;
-o arquivo original não é modificado.
-
-Reimportar o mesmo CSV atualiza a quantidade de cada impressão para a
-quantidade informada no arquivo, sem somá-la novamente. Linhas repetidas
-com a mesma impressão, idioma, acabamento e condição são agrupadas e suas
-quantidades somadas. Registros que não aparecem em uma nova importação
-não são apagados.
-
-As impressões e seus identificadores Scryfall são armazenados localmente.
-O comando `sync-scryfall` preenche os dados de cartas e associa as
-impressões encontradas no Bulk Data à identidade lógica (`oracle_id`).
-Não apaga impressões quando os dados externos estão indisponíveis ou não
-contêm determinado idioma.
-
-## Escopo atual
-
-O estado detalhado das capacidades, limitações e próximos candidatos está em
-[docs/project-status.md](docs/project-status.md). Este README é o guia de
-instalação e uso; o [índice da documentação](docs/README.md) identifica as
-referências técnicas e os documentos históricos.
+See [project status](docs/project-status.md) for current capabilities,
+limitations, and next candidates. This README covers installation and usage;
+the [documentation index](docs/README.md) lists technical and historical
+documents.

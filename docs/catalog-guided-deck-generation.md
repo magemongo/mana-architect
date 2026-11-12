@@ -1,159 +1,131 @@
-# Integração do catálogo estratégico ao gerador
+# Catalog-Guided Deck Generation
 
-> **Status: concluída.** Registro dos requisitos e critérios de aceite da
-> integração do catálogo à geração automática. Esta página documenta a entrega,
-> não o roadmap futuro; consulte [project-status.md](./project-status.md).
+> **Status: Complete.** This document records requirements and acceptance
+> criteria for integrating the strategy catalog with automatic deck generation.
+> It documents the delivered work, not the future roadmap; see
+> [project-status.md](./project-status.md).
 
-## Objetivo
+## Goal
 
-Permitir que a geração automática use uma estratégia explícita do catálogo para
-priorizar cartas da coleção, sem abrir mão da estrutura do deck, das restrições
-de Commander ou do comportamento atual quando a pessoa não escolhe uma
-estratégia do catálogo.
+Allow automatic generation to use an explicitly selected catalog strategy to
+prioritize cards from the collection while preserving deck structure, Commander
+constraints, and current behavior when no catalog strategy is selected.
 
-Esta integração liga o catálogo ao gerador. A edição manual do deck a partir da
-página **Sugestões** fica para uma etapa posterior.
+This integration connects the catalog to the generator. Editing a generated
+decklist manually from Suggestions remains future work.
 
-## Contexto atual
+## Starting Point
 
-- `build_deck` filtra cartas da coleção por legalidade e identidade de cor,
-  escolhe terrenos para cobrir as cores e completa os não-terrenos equilibrando
-  funções e curva de mana.
-- A prioridade estratégica atual do gerador vem do perfil legado
-  `strategy_profiles.toml`; o score de seleção também considera função e curva.
-- O catálogo novo é usado pela página **Sugestões**, cujo scorer calcula
-  afinidade de uma carta com uma estratégia e um comandante. Ele ainda não é
-  chamado pelo gerador.
-- O scorer é por carta. Não avalia sozinho a qualidade nem a composição global
-  de um deck.
+- `build_deck` filters collection cards by legality and color identity, selects
+  lands to cover colors, then completes nonlands while balancing roles and mana
+  curve.
+- Legacy strategic priority comes from `strategy_profiles.toml`; the selection
+  score also considers roles and curve.
+- The catalog scorer is used by Suggestions to score a card for a commander and
+  strategy. It does not evaluate overall deck quality or composition by itself.
 
-## Experiência esperada
+## Expected Experience
 
-1. No **Construtor**, a pessoa escolhe o comandante e pode optar pelo modo
-   existente ou pelo modo **Estratégia do catálogo**.
-2. No modo do catálogo, escolhe uma estratégia ativa. A interface confirma que
-   há uma afinidade cadastrada para esse comandante e essa estratégia.
-3. O gerador usa o catálogo para priorizar candidatos, mas continua montando
-   uma lista completa segundo as metas de terrenos, funções e curva.
-4. O resultado apresenta a estratégia usada e continua passando pela validação
-   atual antes de permitir exportação.
-5. Se nenhuma estratégia do catálogo for escolhida, o gerador mantém o
-   comportamento legado. Essa escolha não deve ocorrer silenciosamente quando
-   a pessoa pediu o modo do catálogo e há dados ou configurações faltantes.
+1. In Deck Builder, choose a commander and optionally select **Catalog
+   Strategy** mode.
+2. Choose an active strategy. The UI confirms that an affinity exists for the
+   commander/strategy pair.
+3. The generator uses the catalog to prioritize candidates while still
+   producing a complete list according to land, role, and curve targets.
+4. The result identifies the strategy used and passes the existing validation
+   before export is allowed.
+5. If no catalog strategy is selected, legacy behavior remains in use. The app
+   must not silently fall back when catalog mode was requested but required
+   data or configuration is missing.
 
-O fluxo deve estar disponível na interface Streamlit e no comando `build-deck`
-da CLI por meio de uma opção explícita de estratégia. O comando sem essa opção
-mantém o comportamento atual.
+The flow is available in the Streamlit app and through an explicit strategy
+option on the `build-deck` CLI command. Omitting the option preserves current
+CLI behavior.
 
-## Regras de integração
+## Integration Rules
 
-- **Filtros duros antes do ranking:** coleção disponível, legalidade Commander
-  conhecida e válida, identidade de cor compatível e limites de cópias continuam
-  sendo restrições. Score não pode tornar uma carta inelegível em elegível.
-- **Afinidade explícita:** a estratégia escolhida precisa ter afinidade
-  cadastrada para o comandante. Se não houver, explicar como cadastrá-la e não
-  substituir a estratégia por um perfil ou score implícito.
-- **Classificação rastreável:** usar classificações atuais do catálogo e seus
-  overrides manuais sem apagar evidências automáticas. Não persistir
-  reclassificações automaticamente ao gerar.
-- **Classificação ausente ou obsoleta:** informar a quantidade afetada e
-  orientar a reclassificação explícita. Não tratar uma carta sem score como se
-  tivesse score zero nem mudar silenciosamente para o modo legado.
-- **Composição estrutural:** combinar o score estratégico com o balanceamento de
-  funções e curva do gerador. Normalizar o score pela faixa configurada e
-  limitar sua contribuição a `0.25`, junto ao score dinâmico de funções e curva.
-  Não selecionar simplesmente as cartas com maior score até completar 99
-  cartas; a cobertura de funções do scorer fica desativada nessa chamada porque
-  o gerador já atualiza funções durante a seleção.
-- **Base de mana:** preservar a cobertura de cores, os limites de terrenos
-  utilitários, estoque e demais regras atuais. O score estratégico pode
-  desempatar escolhas com o mesmo resultado estrutural, mas não superar a
-  cobertura de cores ou a prioridade por fontes multicoloridas.
-- **Determinismo e explicabilidade:** com as mesmas cartas, configuração,
-  comandante, estratégia e afinidade, a seleção e seus desempates devem ser
-  reproduzíveis. A interface e os arquivos gerados identificam a estratégia
-  usada; scores continuam heurísticos, não uma promessa de qualidade
-  competitiva.
-- **Validação final:** validar a lista produzida com o validador atual. Não
-  exportar um rascunho com violações determinísticas conhecidas; informar
-  claramente quando dados ausentes tornarem a validação incompleta.
+- **Hard filters before ranking:** collection availability, known and valid
+  Commander legality, compatible color identity, and copy limits remain
+  constraints. A score cannot make an ineligible card eligible.
+- **Explicit affinity:** the chosen strategy must have a commander affinity. If
+  not, explain how to add it; do not substitute an implicit profile or score.
+- **Traceable classifications:** use current catalog classifications and
+  manual overrides without erasing automatic evidence. Generation must not
+  persist reclassification automatically.
+- **Missing or stale classifications:** report the affected count and direct
+  the user to explicit reclassification. Do not treat unscored cards as score
+  zero or silently switch to legacy mode.
+- **Structural composition:** combine strategy score with role and curve
+  balance. Normalize using the configured range and cap its contribution at
+  `0.25`. Do not simply select the highest-scoring 99 cards; scorer role
+  coverage is disabled here because the generator updates roles during
+  selection.
+- **Mana base:** preserve color coverage, utility-land limits, inventory, and
+  existing rules. Strategy score can break ties with the same structural
+  result, but cannot outweigh color coverage or multicolor-source priority.
+- **Determinism and explanation:** given the same cards, configuration,
+  commander, strategy, and affinity, selection and tie-breaking are repeatable.
+  The UI and exported files identify the strategy. Scores are heuristics, not a
+  competitive-quality guarantee.
+- **Final validation:** validate the generated list with the current validator.
+  Do not export drafts with known deterministic violations; clearly report
+  incomplete validation caused by missing data.
 
-## Escopo
+## Scope
 
-### Incluído
+### Included
 
-- Uma opção explícita entre geração legada e geração guiada por estratégia do
-  catálogo, preservando o modo legado como padrão.
-- Seleção de estratégia no **Construtor** e opção correspondente na CLI.
-- Carregamento de afinidade, classificações atuais e overrides para pontuar os
-  candidatos elegíveis.
-- Integração determinística do score com a seleção de não-terrenos, mantendo o
-  balanceamento de funções e curva.
-- Integração subordinada às restrições existentes na escolha de terrenos.
-- Exibição da estratégia usada, avisos sobre afinidade/classificação e
-  validação final.
-- Testes unitários e de integração para os dois modos de geração.
+- Explicit choice between legacy generation and catalog-guided generation,
+  with legacy mode as the default.
+- Strategy selection in Deck Builder and the matching CLI option.
+- Loading affinity, current classifications, and overrides to score eligible
+  candidates.
+- Deterministic score integration with nonland selection while maintaining
+  role and curve balance.
+- Integration under existing land-selection constraints.
+- Display of the chosen strategy, affinity/classification notices, and final
+  validation.
+- Unit and integration tests for both generation modes.
 
-### Fora de escopo
+### Out of Scope
 
-- Adicionar ou substituir cartas manualmente na decklist a partir de
-  **Sugestões**.
-- Persistir decks ou criar gerenciamento de múltiplas listas.
-- Alterar coleção, regras de legalidade, catálogo de estratégias ou fórmula do
-  scorer sem necessidade demonstrada.
-- Calibrar pesos com dados externos, avaliar power level competitivo ou usar
-  IA/serviços remotos.
-- Suporte a comandantes parceiros.
+- Manually adding or replacing cards in Suggestions.
+- Persisting decks or managing multiple decklists.
+- Changing the collection, legality rules, strategy catalog, or scorer formula
+  without demonstrated need.
+- Calibrating weights with external data, evaluating competitive power level,
+  or using AI/remote services.
+- Partner commander support.
 
-## Critérios de aceite
+## Acceptance Criteria
 
-- [x] Sem estratégia selecionada, a geração atual continua funcionando com os
-      mesmos filtros e regras.
-- [x] No modo do catálogo, a estratégia selecionada é usada explicitamente pelo
-      gerador e aparece no resultado.
-- [x] A geração guiada é recusada com mensagem acionável se faltar afinidade
-      para o par comandante/estratégia.
-- [x] Classificações ausentes ou obsoletas são informadas; a geração não as
-      persiste nem troca de modo silenciosamente.
-- [x] A contribuição normalizada do score é limitada a `0.25` e combinada com
-      função e curva, sem substituir o balanceamento estrutural.
-- [x] Legalidade, identidade de cor, disponibilidade, singleton e cobertura de
-      cores dos terrenos continuam respeitados.
-- [x] O rascunho gerado continua passando pelo validador antes dos downloads.
-- [x] Repetir a geração com os mesmos dados e configurações produz a mesma
-      decklist e ordem de desempate.
-- [x] Testes demonstram que o modo do catálogo altera a priorização em um caso
-      controlado sem enfraquecer as restrições duras.
-- [x] A CLI sem a nova opção e a interface no modo legado preservam o
-      comportamento anterior.
+- [x] Without a selected strategy, current generation behavior and filters are
+      preserved.
+- [x] Catalog mode explicitly uses the selected strategy and shows it in the
+      result.
+- [x] Guided generation gives an actionable error when the commander/strategy
+      affinity is missing.
+- [x] Missing or stale classifications are reported; generation neither
+      persists them nor silently changes modes.
+- [x] Normalized score contribution is capped at `0.25` and combined with role
+      and curve balance without replacing structural selection.
+- [x] Legality, color identity, availability, singleton rules, and land color
+      coverage remain enforced.
+- [x] The generated draft is validated before download.
+- [x] Repeating generation with identical data and configuration produces the
+      same decklist and tie-break order.
+- [x] Tests show catalog mode changes prioritization in a controlled case
+      without weakening hard constraints.
+- [x] Omitting the CLI option and choosing legacy mode in the UI preserves
+      previous behavior.
 
-## Sequência sugerida de implementação
+## Completion Evidence
 
-1. Definir a composição determinística entre score estratégico, equilíbrio de
-   funções, curva e critérios de desempate; normalizar escalas e cobrir a regra
-   com testes antes de integrá-la ao fluxo.
-2. Estender o serviço de geração com um modo de estratégia opcional, carregando
-   catálogo, afinidade, classificações e overrides sem efeitos colaterais de
-   persistência.
-3. Conectar a opção ao **Construtor** e à CLI, incluindo os estados de
-   configuração ausente, estratégia sem afinidade e classificações desatualizadas.
-4. Verificar a validação, os downloads e a regressão do modo legado; validar
-   manualmente os dois fluxos.
-
-## Critério de conclusão
-
-A integração é considerada concluída quando o catálogo influencia de forma observável e
-determinística a seleção automática, preservando as restrições e a composição
-estrutural, e quando o modo legado continua disponível. A edição manual de
-decklists permanece como trabalho posterior.
-
-## Evidências de conclusão
-
-- Implementação: `src/mana_architect/deckbuilding.py`,
-  `src/mana_architect/cli.py` e `src/mana_architect/streamlit_app.py`.
-- Testes da integração: `tests/test_deckbuilding.py`,
-  `tests/test_cli.py` e `tests/test_streamlit_app.py`.
-- Suíte completa na revisão `5533668`: `python -m pytest -q` — **131 passed**.
-- Exercício manual no Streamlit com banco temporário: estratégia Tokens,
-  deck **100/100**, 98 terrenos e validação aprovada. O banco de teste foi
-  removido após a verificação.
+- Implementation: `src/mana_architect/deckbuilding.py`,
+  `src/mana_architect/cli.py`, and `src/mana_architect/streamlit_app.py`.
+- Integration tests: `tests/test_deckbuilding.py`, `tests/test_cli.py`, and
+  `tests/test_streamlit_app.py`.
+- Full suite at revision `5533668`: `python -m pytest -q` — **131 passed**.
+- Manual Streamlit exercise with a temporary database: Tokens strategy,
+  **100/100** cards, 98 lands, and validation passed. The test database was
+  removed afterward.

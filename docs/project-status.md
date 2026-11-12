@@ -1,194 +1,183 @@
 # Project Status and Roadmap
 
-- **Revisado em:** 2026-11-12
-- **Última revisão integralmente auditada:** `5533668`
+- **Reviewed:** 2026-11-12
+- **Last fully audited revision:** `5533668`
 - **Approved development scope:** catalog, role, and affinity administration
 - **Product language:** English
 
-Este é o resumo canônico do produto e de seu roadmap conhecido. O estado abaixo
-foi conferido contra o código, a configuração e os testes na revisão indicada;
-não é uma promessa de qualidade competitiva nem substitui essas fontes.
+This is the canonical summary of the product and its known roadmap. The status
+was checked against the code, configuration, and tests at the revision above. It
+does not promise competitive deck quality and does not replace those sources.
 
-## 1. Objetivo do projeto
+## 1. Product Goal
 
-O Mana Architect é uma aplicação local para organizar uma coleção física de
-Magic: The Gathering e apoiar a construção e análise de decks Commander usando
-somente cartas disponíveis nessa coleção. A coleção e o estoque são a fonte de
-verdade sobre propriedade; dados externos enriquecem cartas e ajudam a verificar
-legalidade, mas não autorizam incluir cartas que o usuário não possui.
+Mana Architect is a local application for organizing a physical Magic: The
+Gathering collection and building or analyzing Commander decks using cards the
+player owns. The collection is the source of truth for ownership. External data
+enriches card records and helps check legality, but never grants permission to
+include cards that are not owned.
 
-O sistema deve manter regras de seleção e validação determinísticas, resultados
-reproduzíveis e explicações rastreáveis. Classificações e scores estratégicos
-são heurísticas revisáveis, não decisões finais de legalidade nem garantias de
-força de um deck.
+Selection and validation rules should remain deterministic, reproducible, and
+explainable. Classification and strategy scores are reviewable heuristics, not
+final legality decisions or guarantees of deck strength.
 
 ## 2. Roadmap
 
-### Estado das entregas
+### Implemented capabilities
 
-As capacidades abaixo estão implementadas no código atual:
+1. Local collection import and search.
+2. Card data synchronization and basic Commander selection and validation.
+3. Deterministic draft generation, analysis, and export.
+4. Local interface for deck building, viewing, and suggestions.
+5. Versioned catalog, explainable classification, affinities, and scorer.
+6. Optional catalog-guided generation; legacy generation remains the default.
 
-1. Importação e consulta local da coleção.
-2. Sincronização de dados de cartas e seleção/validação básica de Commander.
-3. Geração, análise e exportação determinística de rascunhos.
-4. Interface local para construção, visualização e sugestões.
-5. Catálogo versionado, classificação explicável, afinidades e scorer.
-6. Integração opcional do catálogo à geração automática, mantendo o gerador
-   legado como padrão.
+The integration described in [catalog-guided-deck-generation.md](./catalog-guided-deck-generation.md)
+is complete. The next approved effort is improving the catalog, affinities, and
+their administration in the UI. That work is in progress:
 
-A integração registrada em
-[catalog-guided-deck-generation.md](./catalog-guided-deck-generation.md) está
-concluída. O usuário aprovou como próxima frente o aprimoramento do catálogo,
-das afinidades e de sua administração na interface. Essa frente está em
-desenvolvimento; os itens abaixo deixam de ser apenas propostas de backlog:
-
-| Ordem sugerida | Trabalho candidato | Estado conhecido |
+| Status | Work item | Current state |
 |---|---|---|
-| Em curso | Afinidades múltiplas por comandante e editor responsivo dos três níveis | Domínio e editor de tabela agora suportam várias estratégias e níveis na mesma tela; falta validação visual e de fluxo |
-| Em curso | Separar funções universais de serviço das funções específicas de sinergia | Grupos `deck_service` e `synergy_role` agora aparecem como filtros separados |
-| Em curso | Tela para consultar e administrar estratégias e funções, incluindo termos Oracle por função | Tela administrativa implementada; falta validação visual e revisão de fluxos de exclusão e salvamento |
-| Depois | Editar manualmente a lista gerada — incluir/remover/substituir cartas e revalidar | Explicitamente adiado; a lista não tem edição direta |
-| Depois | Salvar e administrar múltiplos decks e suas versões | Não implementado; decks não têm persistência própria |
-| Depois | Suportar comandantes Partner/Background | Não implementado |
-| Depois | Avaliar e calibrar heurísticas com casos e decks de referência | Pendente; pesos atuais são iniciais e não calibrados empiricamente |
-| Depois | Interface opcional em linguagem natural com LLM | Ideia do documento inicial; não implementada |
+| In progress | Multiple strategies per commander and a responsive editor for all three affinity levels | Domain and table editor support multiple strategies and levels on one screen; visual and workflow review remains |
+| In progress | Separate universal deck-service roles from strategy-specific synergy roles | `deck_service` and `synergy_role` are separate filters |
+| In progress | Admin screen for strategies and roles, including Oracle terms per role | Admin screen is implemented; visual review and delete/save workflow review remain |
+| Later | Manually add, remove, or replace cards in a generated list and revalidate | Deferred; direct decklist editing is unavailable |
+| Later | Save and manage multiple decks and versions | Not implemented; decks have no dedicated persistence |
+| Later | Support Partner/Background commanders | Not implemented |
+| Later | Evaluate and calibrate heuristics with reference decks | Pending; current weights are initial and not empirically calibrated |
+| Later | Optional natural-language interface using an LLM | Idea from the initial document; not implemented |
 
-Os itens “Depois” continuam sem aprovação ou prazo. A frente em curso deve
-preservar o versionamento do catálogo e a rastreabilidade das classificações.
+Items marked Later are not approved or scheduled. Current work should preserve
+catalog versioning and classification provenance.
 
-## 3. O que já está implementado
+## 3. Implemented Features
 
-### Coleção, dados e CLI
+### Collection, data, and CLI
 
-- Coleção local em SQLite, com identidade lógica de carta (`oracle_id`) separada
-  das impressões físicas e quantidades.
-- Importação de CSV exportado pelo **ManaBox**, com atualização idempotente por
-  impressão e resumo de linhas, duplicatas e quantidades. Parsers para Moxfield
-  e Archidekt não estão documentados como suportados.
-- Sincronização do Scryfall Bulk Data com cache local e associação de impressões
-  quando há correspondência; pesquisa e processamento da coleção permanecem
-  locais.
-- CLI para `import-csv`, `sync-scryfall`, `search`, `commanders`,
-  `validate-deck`, `build-deck` e `analyze-deck`.
+- Local SQLite collection with logical card identity (`oracle_id`) separate
+  from physical printings and quantities.
+- Import from ManaBox CSV with idempotent updates per printing. Moxfield and
+  Archidekt parsers are not documented as supported.
+- Scryfall Bulk Data synchronization with a local cache and printing linkage
+  where a match is available. Search and collection processing remain local.
+- CLI commands: `import-csv`, `sync-scryfall`, `search`, `commanders`,
+  `validate-deck`, `build-deck`, and `analyze-deck`.
 
-Fontes: `src/mana_architect/{models,database,manabox,importer,scryfall,collection,commanders,cli}.py`;
-testes de importação, sincronização, seleção de comandante e CLI.
+Sources: `src/mana_architect/{models,database,manabox,importer,scryfall,collection,commanders,cli}.py`
+and the related import, sync, commander-selection, and CLI tests.
 
-### Regras e geração Commander
+### Commander rules and generation
 
-- Validação de tamanho (100 cartas incluindo comandante), comandante, identidade
-  de cor, singleton com exceções reconhecidas, disponibilidade física e
-  legalidade conforme o snapshot local.
-- Estados de validação distinguem lista válida, inválida e incompleta quando
-  faltam dados.
-- Gerador determinístico de rascunhos; respeita estoque, legalidade, identidade
-  de cor e composição, com seleção de terrenos orientada à cobertura de cores.
-- Modo legado usa o perfil inicial de Anowon em `config/strategy_profiles.toml`
-  e continua sendo o padrão.
-- Modo opcional do catálogo está disponível na CLI (`build-deck --strategy`) e
-  no Construtor. Exige afinidade explícita comandante/estratégia; usa
-  classificações atuais e overrides, informa classificações ausentes e não
-  reclassifica nem persiste classificações durante a geração.
-- Análise da decklist, curva, funções heurísticas e exportação JSON/TXT.
+- Validation covers the 100-card size including the commander, commander
+  eligibility, color identity, singleton rules with recognized exceptions,
+  physical availability, and legality from the local snapshot.
+- Validation distinguishes valid, invalid, and incomplete lists when data is
+  missing.
+- The deterministic generator respects inventory, legality, color identity,
+  deck composition, and land selection based on color coverage.
+- Legacy mode uses Anowon's initial profile in `config/strategy_profiles.toml`
+  and remains the default.
+- Optional catalog mode is available through `build-deck --strategy` and the
+  Deck Builder. It requires an explicit commander/strategy affinity, uses
+  current classifications and overrides, reports missing classifications, and
+  does not reclassify or persist classifications during generation.
+- Decklist analysis, mana curve, heuristic roles, and JSON/TXT export.
 
-Fontes: `src/mana_architect/{validation,deckbuilding,strategy,cli}.py`;
-testes de validação e geração.
+Sources: `src/mana_architect/{validation,deckbuilding,strategy,cli}.py` and
+related validation and generation tests.
 
-### Catálogo e interface
+### Catalog and interface
 
-- Configuração versionada em JSON com **15 estratégias, 106 tags, 20 funções e
-  10 regras de classificação**.
-- Classificação por regras determinísticas com evidências, fingerprints e
-  revisão indicada; overrides por carta e afinidades de comandante são
-  persistidos separadamente.
-- Persistência aditiva em SQLite de versões de configuração, execuções,
-  classificações, evidências, correções manuais e afinidades.
-- Scorer determinístico que explica componentes e motivos; sugestões filtram
-  por coleção, legalidade e identidade de cor.
-- O modelo e a interface permitem múltiplas afinidades de estratégia e tag por
-  comandante, com níveis primário, secundário e complementar. A nova UI usa uma
-  tabela dinâmica e ainda precisa de verificação visual.
-- As funções têm grupos `deck_service` e `synergy_role`; a tela de sugestões
-  e os filtros agora os exibem separadamente.
-- Funções aceitam `oracle_keywords`, termos literais que viram evidências de
-  classificação com revisão recomendada. Regras versionadas continuam
-  disponíveis para combinações mais específicas.
-- A página **Catálogo** permite consultar, criar, editar e excluir estratégias
-  e funções. A exclusão remove regras, afinidades e correções manuais atuais
-  vinculadas, após confirmação; o histórico de classificações permanece. As
-  alterações são gravadas em `config/`, versionadas e exigem reclassificação
-  explícita.
-- Interface Streamlit local com páginas de Construtor, Deck, Sugestões e
-  Catálogo; afinidades e correções de classificação podem ser revistas na
-  interface.
-- Reclassificação da coleção é ação explícita do usuário, não ocorre ao abrir a
-  aplicação.
+- Versioned JSON configuration with **15 strategies, 106 tags, 20 roles, and
+  10 classification rules**.
+- Deterministic rule-based classification with evidence, fingerprints, and
+  review indicators. Per-card overrides and commander affinities are persisted
+  separately.
+- Additive SQLite persistence for configuration versions, runs,
+  classifications, evidence, manual overrides, and affinities.
+- Deterministic scorer explains its components and reasons. Suggestions are
+  filtered by collection, legality, and color identity.
+- The domain and UI support multiple strategy and tag affinities per commander,
+  with `primary`, `secondary`, and `complementary` levels. The responsive table
+  editor still needs visual verification.
+- Roles use the `deck_service` and `synergy_role` groups, shown separately in
+  Suggestions and its filters.
+- Roles accept `oracle_keywords`, literal terms that produce reviewable
+  classification evidence. Versioned rules support more specific combinations.
+- The Catalog page can view, create, edit, and delete strategies and roles.
+  After confirmation, deletion removes linked rules, affinities, and current
+  manual overrides while preserving classification history. Changes are saved
+  in `config/`, versioned, and require explicit reclassification.
+- Local Streamlit pages include Deck Builder, Deck, Suggestions, and Catalog.
+  Affinities and classification overrides can be reviewed in the UI.
+- Collection reclassification is an explicit user action and does not run when
+  the app opens.
 
-Fontes: `config/*.json`, `src/mana_architect/{catalog,classification,classification_repository,commander_affinity,overrides,synergy,suggestions,streamlit_app}.py`;
-testes correspondentes.
+Sources: `config/*.json`, `src/mana_architect/{catalog,classification,classification_repository,commander_affinity,overrides,synergy,suggestions,streamlit_app}.py`,
+and related tests.
 
-## 4. O que falta implementar ou decidir
+## 4. Open Work and Decisions
 
-### Lacunas confirmadas
+### Confirmed gaps
 
-- Edição manual da decklist gerada na interface.
-- Persistência e gerenciamento de decks salvos, múltiplas listas e histórico de
-  versões.
-- Regras de comandantes parceiros/backgrounds.
-- Interface de linguagem natural/LLM.
-- Validação empírica e calibração dos pesos, limites e resultados do scorer.
+- Edit a generated decklist manually in the UI.
+- Persist and manage saved decks, multiple lists, and version history.
+- Add Partner/Background commander rules.
+- Add a natural-language/LLM interface.
+- Empirically validate and calibrate scorer weights, caps, and results.
 
-Os quatro primeiros itens não devem ser considerados implicitamente aprovados
-para a próxima sprint. O último é necessário antes de tratar os scores como
-calibrados; atualmente são heurísticas.
+The first four items are not implicitly approved for the next sprint. Empirical
+validation is needed before treating scores as calibrated; they are currently
+heuristics.
 
-### Limitações operacionais atuais
+### Current operational limitations
 
-- Legalidade e banlist dependem dos dados sincronizados localmente. Uma
-  validação aprovada não garante que o snapshot corresponda à banlist vigente
-  hoje; sincronize e confira a data exibida.
-- Regras textuais não compreendem contexto completo nem sinergia entre cartas.
-  Combos infinitos exigem curadoria explícita.
-- Geração guiada depende de afinidade cadastrada e classificações atuais; cartas
-  sem classificação atual são omitidas e informadas.
-- O gerador monta um rascunho heurístico, não uma lista competitiva garantida.
+- Legality and the ban list depend on locally synchronized data. A passing
+  validation does not guarantee that the snapshot reflects today's ban list;
+  sync and check the displayed date.
+- Text rules do not understand full context or cross-card synergy. Infinite
+  combos require explicit curation.
+- Catalog-guided generation needs a configured affinity and current
+  classifications. Cards without current classifications are omitted and
+  reported.
+- The generator creates a heuristic draft, not a guaranteed competitive list.
 
-## 5. Informações relevantes para manutenção e auditoria
+## 5. Maintenance and Audit Notes
 
-### Stack e dados
+### Stack and data
 
-- Python 3.11+, SQLAlchemy 2 e SQLite; Streamlit é dependência opcional da
-  interface; Pytest é usado nos testes.
-- Banco pessoal, arquivos CSV, `.env`, cache do Scryfall e decks exportados são
-  excluídos do Git por padrão. Não usar nem alterar o banco real para testes;
-  use fixtures e bancos temporários.
-- `sync-scryfall` requer internet. O scorer e as sugestões operam localmente e
-  não chamam um LLM ou serviço remoto.
-- Operações persistentes de classificação devem respeitar transações e o
-  procedimento em [classification-storage.md](./classification-storage.md).
+- Python 3.11+, SQLAlchemy 2, and SQLite. Streamlit is optional for the UI;
+  Pytest is used for tests.
+- The personal database, CSV files, `.env`, Scryfall cache, and exported decks
+  are excluded from Git by default. Never use or modify the real collection
+  database for tests; use fixtures and temporary databases.
+- `sync-scryfall` requires internet. The scorer and Suggestions operate locally
+  and do not call an LLM or remote service.
+- Persistent classification operations must use transactions. See
+  [classification-storage.md](./classification-storage.md).
 
-### Orientação para agentes de IA
+### Guidance for AI agents
 
-1. Leia este documento e o [índice da documentação](./README.md); depois leia o
-   documento técnico relacionado ao escopo.
-2. Confirme o comportamento no código, na configuração e nos testes. Este resumo
-   não autoriza assumir que uma proposta está implementada.
-3. Preserve coleção, legalidade, identidade de cor, disponibilidade,
-   determinismo e proveniência de classificações.
-4. Não faça alterações destrutivas, sincronizações externas ou reclassificação
-   do banco pessoal sem autorização explícita.
-5. Ao concluir uma mudança, registre os arquivos/evidências, testes executados,
-   limitações e atualização documental necessária. Atualize o roadmap somente
-   quando uma decisão de produto for tomada.
+1. Read this document and the [documentation index](./README.md), then read the
+   technical reference for the task.
+2. Confirm behavior in code, configuration, and tests. This summary does not
+   imply that a proposal has been implemented.
+3. Preserve collection ownership, legality, color identity, availability,
+   determinism, and classification provenance.
+4. Do not perform destructive changes, external syncs, or reclassification of
+   the personal database without explicit authorization.
+5. When work is complete, record changed files, evidence, tests, limitations,
+   and needed documentation updates. Update the roadmap only after a product
+   decision has been made.
 
-### Evidência desta revisão
+### Evidence for this review
 
-- Revisão de código auditada: `5533668` (`feat: integrate strategy catalog into deck generation`).
-- Testes nessa revisão: `python -m pytest -q` — **131 passed**. As mudanças
-  atuais ainda não foram verificadas por teste.
-- Exercício manual em Streamlit com banco temporário: modo catálogo, estratégia
-  Tokens, resultado **100/100**, 98 terrenos e validação aprovada. O banco
-  temporário foi removido após o teste.
+- Audited code revision: `5533668` (`feat: integrate strategy catalog into deck generation`).
+- Tests at that revision: `python -m pytest -q` — **131 passed**. The current
+  changes had not been tested at the time of that review.
+- Manual Streamlit exercise with a temporary database: catalog mode, Tokens
+  strategy, **100/100** cards, 98 lands, and validation passed. The temporary
+  database was removed afterward.
 
-Uma mudança de comportamento invalida a evidência correspondente: atualize a
-revisão, execute os testes relevantes e registre novamente o resultado.
+A behavior change invalidates the corresponding evidence. Update the reviewed
+revision, run relevant tests, and record the new result.

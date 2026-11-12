@@ -1,41 +1,36 @@
 # Documentation Index
 
-## Comece por aqui
+## Start Here
 
-- [Estado do projeto e roadmap](./project-status.md) — visão canônica do
-  objetivo, estado implementado, lacunas conhecidas, próximos candidatos e
-  evidências de auditoria.
-- [README do repositório](../README.md) — instalação, quickstart e comandos de
-  uso.
+- [Project status and roadmap](./project-status.md) — canonical overview of the
+  product, implemented capabilities, known gaps, and current roadmap.
+- [Repository README](../README.md) — installation, quickstart, and usage.
 
-## Referência técnica atual
+## Current Technical References
 
-- [Diretrizes de deckbuilding](./deckbuilding-guidelines.md) — princípios e
-  heurísticas usados pelo gerador.
-- [Scoring de sinergia](./synergy-scoring.md) — fórmula, filtros, integração e
-  limitações do scorer.
-- [Persistência do catálogo](./classification-storage.md) — tabelas, versões,
-  transações e cuidados com reclassificação.
-- [Integração do catálogo à geração de decks](./catalog-guided-deck-generation.md)
-  — escopo, critérios de aceite e evidências da integração.
+- [Deckbuilding guidelines](./deckbuilding-guidelines.md) — generator goals and
+  heuristics.
+- [Synergy scoring](./synergy-scoring.md) — formula, filters, integration, and
+  limitations.
+- [Catalog persistence](./classification-storage.md) — schema, versions,
+  transactions, and reclassification guidance.
+- [Catalog-guided deck generation](./catalog-guided-deck-generation.md) — scope,
+  acceptance criteria, and implementation record.
 
-## Documentos históricos
+## Historical Documents
 
-Os documentos em [`history/`](./history/README.md) preservam as diretrizes e
-planos originais. Eles ajudam a entender decisões e requisitos de origem, mas
-seus roadmaps e prompts não são instruções de trabalho atuais.
+Documents in [`history/`](./history/README.md) preserve the original plans and
+requirements. They provide context, but their roadmaps and prompts are not
+current work instructions.
 
-## Hierarquia de fontes
+## Source of Truth
 
-1. O código, os testes e os arquivos versionados em `config/` determinam o
-   comportamento executável.
-2. [`project-status.md`](./project-status.md) é a referência para o estado do
-   produto e para o roadmap atualmente reconhecido; não substitui a inspeção do
-   código.
-3. Os documentos técnicos desta página explicam contratos e operação de áreas
-   específicas.
-4. Documentos históricos servem como contexto, não como backlog aprovado.
+1. Code, tests, and versioned files in `config/` define executable behavior.
+2. [`project-status.md`](./project-status.md) tracks product status and the
+   recognized roadmap; it does not replace code inspection.
+3. Technical references explain the contracts and operation of specific areas.
+4. Historical documents provide context, not an approved backlog.
 
-Ao registrar uma mudança, atualize o documento técnico diretamente relacionado
-e, se ela alterar o escopo, as lacunas ou o roadmap, atualize também o estado do
-projeto com a evidência correspondente.
+When a change is made, update its directly related technical reference. If it
+changes product scope, known gaps, or the roadmap, update the project status
+with supporting evidence as well.

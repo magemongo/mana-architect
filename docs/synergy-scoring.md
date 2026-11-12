@@ -1,96 +1,92 @@
-# Scoring determinístico de sinergia
+# Deterministic Synergy Scoring
 
-## Fórmula
+## Formula
 
-`score_card_for_strategy` calcula um resultado para uma carta, um comandante e
-uma estratégia informada explicitamente. Os componentes usam escala `[0, 1]`:
+`score_card_for_strategy` scores a card for an explicitly selected commander and
+strategy. Components use the `[0, 1]` scale:
 
-- `strategy_evidence`: soma, limitada a 1, de `weight * confidence` por alvo
-  distinto, considerando evidências da estratégia e tags associadas no catálogo.
-  Evidências repetidas para o mesmo alvo contam apenas uma vez, pela mais forte.
-- `shared_synergy_tags`: Jaccard ponderado entre tags observadas na carta e tags
-  declaradas para o comandante, limitado às tags da estratégia e com pesos da
-  configuração da estratégia.
-- `role_coverage`: fração das funções necessárias encontradas. Só participa se
-  o chamador fornecer funções necessárias; sem esse contexto o peso é
-  renormalizado entre os demais componentes disponíveis.
-- `commander_text_support`: usa o `strength_score` do perfil validado de
-  afinidade da estratégia. Esse valor é uma escala heurística curada, não uma
-  probabilidade.
+- `strategy_evidence`: sum of `weight * confidence`, capped at 1, for each
+  distinct target across strategy and associated tag evidence. Repeated evidence
+  for one target counts once, using the strongest match.
+- `shared_synergy_tags`: weighted Jaccard overlap between tags observed on the
+  card and tags declared for the commander, limited to the strategy's tags and
+  weighted by that strategy's configuration.
+- `role_coverage`: fraction of required roles found. It is included only when
+  the caller supplies required roles; otherwise its weight is renormalized
+  across the available components.
+- `commander_text_support`: the `strength_score` from the validated strategy
+  affinity profile. This is a curated heuristic scale, not a probability.
 
-Os componentes ativos são combinados pelos pesos de `scoring.json`,
-renormalizados pelo total dos pesos disponíveis. O resultado é multiplicado
-pelo fator de nível do comandante (`primary`, `secondary` ou `complementary`),
-recebe um ajuste de preferência opcional dentro da faixa configurada e é
-limitado/arredondado segundo a configuração. O tier usa os limiares da mesma
-versão de configuração.
+Active components are combined using the weights in `scoring.json`,
+renormalized by the sum of available weights. The result is multiplied by the
+commander-affinity level factor (`primary`, `secondary`, or `complementary`),
+receives an optional preference adjustment within the configured range, then
+is capped and rounded according to configuration. Tier thresholds come from
+the same configuration version.
 
-Uma estratégia sem afinidade declarada para o comandante não recebe fator
-implícito: retorna sem score e não pode ser ranqueada como sinergia específica;
-essa condição fica separada das razões de inelegibilidade.
+A strategy without a declared commander affinity gets no implicit factor: it
+returns no score and cannot be ranked as strategy-specific synergy. This is
+reported separately from ineligibility reasons.
 
-## Elegibilidade e disponibilidade
+## Eligibility and Availability
 
-Legalidade no formato e identidade de cor são filtros, não pontos. Dados de
-legalidade ou identidade ausentes são tratados como inelegíveis até que sejam
-conhecidos. No modo somente coleção, disponibilidade ausente ou zero também
-torna a carta inelegível. Cópias já usadas são subtraídas da quantidade física,
-mas nunca alteram a sinergia intrínseca da carta.
+Format legality and color identity are filters, not points. Missing legality or
+identity data makes a card ineligible until the data is known. In collection-
+only mode, unknown or zero availability also makes a card ineligible. Copies
+already used are subtracted from physical quantity but do not change a card's
+intrinsic synergy score.
 
-O score não substitui quantidade disponível, curva, legalidade ou identidade de
-cor. A ordenação estável usa elegibilidade, existência de afinidade, score
-decrescente, disponibilidade decrescente, nome normalizado e Oracle ID.
+The score never replaces available quantity, mana curve, legality, or color
+identity. Stable ordering uses eligibility, affinity presence, descending
+score, descending availability, normalized name, and Oracle ID.
 
-## Explicação e limites
+## Explanation and Limitations
 
-O retorno inclui os componentes, fator de afinidade, tier, motivos com
-contribuições e as razões de inelegibilidade. A soma das contribuições explica
-o score arredondado, dentro da precisão configurada. Caps de evidência genérica,
-linha de tipo e regra fraca são aplicados após a fórmula e explicitados nos
-motivos.
+The result includes components, affinity factor, tier, contribution reasons,
+and ineligibility reasons. Contributions explain the rounded score within the
+configured precision. Caps for generic evidence, type-line matches, and weak
+rules are applied after the formula and shown in the reasons.
 
-## Integração com a coleção
+## Collection Integration
 
-A página **Sugestões** consulta as cartas e quantidades físicas da coleção,
-exclui o comandante e aplica legalidade, identidade de cor, cartas já usadas e
-funções necessárias antes de apresentar o ranking. O resultado mostra score,
-tier, funções detectadas, evidências e quantidade restante. Só entram no score
-classificações cujo fingerprint ainda corresponde aos dados da carta e à
-versão atual das regras; a tela oferece uma ação explícita para reclassificar
-somente as cartas da coleção. Abrir o app não dispara reclassificação.
+The Suggestions page reads cards and physical quantities from the collection,
+excludes the commander, and applies legality, color identity, already-used
+cards, and required roles before showing rankings. Results include score, tier,
+detected roles, evidence, and remaining quantity. Only classifications whose
+fingerprint still matches card data and the current rules are scored. The page
+offers an explicit action to reclassify only cards in the collection; opening
+the app does not trigger reclassification.
 
-Afinidades de comandante podem ser editadas nessa página e são persistidas com
-origem manual. Correções de estratégia, tag ou função são vinculadas ao Oracle
-ID da carta, exigem justificativa e ficam separadas das evidências automáticas.
-Uma exclusão contraditória é exibida como conflito; remover a correção retorna
-à classificação automática.
+Commander affinities can be edited on this page and are persisted with a manual
+source. Strategy, tag, and role overrides are linked to a card's Oracle ID,
+require a reason, and remain separate from automatic evidence. Contradictory
+exclusions are shown as conflicts; removing an override restores the automatic
+classification.
 
-As funções são agrupadas em `deck_service` (por exemplo, ramp, compra e
-interação) e `synergy_role` (por exemplo, gerador de fichas, enabler e payoff).
-Os filtros de prioridade são opcionais e separados por grupo. Termos
-`oracle_keywords` editados na página **Catálogo** são correspondências literais
-com texto Oracle ou keywords Scryfall e geram evidência heurística marcada para
-revisão. Combinações e regras mais precisas continuam configuráveis em
-`config/classification_rules.json`.
+Roles are grouped as `deck_service` (for example, ramp, card draw, and
+interaction) and `synergy_role` (for example, token generator, enabler, and
+payoff). Optional priority filters are separate for each group. `oracle_keywords`
+edited on the Catalog page are literal matches against Oracle text or Scryfall
+keywords and produce heuristic evidence marked for review. More precise
+combinations remain configurable in `config/classification_rules.json`.
 
-O gerador também aceita uma estratégia explícita do catálogo. Nesse modo,
-`build_deck` pontua os candidatos legais, compatíveis com a identidade de cor e
-disponíveis na coleção usando classificações atuais e overrides. A pontuação é
-normalizada para `[0, 1]` conforme a escala configurada e contribui com peso
-`0.25` ao lado do balanceamento dinâmico de funções e curva. A cobertura de
-funções do scorer não é ativada nessa chamada: o próprio gerador já atualiza
-funções conforme seleciona cartas. Para terrenos, o score só desempata escolhas
-com o mesmo resultado estrutural de cobertura de cores, utilidade e terreno
-entrando virado.
+The generator also accepts an explicit catalog strategy. In that mode,
+`build_deck` scores legal, color-identity-compatible cards available in the
+collection using current classifications and overrides. The score is
+normalized to `[0, 1]` using the configured scale and contributes a weight of
+`0.25` alongside dynamic role and mana-curve balance. Scorer role coverage is
+not enabled in this call because the generator updates role coverage while
+selecting cards. For lands, strategy score only breaks ties with the same
+structural color-coverage result, utility, and tapped-land status.
 
-O modo guiado exige afinidade explícita entre comandante e estratégia. Cartas
-sem classificação atual não são pontuadas nem selecionadas; sua quantidade é
-informada, e classificações não são persistidas automaticamente. A CLI usa o
-modo legado quando `--strategy` é omitido, assim como o **Construtor** quando o
-modo do catálogo não é escolhido. A geração final continua sujeita à validação
-Commander existente.
+Guided mode requires an explicit commander/strategy affinity. Cards without a
+current classification are not scored or selected; their count is reported,
+and classifications are not persisted automatically. The CLI uses legacy mode
+when `--strategy` is omitted, as does Deck Builder unless catalog mode is
+selected. Final generation remains subject to the existing Commander
+validator.
 
-O ajuste de prioridade do usuário é uma preferência, não evidência da carta.
-Os pesos e caps são iniciais, precisam de validação com uso real e não
-representam calibração empírica. A tela de sugestões não altera a decklist e
-não oferece edição manual da decklist.
+User priority adjustment represents a preference, not evidence about a card.
+Weights and caps are initial values that need validation through real use; they
+are not empirically calibrated. Suggestions does not modify the decklist or
+provide manual decklist editing.
