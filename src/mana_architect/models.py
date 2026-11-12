@@ -247,6 +247,49 @@ class ManualOverrideRecord(Base):
     recorded_at: Mapped[str] = mapped_column(String(40), nullable=False)
 
 
+class CardClassificationOverrideRecord(Base):
+    __tablename__ = "card_classification_overrides"
+    __table_args__ = (
+        CheckConstraint(
+            "target_type IN ('strategy', 'tag', 'role')",
+            name="ck_card_classification_override_target_type",
+        ),
+        CheckConstraint(
+            "action IN ('force_include', 'force_exclude')",
+            name="ck_card_classification_override_action",
+        ),
+        CheckConstraint(
+            "confidence_score IS NULL OR "
+            "(confidence_score >= 0 AND confidence_score <= 1)",
+            name="ck_card_classification_override_confidence",
+        ),
+        CheckConstraint(
+            "action != 'force_exclude' OR confidence_score IS NULL",
+            name="ck_card_classification_override_exclusion_confidence",
+        ),
+        ForeignKeyConstraint(
+            ["oracle_id"],
+            ["cards.oracle_id"],
+            ondelete="CASCADE",
+            name="fk_card_classification_override_card",
+        ),
+        Index(
+            "ix_card_classification_overrides_target",
+            "target_type",
+            "target_id",
+        ),
+    )
+
+    oracle_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    target_type: Mapped[str] = mapped_column(String(16), primary_key=True)
+    target_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    action: Mapped[str] = mapped_column(String(16), nullable=False)
+    confidence_score: Mapped[float | None] = mapped_column(Float)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    author: Mapped[str | None] = mapped_column(String(255))
+    recorded_at: Mapped[str] = mapped_column(String(40), nullable=False)
+
+
 class CommanderAffinityRecord(Base):
     __tablename__ = "commander_affinities"
     __table_args__ = (

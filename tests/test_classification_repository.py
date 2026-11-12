@@ -11,11 +11,15 @@ from mana_architect.catalog import DEFAULT_CATALOG_DIR, load_strategy_catalog
 from mana_architect.classification import CardClassificationInput, classify_card
 from mana_architect.classification_repository import (
     catalog_configuration_hash,
+    load_card_classification_overrides,
     load_commander_affinity_profile,
+    load_current_classifications,
     load_latest_classification,
     load_manual_overrides,
     reclassify_cards,
+    remove_card_classification_override,
     remove_manual_override,
+    save_card_classification_override,
     save_commander_affinity_profile,
     save_manual_override,
 )
@@ -25,6 +29,7 @@ from mana_architect.commander_affinity import (
     CommanderTagAffinity,
 )
 from mana_architect.database import (
+    CARD_CLASSIFICATION_OVERRIDES_SCHEMA_VERSION,
     CLASSIFICATION_SCHEMA_VERSION,
     create_database_engine,
     initialize_database,
@@ -32,6 +37,7 @@ from mana_architect.database import (
 from mana_architect.models import (
     Card,
     CardClassification,
+    CardClassificationOverrideRecord,
     ClassificationCatalogVersion,
     ClassificationEvidenceRecord,
     ClassificationRun,
@@ -40,6 +46,7 @@ from mana_architect.models import (
     SchemaMigration,
 )
 from mana_architect.overrides import ManualOverride
+from mana_architect.overrides import resolve_classification_overrides
 
 
 @pytest.fixture
@@ -123,10 +130,14 @@ def test_initialization_adds_new_tables_and_records_schema_version(database) -> 
         "classification_evidence",
         "manual_overrides",
         "commander_affinities",
+        "card_classification_overrides",
     } <= table_names
     with Session(database) as session:
         versions = session.scalars(select(SchemaMigration.version)).all()
-    assert versions == [CLASSIFICATION_SCHEMA_VERSION]
+    assert set(versions) == {
+        CLASSIFICATION_SCHEMA_VERSION,
+        CARD_CLASSIFICATION_OVERRIDES_SCHEMA_VERSION,
+    }
 
 
 def test_initialization_migrates_existing_database_without_losing_collection_data(
@@ -155,6 +166,33 @@ def test_initialization_migrates_existing_database_without_losing_collection_dat
     assert card == ("old-card", "Old Card")
     assert "produced_mana" in columns
     engine.dispose()
+
+
+def test_current_classifications_require_matching_card_fingerprint(
+    database,
+    catalog,
+) -> None:
+    with Session(database) as session, session.begin():
+        reclassify_cards(session, catalog, DEFAULT_CATALOG_DIR)
+    with Session(database) as session:
+        current = load_current_classifications(
+            session,
+            ("spell-id", "plain-id"),
+            catalog,
+            DEFAULT_CATALOG_DIR,
+        )
+    assert set(current) == {"spell-id", "plain-id"}
+
+    with Session(database) as session, session.begin():
+        session.get(Card, "spell-id").oracle_text = "Draw a card."
+    with Session(database) as session:
+        stale = load_current_classifications(
+            session,
+            ("spell-id",),
+            catalog,
+            DEFAULT_CATALOG_DIR,
+        )
+    assert stale == {}
 
 
 def test_reclassification_persists_reproducible_evidence_and_skips_unchanged_cards(
@@ -428,6 +466,94 @@ def test_manual_override_round_trips_updates_and_can_be_removed(database, catalo
     with Session(database) as session:
         assert load_manual_overrides(session, catalog) == ()
         assert session.scalars(select(ManualOverrideRecord)).all() == []
+
+
+def test_card_override_preserves_automatic_evidence_and_is_card_scoped(
+    database,
+    catalog,
+) -> None:
+    override = ManualOverride(
+        "tag",
+        "create_tokens",
+        "force_exclude",
+        reason="A ficha é apenas incidental.",
+    )
+    with Session(database) as session, session.begin():
+        reclassify_cards(session, catalog, DEFAULT_CATALOG_DIR)
+        save_card_classification_override(
+            session,
+            "spell-id",
+            override,
+            catalog,
+        )
+
+    with Session(database) as session:
+        overrides = load_card_classification_overrides(
+            session,
+            ("spell-id", "plain-id"),
+            catalog,
+        )
+        automatic = load_latest_classification(session, "spell-id")
+    assert set(overrides) == {"spell-id"}
+    assert automatic is not None
+    assert any(
+        item.target_type == "tag" and item.target_id == "create_tokens"
+        for item in automatic.evidence
+    )
+
+    decisions = resolve_classification_overrides(
+        automatic,
+        overrides["spell-id"],
+        catalog,
+    )
+    corrected = next(item for item in decisions if item.target_id == "create_tokens")
+    assert not corrected.included
+    assert corrected.conflict
+    assert corrected.automatic_evidence
+    assert corrected.override is not None
+    assert corrected.override.reason == "A ficha é apenas incidental."
+
+    with Session(database) as session, session.begin():
+        assert remove_card_classification_override(
+            session,
+            "spell-id",
+            "tag",
+            "create_tokens",
+            catalog,
+        )
+    with Session(database) as session:
+        assert load_card_classification_overrides(
+            session,
+            ("spell-id",),
+            catalog,
+        ) == {}
+        assert session.scalars(select(CardClassificationOverrideRecord)).all() == []
+
+
+def test_card_override_requires_a_reason_and_valid_catalog_target(
+    database,
+    catalog,
+) -> None:
+    with Session(database) as session, session.begin():
+        with pytest.raises(ValueError, match="justificativa não vazia"):
+            save_card_classification_override(
+                session,
+                "spell-id",
+                ManualOverride("tag", "create_tokens", "force_include"),
+                catalog,
+            )
+        with pytest.raises(ValueError, match="ID inexistente"):
+            save_card_classification_override(
+                session,
+                "spell-id",
+                ManualOverride(
+                    "tag",
+                    "missing_tag",
+                    "force_include",
+                    reason="Justificativa.",
+                ),
+                catalog,
+            )
 
 
 def test_commander_affinity_profile_round_trips_replaces_and_clears(database, catalog) -> None:

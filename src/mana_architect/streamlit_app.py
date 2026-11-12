@@ -5,12 +5,31 @@ import json
 import re
 from datetime import datetime, timezone
 from itertools import combinations
+from typing import Literal
 
 import streamlit as st
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from mana_architect.catalog import (
+    DEFAULT_CATALOG_DIR,
+    StrategyCatalog,
+    load_strategy_catalog,
+)
 from mana_architect.commanders import CommanderOption, list_available_commanders
+from mana_architect.classification_repository import (
+    load_commander_affinity_profile,
+    reclassify_cards,
+    remove_card_classification_override,
+    save_card_classification_override,
+    save_commander_affinity_profile,
+)
+from mana_architect.commander_affinity import (
+    CommanderAffinityLevel,
+    CommanderAffinityProfile,
+    CommanderStrategyAffinity,
+    CommanderTagAffinity,
+)
 from mana_architect.database import create_database_engine, initialize_database
 from mana_architect.deckbuilding import (
     DeckAnalysis,
@@ -19,6 +38,17 @@ from mana_architect.deckbuilding import (
     build_deck,
 )
 from mana_architect.models import SyncMetadata
+from mana_architect.overrides import (
+    ClassificationTargetType,
+    ManualOverride,
+    OverrideAction,
+    resolve_classification_overrides,
+)
+from mana_architect.suggestions import (
+    CollectionSuggestion,
+    collection_oracle_ids,
+    suggest_collection_cards,
+)
 from mana_architect.strategy import load_strategy_profile
 from mana_architect.validation import DeckCard
 
@@ -490,6 +520,575 @@ def _render_deck_page(session: Session) -> None:
             st.text(f"{role}: {quantity}")
 
 
+def _save_strategy_affinity(
+    session: Session,
+    commander_id: str,
+    strategy_id: str,
+    level: CommanderAffinityLevel,
+    strength_score: float,
+    rationale: str,
+    selected_tag_ids: list[str],
+    catalog: StrategyCatalog,
+) -> None:
+    session.rollback()
+    with session.begin():
+        existing_profile = load_commander_affinity_profile(
+            session,
+            commander_id,
+            catalog,
+        )
+        previous_strategies = (
+            existing_profile.strategy_affinities if existing_profile else ()
+        )
+        previous_tags = (
+            {item.tag_id: item for item in existing_profile.tag_affinities}
+            if existing_profile
+            else {}
+        )
+        existing_strategy = next(
+            (
+                item
+                for item in previous_strategies
+                if item.strategy_id == strategy_id
+            ),
+            None,
+        )
+        strategy_affinities = tuple(
+            item
+            for item in previous_strategies
+            if item.strategy_id != strategy_id
+        ) + (
+            CommanderStrategyAffinity(
+                strategy_id=strategy_id,
+                level=level,
+                strength_score=strength_score,
+                evidence_ids=(
+                    existing_strategy.evidence_ids if existing_strategy else ()
+                ),
+                rationale=rationale.strip() or None,
+                source="manual",
+            ),
+        )
+        selected_tags = set(selected_tag_ids)
+        tag_affinities = tuple(
+            CommanderTagAffinity(
+                tag_id=tag.id,
+                evidence_ids=(
+                    previous_tags[tag.id].evidence_ids
+                    if tag.id in previous_tags
+                    else ()
+                ),
+                rationale=(
+                    previous_tags[tag.id].rationale
+                    if tag.id in previous_tags
+                    else None
+                ),
+                source="manual",
+            )
+            for tag in catalog.tags
+            if tag.id in selected_tags
+        )
+        save_commander_affinity_profile(
+            session,
+            CommanderAffinityProfile(
+                commander_oracle_id=commander_id,
+                strategy_affinities=tuple(
+                    sorted(strategy_affinities, key=lambda item: item.strategy_id)
+                ),
+                tag_affinities=tag_affinities,
+            ),
+            catalog,
+        )
+
+
+def _render_commander_affinity_editor(
+    session: Session,
+    commander_id: str,
+    strategy_id: str,
+    catalog: StrategyCatalog,
+) -> None:
+    profile = load_commander_affinity_profile(session, commander_id, catalog)
+    existing_strategy = next(
+        (
+            item
+            for item in profile.strategy_affinities
+            if item.strategy_id == strategy_id
+        ),
+        None,
+    ) if profile else None
+    tag_names = {item.id: item.name for item in catalog.tags}
+    existing_tags = (
+        [item.tag_id for item in profile.tag_affinities] if profile else []
+    )
+    existing_level = existing_strategy.level if existing_strategy else "primary"
+    level_options: tuple[CommanderAffinityLevel, ...] = (
+        "primary",
+        "secondary",
+        "complementary",
+    )
+    level_labels = {
+        "primary": "Primária",
+        "secondary": "Secundária",
+        "complementary": "Complementar",
+    }
+
+    with st.expander("Afinidade do comandante"):
+        st.caption(
+            "Cadastre uma afinidade curada para habilitar o score. A escala é "
+            "heurística, não uma probabilidade."
+        )
+        with st.form(
+            f"commander_affinity_{commander_id}_{strategy_id}",
+        ):
+            level = st.selectbox(
+                "Nível",
+                options=level_options,
+                index=level_options.index(existing_level),
+                format_func=lambda value: level_labels[value],
+                key=f"affinity_level_{commander_id}_{strategy_id}",
+            )
+            strength = st.slider(
+                "Força de suporte",
+                min_value=0.0,
+                max_value=1.0,
+                value=(
+                    existing_strategy.strength_score
+                    if existing_strategy
+                    else 0.5
+                ),
+                step=0.05,
+                key=f"affinity_strength_{commander_id}_{strategy_id}",
+            )
+            selected_tags = st.multiselect(
+                "Tags associadas ao comandante",
+                options=[item.id for item in catalog.tags],
+                default=existing_tags,
+                format_func=lambda tag_id: tag_names[tag_id],
+                key=f"affinity_tags_{commander_id}",
+            )
+            rationale = st.text_area(
+                "Justificativa",
+                value=(
+                    existing_strategy.rationale or ""
+                    if existing_strategy
+                    else ""
+                ),
+                key=f"affinity_rationale_{commander_id}_{strategy_id}",
+            )
+            submitted = st.form_submit_button(
+                "Salvar afinidade",
+                type="primary",
+                key=f"save_affinity_{commander_id}_{strategy_id}",
+            )
+        if submitted:
+            _save_strategy_affinity(
+                session,
+                commander_id,
+                strategy_id,
+                level,
+                strength,
+                rationale,
+                selected_tags,
+                catalog,
+            )
+            st.session_state["suggestion_notice"] = (
+                "Afinidade do comandante salva."
+            )
+            st.rerun()
+
+
+def _render_suggestion_correction(
+    session: Session,
+    suggestion: CollectionSuggestion,
+    catalog: StrategyCatalog,
+) -> None:
+    score = suggestion.score
+    target_labels = {
+        **{
+            f"strategy:{item.id}": f"Estratégia — {item.name}"
+            for item in catalog.strategies
+        },
+        **{
+            f"tag:{item.id}": f"Tag — {item.name}"
+            for item in catalog.tags
+        },
+        **{
+            f"role:{item.id}": f"Função — {item.name}"
+            for item in catalog.roles
+        },
+    }
+    target_options = list(target_labels)
+    target_by_ref: dict[str, tuple[ClassificationTargetType, str]] = {
+        f"strategy:{item.id}": ("strategy", item.id)
+        for item in catalog.strategies
+    }
+    target_by_ref.update(
+        {
+            f"tag:{item.id}": ("tag", item.id)
+            for item in catalog.tags
+        }
+    )
+    target_by_ref.update(
+        {
+            f"role:{item.id}": ("role", item.id)
+            for item in catalog.roles
+        }
+    )
+    overrides_by_target = {
+        f"{item.target_type}:{item.target_id}": item
+        for item in suggestion.overrides
+    }
+    default_target = next(iter(overrides_by_target), None)
+    if default_target not in target_labels:
+        default_target = next(
+            (
+                f"{item.target_type}:{item.target_id}"
+                for item in suggestion.classification.evidence
+                if f"{item.target_type}:{item.target_id}" in target_labels
+            ),
+            target_options[0],
+        )
+    target_widget_key = f"correction_target_{score.card_oracle_id}"
+    selected_target = st.session_state.get(target_widget_key, default_target)
+    if selected_target not in target_labels:
+        selected_target = default_target
+    existing_override = overrides_by_target.get(selected_target)
+    action_labels = (
+        "Forçar inclusão",
+        "Forçar exclusão",
+        "Voltar ao automático",
+    )
+    action_values: dict[str, OverrideAction | Literal["reset"]] = {
+        "Forçar inclusão": "force_include",
+        "Forçar exclusão": "force_exclude",
+        "Voltar ao automático": "reset",
+    }
+
+    with st.expander("Corrigir classificação desta carta"):
+        st.caption(
+            "A correção fica vinculada a esta carta; a evidência automática "
+            "original permanece armazenada."
+        )
+        with st.form(f"card_correction_{score.card_oracle_id}"):
+            target_ref = st.selectbox(
+                "Classificação",
+                options=target_options,
+                index=target_options.index(selected_target),
+                format_func=lambda value: target_labels[value],
+                key=target_widget_key,
+            )
+            action_label = st.selectbox(
+                "Decisão",
+                options=action_labels,
+                index=(
+                    action_labels.index("Forçar exclusão")
+                    if existing_override
+                    and existing_override.action == "force_exclude"
+                    else action_labels.index("Forçar inclusão")
+                ),
+                key=f"correction_action_{score.card_oracle_id}",
+            )
+            reason = st.text_area(
+                "Justificativa",
+                value=existing_override.reason or "" if existing_override else "",
+                key=f"correction_reason_{score.card_oracle_id}",
+            )
+            submitted = st.form_submit_button(
+                "Aplicar correção",
+                key=f"apply_correction_{score.card_oracle_id}",
+            )
+        if not submitted:
+            return
+
+        target_type, target_id = target_by_ref[target_ref]
+        action = action_values[action_label]
+        try:
+            session.rollback()
+            with session.begin():
+                if action == "reset":
+                    remove_card_classification_override(
+                        session,
+                        score.card_oracle_id,
+                        target_type,
+                        target_id,
+                        catalog,
+                    )
+                else:
+                    save_card_classification_override(
+                        session,
+                        score.card_oracle_id,
+                        ManualOverride(
+                            target_type=target_type,
+                            target_id=target_id,
+                            action=action,
+                            reason=reason,
+                        ),
+                        catalog,
+                    )
+        except ValueError as error:
+            st.error(str(error))
+            return
+        st.session_state["suggestion_notice"] = (
+            "Correção manual salva; a evidência automática foi preservada."
+            if action != "reset"
+            else "Correção removida; a classificação voltou ao automático."
+        )
+        st.rerun()
+
+
+def _render_collection_suggestion(
+    session: Session,
+    suggestion: CollectionSuggestion,
+    catalog: StrategyCatalog,
+) -> None:
+    score = suggestion.score
+    strategy_names = {item.id: item.name for item in catalog.strategies}
+    tag_names = {item.id: item.name for item in catalog.tags}
+    role_names = {item.id: item.name for item in catalog.roles}
+    decisions = resolve_classification_overrides(
+        suggestion.classification,
+        suggestion.overrides,
+        catalog,
+    )
+    included = [item for item in decisions if item.included]
+    matches = [
+        item
+        for item in included
+        if item.target_type in {"strategy", "tag", "role"}
+    ]
+    with st.container(border=True):
+        st.subheader(f"{score.card_name} — {score.score:.1f} ({score.tier})")
+        details = [
+            item
+            for item in (suggestion.mana_cost, suggestion.type_line)
+            if item
+        ]
+        if details:
+            st.caption(" · ".join(details))
+        st.caption(
+            f"Disponíveis na coleção após considerar o deck: "
+            f"{score.available_quantity}"
+        )
+        if matches:
+            st.markdown(
+                "**Correspondências:** "
+                + ", ".join(
+                    (
+                        strategy_names[item.target_id]
+                        if item.target_type == "strategy"
+                        else tag_names[item.target_id]
+                        if item.target_type == "tag"
+                        else role_names[item.target_id]
+                    )
+                    for item in matches
+                )
+            )
+        detected_roles = [
+            role_names[item.target_id]
+            for item in included
+            if item.target_type == "role"
+        ]
+        st.caption(
+            "Funções detectadas: "
+            + (", ".join(detected_roles) if detected_roles else "nenhuma")
+        )
+        with st.expander("Evidências e explicação do score"):
+            for decision in decisions:
+                label = (
+                    strategy_names[decision.target_id]
+                    if decision.target_type == "strategy"
+                    else tag_names[decision.target_id]
+                    if decision.target_type == "tag"
+                    else role_names[decision.target_id]
+                )
+                evidence = "; ".join(
+                    item.evidence_label for item in decision.automatic_evidence
+                )
+                state = "incluída" if decision.included else "excluída"
+                st.markdown(
+                    f"- **{label}** — {state}; origem: {decision.source}."
+                )
+                if evidence:
+                    st.caption(evidence)
+                if decision.override and decision.override.reason:
+                    st.caption(f"Justificativa manual: {decision.override.reason}")
+                if decision.conflict:
+                    st.warning(
+                        f"A correção manual contradiz evidência automática para {label}."
+                    )
+            st.markdown("**Componentes**")
+            for component, value in score.components.items():
+                st.text(f"{component}: {value:.3f}")
+            st.markdown("**Razões do score**")
+            for reason in score.reasons:
+                detail = f" — {reason.detail}" if reason.detail else ""
+                st.text(f"{reason.code}: {reason.contribution:+.2f}{detail}")
+        _render_suggestion_correction(session, suggestion, catalog)
+
+
+def _render_collection_suggestions(session: Session) -> None:
+    st.header("Sugestões de cartas")
+    st.caption(
+        "Sugestões determinísticas da sua coleção; legalidade e identidade de "
+        "cor são filtros, não pontos. Nenhuma chamada externa é feita."
+    )
+    catalog = load_strategy_catalog()
+    commanders = _load_commander_options(session)
+    if not commanders:
+        st.warning(
+            "Nenhum comandante disponível. Importe sua coleção e execute "
+            "`sync-scryfall` primeiro."
+        )
+        return
+    commander_by_id = {item.oracle_id: item for item in commanders}
+    commander_ids = list(commander_by_id)
+    previous_commander = st.session_state.get(
+        "suggestion_commander_id",
+        st.session_state.get("deck_commander_id"),
+    )
+    commander_index = (
+        commander_ids.index(previous_commander)
+        if previous_commander in commander_by_id
+        else 0
+    )
+    commander_id = st.selectbox(
+        "Comandante",
+        options=commander_ids,
+        index=commander_index,
+        key="suggestion_commander_id",
+        format_func=lambda oracle_id: (
+            f"{commander_by_id[oracle_id].name} — "
+            f"{_format_identity(commander_by_id[oracle_id].color_identity)}"
+        ),
+    )
+    profile = load_commander_affinity_profile(session, commander_id, catalog)
+    strategies = tuple(item for item in catalog.strategies if item.active)
+    strategy_ids = [item.id for item in strategies]
+    current_affinity_id = next(
+        (
+            item.strategy_id
+            for item in profile.strategy_affinities
+            if item.strategy_id in strategy_ids
+        ),
+        strategy_ids[0],
+    ) if profile else strategy_ids[0]
+    current_strategy = st.session_state.get(
+        "suggestion_strategy_id",
+        current_affinity_id,
+    )
+    strategy_index = (
+        strategy_ids.index(current_strategy)
+        if current_strategy in strategy_ids
+        else strategy_ids.index(current_affinity_id)
+    )
+    strategy_id = st.selectbox(
+        "Estratégia alvo",
+        options=strategy_ids,
+        index=strategy_index,
+        key="suggestion_strategy_id",
+        format_func=lambda value: next(
+            item.name for item in strategies if item.id == value
+        ),
+    )
+    role_names = {item.id: item.name for item in catalog.roles}
+    required_roles = st.multiselect(
+        "Funções que o deck ainda precisa",
+        options=[item.id for item in catalog.roles],
+        format_func=lambda value: role_names[value],
+        key="suggestion_required_roles",
+    )
+    search_clicked = st.button(
+        "Buscar sugestões",
+        type="primary",
+        key="search_collection_suggestions",
+    )
+    if search_clicked:
+        st.session_state["suggestion_query"] = (
+            commander_id,
+            strategy_id,
+            tuple(required_roles),
+        )
+
+    notice = st.session_state.pop("suggestion_notice", None)
+    if notice:
+        st.success(notice)
+    _render_commander_affinity_editor(
+        session,
+        commander_id,
+        strategy_id,
+        catalog,
+    )
+
+    if st.button(
+        "Reclassificar cartas da coleção",
+        key="reclassify_collection_for_suggestions",
+    ):
+        oracle_ids = collection_oracle_ids(session)
+        try:
+            session.rollback()
+            with session.begin():
+                summary = reclassify_cards(
+                    session,
+                    catalog,
+                    DEFAULT_CATALOG_DIR,
+                    oracle_ids,
+                )
+        except ValueError as error:
+            st.error(str(error))
+            return
+        st.session_state["suggestion_notice"] = (
+            f"Classificação concluída: {summary.classified} atualizadas, "
+            f"{summary.skipped} sem alterações."
+        )
+        st.rerun()
+
+    saved_query = st.session_state.get("suggestion_query")
+    active_query = (commander_id, strategy_id, tuple(required_roles))
+    if saved_query != active_query:
+        st.info("Escolha os filtros e clique em **Buscar sugestões**.")
+        return
+
+    used_quantities: dict[str, int] = {}
+    if st.session_state.get("deck_commander_id") == commander_id:
+        for item in st.session_state.get("deck_cards", []):
+            oracle_id = item.get("oracle_id")
+            quantity = item.get("quantity")
+            if isinstance(oracle_id, str) and isinstance(quantity, int):
+                used_quantities[oracle_id] = quantity
+    try:
+        batch = suggest_collection_cards(
+            session,
+            commander_id,
+            strategy_id,
+            catalog,
+            config_dir=DEFAULT_CATALOG_DIR,
+            required_roles=tuple(required_roles) or None,
+            already_used=used_quantities,
+        )
+    except ValueError as error:
+        st.warning(str(error))
+        return
+
+    metrics = st.columns(3)
+    metrics[0].metric("Cartas da coleção", batch.total_candidates)
+    metrics[1].metric("Sem classificação atual", batch.unclassified_count)
+    metrics[2].metric("Inelegíveis", batch.ineligible_count)
+    if batch.unclassified_count:
+        st.info(
+            "Há cartas sem classificação atual. Use **Reclassificar cartas da "
+            "coleção**; essa ação é local e não baixa dados."
+        )
+    if not batch.suggestions:
+        st.info("Nenhuma carta elegível encontrada para esses filtros.")
+        return
+    st.subheader(
+        f"Melhores correspondências para {batch.strategy_name} — "
+        f"{batch.commander.name}"
+    )
+    for suggestion in batch.suggestions:
+        _render_collection_suggestion(session, suggestion, catalog)
+
+
 def _render_deck_builder(session: Session) -> None:
     st.header("Construtor de deck")
     st.caption(
@@ -664,7 +1263,7 @@ def main() -> None:
 
     page = st.sidebar.radio(
         "Navegação",
-        ["Construtor", "Deck"],
+        ["Construtor", "Deck", "Sugestões"],
         key="page_navigation",
     )
     if page == "Construtor":
@@ -689,6 +1288,8 @@ def main() -> None:
 
         if page == "Construtor":
             _render_deck_builder(session)
+        elif page == "Sugestões":
+            _render_collection_suggestions(session)
         else:
             _render_deck_page(session)
 

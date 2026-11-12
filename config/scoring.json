@@ -26,5 +26,9 @@
     "single_generic_keyword_max": 20,
     "type_line_only_max": 15,
     "single_weak_rule_max": 25
+  },
+  "user_priority_adjustment": {
+    "minimum": -10,
+    "maximum": 10
   }
 }

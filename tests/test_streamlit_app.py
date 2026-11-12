@@ -1,14 +1,32 @@
+from pathlib import Path
+
 import pytest
 
 pytest.importorskip("streamlit")
+from streamlit.testing.v1 import AppTest
 
+from mana_architect.catalog import DEFAULT_CATALOG_DIR, load_strategy_catalog
+from mana_architect.classification_repository import (
+    load_card_classification_overrides,
+    load_latest_classification,
+    reclassify_cards,
+)
+from mana_architect.database import create_database_engine, initialize_database
 from mana_architect.streamlit_app import (
     _deck_preview_markup,
     _balance_category_names,
+    get_engine,
     _mana_cost_markdown,
     _mana_curve_markup,
 )
 from mana_architect.deckbuilding import DeckCardDetails
+from mana_architect.models import (
+    Card,
+    CardClassificationOverrideRecord,
+    CollectionPrinting,
+)
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 
 def test_mana_cost_uses_scryfall_pips_for_standard_and_hybrid_symbols() -> None:
@@ -125,3 +143,145 @@ def test_category_balance_preserves_order_when_there_are_fewer_groups() -> None:
 def test_category_balance_rejects_zero_columns() -> None:
     with pytest.raises(ValueError, match="column_count must be at least 1"):
         _balance_category_names([], column_count=0)
+
+
+def test_suggestions_page_saves_affinity_shows_cards_and_persists_corrections(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "streamlit-suggestions.db"
+    monkeypatch.setenv("MANA_ARCHITECT_DB_PATH", str(database_path))
+    get_engine.clear()
+    engine = create_database_engine(database_path)
+    initialize_database(engine)
+    catalog = load_strategy_catalog()
+    with Session(engine) as session, session.begin():
+        session.add_all(
+            [
+                Card(
+                    oracle_id="ui-commander",
+                    name="Token Commander",
+                    mana_cost="{2}{G}",
+                    cmc=3,
+                    colors=["G"],
+                    color_identity=["G"],
+                    produced_mana=None,
+                    type_line="Legendary Creature — Elf",
+                    oracle_text="",
+                    keywords=[],
+                    legalities={"commander": "legal"},
+                    image_uri=None,
+                    scryfall_updated_at="2026-11-11T12:00:00Z",
+                ),
+                Card(
+                    oracle_id="ui-token-card",
+                    name="Token Spell",
+                    mana_cost="{G}",
+                    cmc=1,
+                    colors=["G"],
+                    color_identity=["G"],
+                    produced_mana=None,
+                    type_line="Sorcery",
+                    oracle_text="Create a token.",
+                    keywords=[],
+                    legalities={"commander": "legal"},
+                    image_uri=None,
+                    scryfall_updated_at="2026-11-11T12:00:00Z",
+                ),
+            ]
+        )
+        session.add_all(
+            [
+                CollectionPrinting(
+                    scryfall_id="ui-printing-commander",
+                    oracle_id="ui-commander",
+                    name="Token Commander",
+                    set_code="tst",
+                    collector_number="1",
+                    language="en",
+                    finish="nonfoil",
+                    quantity=1,
+                    condition="near_mint",
+                ),
+                CollectionPrinting(
+                    scryfall_id="ui-printing-token-card",
+                    oracle_id="ui-token-card",
+                    name="Token Spell",
+                    set_code="tst",
+                    collector_number="2",
+                    language="en",
+                    finish="nonfoil",
+                    quantity=2,
+                    condition="near_mint",
+                ),
+            ]
+        )
+        reclassify_cards(
+            session,
+            catalog,
+            DEFAULT_CATALOG_DIR,
+            ("ui-commander", "ui-token-card"),
+        )
+    engine.dispose()
+
+    try:
+        app = AppTest.from_file(
+            str(Path(__file__).parents[1] / "src" / "mana_architect" / "streamlit_app.py")
+        ).run()
+        app.radio(key="page_navigation").set_value("Sugestões").run()
+        assert not app.exception
+
+        app.selectbox(key="suggestion_strategy_id").select("tokens").run()
+        app.multiselect(key="affinity_tags_ui-commander").select(
+            "create_tokens"
+        )
+        app.slider(key="affinity_strength_ui-commander_tokens").set_value(0.8)
+        app.form_submit_button(
+            key="save_affinity_ui-commander_tokens"
+        ).click().run()
+        assert not app.exception
+
+        app.button(key="search_collection_suggestions").click().run()
+        assert not app.exception
+        assert any("Token Spell" in item.value for item in app.subheader)
+
+        app.selectbox(key="correction_target_ui-token-card").set_value(
+            "tag:create_tokens"
+        )
+        app.selectbox(key="correction_action_ui-token-card").set_value(
+            "Forçar exclusão"
+        )
+        app.text_area(key="correction_reason_ui-token-card").set_value(
+            "A ficha é apenas incidental."
+        )
+        app.form_submit_button(
+            key="apply_correction_ui-token-card"
+        ).click().run()
+        assert not app.exception
+    finally:
+        app_engine = get_engine()
+        app_engine.dispose()
+        get_engine.clear()
+
+    engine = create_database_engine(database_path)
+    try:
+        with Session(engine) as session:
+            overrides = load_card_classification_overrides(
+                session,
+                ("ui-token-card",),
+                catalog,
+            )
+            automatic = load_latest_classification(session, "ui-token-card")
+            records = session.scalars(
+                select(CardClassificationOverrideRecord)
+            ).all()
+        assert len(records) == 1
+        assert overrides["ui-token-card"][0].reason == (
+            "A ficha é apenas incidental."
+        )
+        assert automatic is not None
+        assert any(
+            item.target_id == "create_tokens" for item in automatic.evidence
+        )
+    finally:
+        engine.dispose()

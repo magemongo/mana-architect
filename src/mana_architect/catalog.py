@@ -136,6 +136,7 @@ class ScoringConfig:
     components: Mapping[str, float]
     thresholds: Mapping[str, float]
     caps: Mapping[str, float]
+    user_priority_adjustment: Mapping[str, float]
 
 
 @dataclass(frozen=True)
@@ -422,6 +423,11 @@ def _parse_scoring(data: dict[str, object]) -> ScoringConfig:
     components = _number_map(data, filename, "components")
     thresholds = _number_map(data, filename, "thresholds")
     caps = _number_map(data, filename, "caps")
+    user_priority_adjustment = _number_map(
+        data,
+        filename,
+        "user_priority_adjustment",
+    )
     if set(commander_levels) != _COMMANDER_LEVELS:
         raise _error(
             filename,
@@ -446,6 +452,7 @@ def _parse_scoring(data: dict[str, object]) -> ScoringConfig:
         components=MappingProxyType(components),
         thresholds=MappingProxyType(thresholds),
         caps=MappingProxyType(caps),
+        user_priority_adjustment=MappingProxyType(user_priority_adjustment),
     )
 
 
@@ -521,6 +528,23 @@ def _validate_scoring(scoring: ScoringConfig, filename: str) -> None:
         for value in scoring.caps.values()
     ):
         raise _error(filename, "caps", "limites devem estar dentro da faixa normalizada")
+    if set(scoring.user_priority_adjustment) != {"minimum", "maximum"}:
+        raise _error(
+            filename,
+            "user_priority_adjustment",
+            "chaves esperadas: maximum, minimum",
+        )
+    if (
+        scoring.user_priority_adjustment["minimum"] > 0
+        or scoring.user_priority_adjustment["maximum"] < 0
+        or scoring.user_priority_adjustment["minimum"]
+        > scoring.user_priority_adjustment["maximum"]
+    ):
+        raise _error(
+            filename,
+            "user_priority_adjustment",
+            "a faixa deve ser ordenada e incluir zero",
+        )
 
 
 def _number_map(

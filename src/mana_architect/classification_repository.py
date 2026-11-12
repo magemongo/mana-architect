@@ -26,6 +26,7 @@ from mana_architect.commander_affinity import (
 from mana_architect.models import (
     Card,
     CardClassification,
+    CardClassificationOverrideRecord,
     ClassificationCatalogVersion,
     ClassificationEvidenceRecord,
     ClassificationRun,
@@ -58,6 +59,13 @@ class ReclassificationSummary:
 
 def catalog_configuration_hash(config_dir: Path) -> str:
     return _configuration_hash(config_dir, _CATALOG_FILES)
+
+
+def classification_configuration_hash(
+    config_dir: Path,
+    catalog: StrategyCatalog,
+) -> str:
+    return _classification_configuration_hash(config_dir, catalog)
 
 
 def _configuration_hash(
@@ -124,7 +132,7 @@ def reclassify_cards(
             "O catálogo carregado não corresponde aos arquivos de config_dir."
         )
     catalog_hash = catalog_configuration_hash(config_dir)
-    classification_hash = _classification_configuration_hash(config_dir, catalog)
+    classification_hash = classification_configuration_hash(config_dir, catalog)
     if oracle_ids is not None:
         if not all(isinstance(oracle_id, str) and oracle_id for oracle_id in oracle_ids):
             raise ValueError("oracle_ids deve conter apenas textos não vazios.")
@@ -222,6 +230,217 @@ def load_latest_classification(
             for record in records
         )
     )
+
+
+def load_current_classifications(
+    session: Session,
+    oracle_ids: tuple[str, ...],
+    catalog: StrategyCatalog,
+    config_dir: Path,
+) -> dict[str, ClassificationResult]:
+    if not all(isinstance(oracle_id, str) and oracle_id for oracle_id in oracle_ids):
+        raise ValueError("oracle_ids deve conter apenas textos não vazios.")
+    if len(set(oracle_ids)) != len(oracle_ids):
+        raise ValueError("oracle_ids contém valores duplicados.")
+    if not oracle_ids:
+        return {}
+
+    cards = {
+        card.oracle_id: card
+        for card in session.scalars(
+            select(Card).where(Card.oracle_id.in_(oracle_ids))
+        )
+    }
+    current_fingerprints = {
+        oracle_id: _card_input_fingerprint(card, catalog)
+        for oracle_id, card in cards.items()
+    }
+    expected_hash = classification_configuration_hash(config_dir, catalog)
+    runs = session.scalars(
+        select(ClassificationRun)
+        .where(ClassificationRun.oracle_id.in_(oracle_ids))
+        .order_by(
+            ClassificationRun.oracle_id,
+            ClassificationRun.classified_at.desc(),
+            ClassificationRun.run_id.desc(),
+        )
+    )
+    latest_runs: dict[str, ClassificationRun] = {}
+    for run in runs:
+        latest_runs.setdefault(run.oracle_id, run)
+    latest_runs = {
+        oracle_id: run
+        for oracle_id, run in latest_runs.items()
+        if run.classification_hash == expected_hash
+        and run.input_fingerprint == current_fingerprints.get(oracle_id)
+    }
+
+    records_by_run: dict[str, list[ClassificationEvidenceRecord]] = {
+        run.run_id: [] for run in latest_runs.values()
+    }
+    if records_by_run:
+        records = session.scalars(
+            select(ClassificationEvidenceRecord)
+            .where(ClassificationEvidenceRecord.run_id.in_(records_by_run))
+            .order_by(ClassificationEvidenceRecord.id)
+        )
+        for record in records:
+            records_by_run[record.run_id].append(record)
+
+    return {
+        oracle_id: _classification_result(records_by_run[run.run_id])
+        for oracle_id, run in latest_runs.items()
+    }
+
+
+def _classification_result(
+    records: list[ClassificationEvidenceRecord],
+) -> ClassificationResult:
+    return ClassificationResult(
+        evidence=tuple(
+            ClassificationEvidence(
+                rule_id=record.rule_id,
+                target_type=record.target_type,
+                target_id=record.target_id,
+                source_field=record.source_field,
+                matched_value=record.matched_value,
+                weight=record.weight,
+                confidence=record.confidence,
+                requires_review=record.requires_review,
+                evidence_label=record.evidence_label,
+                face_index=record.face_index,
+            )
+            for record in records
+        )
+    )
+
+
+def load_card_classification_overrides(
+    session: Session,
+    oracle_ids: tuple[str, ...],
+    catalog: StrategyCatalog,
+) -> dict[str, tuple[ManualOverride, ...]]:
+    if not all(isinstance(oracle_id, str) and oracle_id for oracle_id in oracle_ids):
+        raise ValueError("oracle_ids deve conter apenas textos não vazios.")
+    if len(set(oracle_ids)) != len(oracle_ids):
+        raise ValueError("oracle_ids contém valores duplicados.")
+    if not oracle_ids:
+        return {}
+
+    records = session.scalars(
+        select(CardClassificationOverrideRecord)
+        .where(CardClassificationOverrideRecord.oracle_id.in_(oracle_ids))
+        .order_by(
+            CardClassificationOverrideRecord.oracle_id,
+            CardClassificationOverrideRecord.target_type,
+            CardClassificationOverrideRecord.target_id,
+        )
+    )
+    overrides_by_card: dict[str, list[ManualOverride]] = {}
+    for record in records:
+        override = ManualOverride(
+            target_type=record.target_type,  # validated by resolver below
+            target_id=record.target_id,
+            action=record.action,  # validated by resolver below
+            confidence_score=record.confidence_score,
+            reason=record.reason,
+            author=record.author,
+            recorded_at=datetime.fromisoformat(record.recorded_at),
+        )
+        overrides_by_card.setdefault(record.oracle_id, []).append(override)
+    result = {
+        oracle_id: tuple(overrides)
+        for oracle_id, overrides in overrides_by_card.items()
+    }
+    for overrides in result.values():
+        resolve_classification_overrides(
+            ClassificationResult(evidence=()),
+            overrides,
+            catalog,
+        )
+    return result
+
+
+def save_card_classification_override(
+    session: Session,
+    oracle_id: str,
+    override: ManualOverride,
+    catalog: StrategyCatalog,
+) -> ManualOverride:
+    if not isinstance(oracle_id, str) or not oracle_id.strip():
+        raise ValueError("oracle_id deve ser um texto não vazio.")
+    if (
+        not isinstance(override.action, str)
+        or override.action not in {"force_include", "force_exclude"}
+    ):
+        raise ValueError(
+            "Correções de classificação aceitam force_include ou force_exclude."
+        )
+    if not isinstance(override.reason, str) or not override.reason.strip():
+        raise ValueError("A correção manual exige uma justificativa não vazia.")
+    resolve_classification_overrides(
+        ClassificationResult(evidence=()),
+        (override,),
+        catalog,
+    )
+    if session.get(Card, oracle_id) is None:
+        raise ValueError(f"Carta desconhecida: '{oracle_id}'.")
+
+    recorded_at = override.recorded_at or datetime.now(timezone.utc)
+    stored_override = replace(override, recorded_at=recorded_at)
+    record = session.get(
+        CardClassificationOverrideRecord,
+        (oracle_id, override.target_type, override.target_id),
+    )
+    if record is None:
+        record = CardClassificationOverrideRecord(
+            oracle_id=oracle_id,
+            target_type=override.target_type,
+            target_id=override.target_id,
+            action=override.action,
+            confidence_score=override.confidence_score,
+            reason=override.reason.strip(),
+            author=override.author,
+            recorded_at=recorded_at.isoformat(),
+        )
+        session.add(record)
+    else:
+        record.action = override.action
+        record.confidence_score = override.confidence_score
+        record.reason = override.reason.strip()
+        record.author = override.author
+        record.recorded_at = recorded_at.isoformat()
+    return stored_override
+
+
+def remove_card_classification_override(
+    session: Session,
+    oracle_id: str,
+    target_type: str,
+    target_id: str,
+    catalog: StrategyCatalog,
+) -> bool:
+    if not isinstance(oracle_id, str) or not oracle_id.strip():
+        raise ValueError("oracle_id deve ser um texto não vazio.")
+    candidate = ManualOverride(
+        target_type=target_type,  # validation is performed by resolver
+        target_id=target_id,
+        action="force_include",
+        reason="validation",
+    )
+    resolve_classification_overrides(
+        ClassificationResult(evidence=()),
+        (candidate,),
+        catalog,
+    )
+    record = session.get(
+        CardClassificationOverrideRecord,
+        (oracle_id, target_type, target_id),
+    )
+    if record is None:
+        return False
+    session.delete(record)
+    return True
 
 
 def save_manual_override(

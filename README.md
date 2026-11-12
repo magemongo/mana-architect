@@ -30,9 +30,9 @@ para ver sua imagem e texto Oracle na prévia. A validação e os downloads JSON
 ficam na página do deck. Na tela larga, todo o painel da prévia acompanha a
 rolagem sem cobrir os detalhes nem criar uma área de rolagem própria. A análise
 mostra a curva de mana em histograma, e os custos com símbolos conhecidos
-aparecem em ícones compactos junto aos nomes, sem caixas de botão. Não há edição
-manual nesta etapa; o fluxo futuro de alterações será integrado ao assistente
-LLM. A interface usa o banco local configurado em `.env`, assim como a CLI.
+aparecem em ícones compactos junto aos nomes, sem caixas de botão. A decklist
+ainda não tem edição direta. A interface usa o banco local configurado em
+`.env`, assim como a CLI.
 
 O perfil operacional atual de Anowon prioriza sinais de Rogues tribais, mill e
 dano de combate; esse perfil legado permanece em
@@ -45,21 +45,30 @@ fontes que cobrem cores da identidade do comandante e pode incluir terrenos
 utilitários; esses limites são heurísticos e configuráveis no perfil.
 
 O classificador por regras versionadas produz evidências candidatas e mantém
-revisão humana para sinais ambíguos; não persiste classificações nem calcula
-afinidade ou score. As regras textuais são heurísticas literais limitadas:
-não interpretam contexto ou sinergia entre cartas, e combos infinitos exigem
-curadoria explícita.
+revisão humana para sinais ambíguos. Os resultados e suas evidências podem ser
+persistidos por ação explícita; as regras textuais são heurísticas literais
+limitadas, não interpretam contexto ou sinergia entre cartas, e combos infinitos
+exigem curadoria explícita.
 
 A camada de domínio permite aplicar overrides manuais em memória, preservando
 as evidências automáticas e sinalizando quando uma exclusão contradiz uma
 sugestão. Também valida perfis de afinidade de comandante com múltiplas
 estratégias e tags, níveis `primary`, `secondary` ou `complementary` e
 explicações. Scores de afinidade são valores heurísticos, não probabilidades.
-Overrides, afinidades e evidências agora podem ser persistidos em tabelas
-aditivas do SQLite por transações explícitas; ainda não são conectados ao
-construtor. A reclassificação incremental é uma operação explícita e não roda
-automaticamente ao abrir o app. Consulte
+Overrides, afinidades e evidências são persistidos em tabelas aditivas do SQLite.
+Na página **Sugestões**, é possível editar afinidades e corrigir a classificação
+de uma carta sem apagar suas evidências automáticas. A reclassificação é
+incremental, acionada pelo usuário e não roda automaticamente ao abrir o app.
+Consulte
 `docs/classification-storage.md` antes de executar a persistência na coleção.
+
+O scorer determinístico calcula sinergia por estratégia explicitamente
+selecionada e, na página **Sugestões**, consulta cartas da coleção para o
+comandante, estratégia e funções escolhidos. A tela apresenta score, razões do
+match, funções detectadas e quantidade disponível; legalidade e identidade de
+cor continuam filtros separados. A geração automática de deck ainda não usa
+esse scorer. A fórmula e suas limitações estão descritas em
+`docs/synergy-scoring.md`.
 
 Se o comando `py` não estiver disponível, instale o Python e habilite o
 launcher durante a instalação, ou crie o ambiente com o caminho completo

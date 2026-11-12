@@ -10,6 +10,7 @@ from mana_architect.models import Base, SchemaMigration
 
 
 CLASSIFICATION_SCHEMA_VERSION = "classification-storage-v1"
+CARD_CLASSIFICATION_OVERRIDES_SCHEMA_VERSION = "card-classification-overrides-v1"
 
 
 def create_database_engine(database_path: Path | None = None) -> Engine:
@@ -42,18 +43,23 @@ def initialize_database(engine: Engine) -> None:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE cards ADD COLUMN produced_mana JSON"))
     with engine.begin() as connection:
-        existing_version = connection.scalar(
-            select(SchemaMigration.version).where(
-                SchemaMigration.version == CLASSIFICATION_SCHEMA_VERSION
-            )
+        versions = (
+            CLASSIFICATION_SCHEMA_VERSION,
+            CARD_CLASSIFICATION_OVERRIDES_SCHEMA_VERSION,
         )
-        if existing_version is None:
-            connection.execute(
-                insert(SchemaMigration).values(
-                    version=CLASSIFICATION_SCHEMA_VERSION,
-                    applied_at=datetime.now(timezone.utc),
+        for version in versions:
+            existing_version = connection.scalar(
+                select(SchemaMigration.version).where(
+                    SchemaMigration.version == version
                 )
             )
+            if existing_version is None:
+                connection.execute(
+                    insert(SchemaMigration).values(
+                        version=version,
+                        applied_at=datetime.now(timezone.utc),
+                    )
+                )
 
 
 def create_session_factory(engine: Engine) -> sessionmaker[Session]:
