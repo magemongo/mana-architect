@@ -1633,13 +1633,14 @@ def _render_collection_suggestions(session: Session) -> None:
                             f"{evidence.evidence_label}"
                         )
     with preview_column:
-        st.markdown(
-            _suggestion_preview_markup(
-                visible_suggestions,
-                row_keys,
-            ),
-            unsafe_allow_html=True,
-        )
+        with st.container(key="suggestion-preview-sticky"):
+            st.markdown(
+                _suggestion_preview_markup(
+                    visible_suggestions,
+                    row_keys,
+                ),
+                unsafe_allow_html=True,
+            )
 
     if visible_count < len(batch.suggestions):
         _SUGGESTION_SCROLL_SENTINEL(
@@ -1848,6 +1849,14 @@ def main() -> None:
         @media (min-width: 768px) {
             div[data-testid="stLayoutWrapper"]:has(
                 > div.stVerticalBlock.st-key-selected-card-preview
+            ) {
+                position: sticky;
+                top: 1rem;
+                align-self: flex-start;
+                z-index: 5;
+            }
+            div[data-testid="stLayoutWrapper"]:has(
+                > div.stVerticalBlock.st-key-suggestion-preview-sticky
             ) {
                 position: sticky;
                 top: 1rem;

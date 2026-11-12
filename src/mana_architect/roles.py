@@ -37,6 +37,11 @@ _REPEATED_INVESTIGATE_PATTERN = re.compile(
     r"\b(?:whenever|when|at the beginning of)\b[^.\n]{0,180}\binvestigate\b",
     re.IGNORECASE,
 )
+_ONE_SHOT_ETB_INVESTIGATE_PATTERN = re.compile(
+    r"\bwhen\b[^.\n]{0,160}\benters(?: the battlefield)?\b"
+    r"[^.\n]{0,100}\binvestigate\b",
+    re.IGNORECASE,
+)
 _DRAW_THEN_TOPDECK_PATTERN = re.compile(
     r"\bdraw\s+(?P<draw>a|one|two|three|four|five|\d+)\s+cards?\b"
     r"[^.\n]{0,160}\bput\s+(?P<put>one|two|three|four|five|\d+)\s+"
@@ -46,6 +51,10 @@ _DRAW_THEN_TOPDECK_PATTERN = re.compile(
 _LOOT_PATTERN = re.compile(
     r"\bdraw\s+(?P<draw>a|one|two|three|four|five|\d+)\s+cards?\b"
     r"[^.\n]{0,100}\bdiscard\s+(?P<discard>a|one|two|three|four|five|\d+)\s+cards?\b",
+    re.IGNORECASE,
+)
+_DISCARD_FOR_DRAW_PATTERN = re.compile(
+    r"\bdiscard\s+(?:a|one)\s+card\b[^.\n]{0,100}\bdraw\s+(?:a|one)\s+card\b",
     re.IGNORECASE,
 )
 _SPOT_INTERACTION_PATTERNS = (
@@ -99,7 +108,10 @@ def _has_card_advantage(text: str) -> bool:
         if (
             _REPEATED_RESOURCE_PATTERN.search(segment)
             or _REPEATABLE_ACTIVATED_DRAW_PATTERN.search(segment)
-            or _REPEATED_INVESTIGATE_PATTERN.search(segment)
+            or (
+                _REPEATED_INVESTIGATE_PATTERN.search(segment)
+                and not _ONE_SHOT_ETB_INVESTIGATE_PATTERN.search(segment)
+            )
         ):
             return True
         draw_then_topdeck = _DRAW_THEN_TOPDECK_PATTERN.search(segment)
@@ -140,6 +152,7 @@ def has_card_selection(text: str | None) -> bool:
     return bool(
         _DRAW_THEN_TOPDECK_PATTERN.search(source)
         or _LOOT_PATTERN.search(source)
+        or _DISCARD_FOR_DRAW_PATTERN.search(source)
         or re.search(r"\b(?:scry|surveil)\s+\d+\b", source, re.IGNORECASE)
     )
 
