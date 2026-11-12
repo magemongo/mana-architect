@@ -8,8 +8,6 @@ from streamlit.testing.v1 import AppTest
 
 from mana_architect.catalog import DEFAULT_CATALOG_DIR, load_strategy_catalog
 from mana_architect.classification_repository import (
-    load_card_classification_overrides,
-    load_latest_classification,
     reclassify_cards,
     save_commander_affinity_profile,
 )
@@ -22,17 +20,18 @@ from mana_architect.database import create_database_engine, initialize_database
 from mana_architect.streamlit_app import (
     _deck_preview_markup,
     _balance_category_names,
+    _color_identity_options,
     get_engine,
     _mana_cost_markdown,
     _mana_curve_markup,
+    _next_suggestion_count,
+    _suggestion_preview_markup,
 )
 from mana_architect.deckbuilding import DeckCardDetails
 from mana_architect.models import (
     Card,
-    CardClassificationOverrideRecord,
     CollectionPrinting,
 )
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 
@@ -55,6 +54,38 @@ def test_mana_cost_keeps_unknown_symbols_as_escaped_text() -> None:
 
 def test_empty_mana_cost_is_omitted() -> None:
     assert _mana_cost_markdown(None) == ""
+
+
+def test_suggestions_offer_all_32_color_identities_including_colorless() -> None:
+    identities = _color_identity_options()
+
+    assert len(identities) == 32
+    assert identities[0] == ()
+    assert identities[-1] == ("W", "U", "B", "R", "G")
+
+
+def test_suggestions_scroll_loading_increments_and_caps_at_50() -> None:
+    assert _next_suggestion_count(20) == 30
+    assert _next_suggestion_count(45) == 50
+    assert _next_suggestion_count(50) == 50
+
+
+def test_suggestion_preview_markup_switches_image_on_card_name_hover() -> None:
+    from types import SimpleNamespace
+
+    card = SimpleNamespace(
+        oracle_id="card-1",
+        name="Preview Card",
+        image_uri="https://example.test/card.jpg",
+    )
+    markup = _suggestion_preview_markup(
+        (card,),
+        {"card-1": "suggestion-row-0"},
+        "card-1",
+    )
+
+    assert "body:has(.st-key-suggestion-row-0 p:hover)" in markup
+    assert "https://example.test/card.jpg" in markup
 
 
 def test_mana_curve_markup_renders_sorted_histogram_bars() -> None:
@@ -152,7 +183,7 @@ def test_category_balance_rejects_zero_columns() -> None:
         _balance_category_names([], column_count=0)
 
 
-def test_suggestions_page_saves_affinity_shows_cards_and_persists_corrections(
+def test_suggestions_page_filters_by_identity_and_strategy_without_corrections(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -239,62 +270,18 @@ def test_suggestions_page_saves_affinity_shows_cards_and_persists_corrections(
         app.radio(key="page_navigation").set_value("Suggestions").run()
         assert not app.exception
 
-        app.selectbox(key="suggestion_strategy_id").select("tokens").run()
-        app.multiselect(key="affinity_tags_ui-commander").select(
-            "create_tokens"
-        )
-        app.slider(key="affinity_strength_ui-commander_tokens").set_value(0.8)
-        app.form_submit_button(
-            key="save_affinity_ui-commander_tokens"
-        ).click().run()
+        app.selectbox(key="suggestion_color_identity").select(("G",))
+        app.multiselect(key="suggestion_strategy_ids").select("tokens")
+        app.form_submit_button(key="search_collection_suggestions").click().run()
         assert not app.exception
-
-        app.button(key="search_collection_suggestions").click().run()
-        assert not app.exception
-        assert any("Token Spell" in item.value for item in app.subheader)
-
-        app.selectbox(key="correction_target_ui-token-card").set_value(
-            "tag:create_tokens"
-        )
-        app.selectbox(key="correction_action_ui-token-card").set_value(
-            "Force exclusion"
-        )
-        app.text_area(key="correction_reason_ui-token-card").set_value(
-            "A ficha é apenas incidental."
-        )
-        app.form_submit_button(
-            key="apply_correction_ui-token-card"
-        ).click().run()
-        assert not app.exception
+        assert any("Token Spell" in item.value for item in app.markdown)
+        assert not any("Correct This Card" in item.value for item in app.markdown)
+        assert app.metric[0].label == "Cards in color identity"
     finally:
         app_engine = get_engine()
         app_engine.dispose()
         get_engine.clear()
         st.cache_resource.clear()
-
-    engine = create_database_engine(database_path)
-    try:
-        with Session(engine) as session:
-            overrides = load_card_classification_overrides(
-                session,
-                ("ui-token-card",),
-                catalog,
-            )
-            automatic = load_latest_classification(session, "ui-token-card")
-            records = session.scalars(
-                select(CardClassificationOverrideRecord)
-            ).all()
-        assert len(records) == 1
-        assert overrides["ui-token-card"][0].reason == (
-            "A ficha é apenas incidental."
-        )
-        assert automatic is not None
-        assert any(
-            item.target_id == "create_tokens" for item in automatic.evidence
-        )
-    finally:
-        engine.dispose()
-
 
 def test_builder_generates_with_selected_catalog_strategy(
     monkeypatch,

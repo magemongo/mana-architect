@@ -7,7 +7,6 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from itertools import combinations
 from pathlib import Path
-from typing import Literal
 
 import pandas as pd
 import streamlit as st
@@ -25,8 +24,6 @@ from mana_architect.classification_repository import (
     load_current_classifications,
     load_commander_affinity_profile,
     reclassify_cards,
-    remove_card_classification_override,
-    save_card_classification_override,
     save_commander_affinity_profile,
 )
 from mana_architect.commander_affinity import (
@@ -50,16 +47,10 @@ from mana_architect.models import (
     SyncMetadata,
 )
 from mana_architect.oracle_text import PARSER_VERSION
-from mana_architect.overrides import (
-    ClassificationTargetType,
-    ManualOverride,
-    OverrideAction,
-    resolve_classification_overrides,
-)
 from mana_architect.suggestions import (
-    CollectionSuggestion,
+    IdentityCollectionSuggestion,
     collection_oracle_ids,
-    suggest_collection_cards,
+    suggest_collection_cards_by_identity,
 )
 from mana_architect.strategy import load_strategy_profile
 from mana_architect.validation import DeckCard
@@ -87,6 +78,83 @@ MANA_SYMBOLS = frozenset(
     }
 )
 
+_SUGGESTION_SCROLL_SENTINEL = st.components.v2.component(
+    "mana_architect.suggestions_scroll_sentinel",
+    html="""
+    <div id="suggestion-scroll-sentinel" aria-hidden="true"></div>
+    """,
+    js="""
+    export default function (component) {
+      const { data, parentElement, setTriggerValue } = component
+      const sentinel = parentElement.querySelector("#suggestion-scroll-sentinel")
+      if (!sentinel) return
+
+      const visibleCount = String(data?.visible_count ?? 0)
+      if (sentinel.dataset.requestedFor === visibleCount) return
+
+      const observer = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          sentinel.dataset.requestedFor = visibleCount
+          observer.disconnect()
+          setTriggerValue("loadMore", Number(visibleCount))
+        }
+      }, { rootMargin: "240px" })
+      observer.observe(sentinel)
+      return () => observer.disconnect()
+    }
+    """,
+)
+
+
+def _load_more_suggestions() -> None:
+    current = int(st.session_state.get("suggestion_visible_count", 20))
+    st.session_state["suggestion_visible_count"] = _next_suggestion_count(current)
+
+
+def _next_suggestion_count(current: int) -> int:
+    return min(50, max(0, current) + 10)
+
+
+def _suggestion_preview_markup(
+    suggestions: tuple[IdentityCollectionSuggestion, ...],
+    row_keys: dict[str, str],
+    default_card_id: str,
+) -> str:
+    preview_cards: list[str] = []
+    hover_rules: list[str] = []
+    for item in suggestions:
+        card_id = html.escape(item.oracle_id, quote=True)
+        image = (
+            f'<img src="{html.escape(item.image_uri, quote=True)}" '
+            f'alt="{html.escape(item.name, quote=True)}" loading="lazy">'
+            if item.image_uri
+            else '<span class="suggestion-no-image">Image unavailable</span>'
+        )
+        preview_cards.append(
+            f'<div class="suggestion-preview-card" data-card-id="{card_id}">{image}</div>'
+        )
+        row_selector = f'.st-key-{row_keys[item.oracle_id]} p:hover'
+        hover_rules.extend(
+            (
+                f"body:has({row_selector}) .suggestion-preview-card{{display:none}}",
+                f'body:has({row_selector}) .suggestion-preview-card[data-card-id="{card_id}"]'
+                "{display:block}",
+            )
+        )
+    default_id = html.escape(default_card_id, quote=True)
+    return (
+        "<style>"
+        ".suggestion-preview-card{display:none}"
+        f'.suggestion-preview-card[data-card-id="{default_id}"]{{display:block}}'
+        ".suggestion-preview-panel{position:sticky;top:1rem;width:100%;max-width:280px}"
+        ".suggestion-preview-card img{display:block;width:100%;height:auto;border-radius:.65rem}"
+        ".suggestion-no-image{display:block;padding:2rem;text-align:center}"
+        + "".join(hover_rules)
+        + "</style><div class=\"suggestion-preview-panel\">"
+        + "".join(preview_cards)
+        + "</div>"
+    )
+
 
 @st.cache_resource
 def get_engine() -> Engine:
@@ -101,6 +169,15 @@ def _load_commander_options(session: Session) -> list[CommanderOption]:
 
 def _format_identity(identity: tuple[str, ...]) -> str:
     return " ".join(COLOR_NAMES.get(color, color) for color in identity) or "Colorless"
+
+
+def _color_identity_options() -> list[tuple[str, ...]]:
+    colors = tuple(COLOR_NAMES)
+    return [
+        combo
+        for size in range(len(colors) + 1)
+        for combo in combinations(colors, size)
+    ]
 
 
 def _mana_cost_markdown(mana_cost: str | None) -> str:
@@ -1394,348 +1471,72 @@ def _render_oracle_parser_inspector(
             st.caption("No classification rule matched this card.")
 
 
-def _render_suggestion_correction(
-    session: Session,
-    suggestion: CollectionSuggestion,
-    catalog: StrategyCatalog,
-) -> None:
-    score = suggestion.score
-    target_labels = {
-        **{
-            f"strategy:{item.id}": f"Strategy — {item.name}"
-            for item in catalog.strategies
-        },
-        **{
-            f"tag:{item.id}": f"Tag — {item.name}"
-            for item in catalog.tags
-        },
-        **{
-            f"role:{item.id}": f"Role — {item.name}"
-            for item in catalog.roles
-        },
-    }
-    target_options = list(target_labels)
-    target_by_ref: dict[str, tuple[ClassificationTargetType, str]] = {
-        f"strategy:{item.id}": ("strategy", item.id)
-        for item in catalog.strategies
-    }
-    target_by_ref.update(
-        {
-            f"tag:{item.id}": ("tag", item.id)
-            for item in catalog.tags
-        }
-    )
-    target_by_ref.update(
-        {
-            f"role:{item.id}": ("role", item.id)
-            for item in catalog.roles
-        }
-    )
-    overrides_by_target = {
-        f"{item.target_type}:{item.target_id}": item
-        for item in suggestion.overrides
-    }
-    default_target = next(iter(overrides_by_target), None)
-    if default_target not in target_labels:
-        default_target = next(
-            (
-                f"{item.target_type}:{item.target_id}"
-                for item in suggestion.classification.evidence
-                if f"{item.target_type}:{item.target_id}" in target_labels
-            ),
-            target_options[0],
-        )
-    target_widget_key = f"correction_target_{score.card_oracle_id}"
-    selected_target = st.session_state.get(target_widget_key, default_target)
-    if selected_target not in target_labels:
-        selected_target = default_target
-    existing_override = overrides_by_target.get(selected_target)
-    action_labels = (
-        "Force Include",
-        "Force Exclude",
-        "Reset to Automatic",
-    )
-    action_values: dict[str, OverrideAction | Literal["reset"]] = {
-        "Force Include": "force_include",
-        "Force Exclude": "force_exclude",
-        "Reset to Automatic": "reset",
-    }
-
-    with st.expander("Correct This Card's Classification"):
-        st.caption(
-            "This correction applies only to this card. Original automatic "
-            "evidence is preserved."
-        )
-        with st.form(f"card_correction_{score.card_oracle_id}"):
-            target_ref = st.selectbox(
-                "Classification",
-                options=target_options,
-                index=target_options.index(selected_target),
-                format_func=lambda value: target_labels[value],
-                key=target_widget_key,
-            )
-            action_label = st.selectbox(
-                "Decision",
-                options=action_labels,
-                index=(
-                    action_labels.index("Force Exclude")
-                    if existing_override
-                    and existing_override.action == "force_exclude"
-                    else action_labels.index("Force Include")
-                ),
-                key=f"correction_action_{score.card_oracle_id}",
-            )
-            reason = st.text_area(
-                "Rationale",
-                value=existing_override.reason or "" if existing_override else "",
-                key=f"correction_reason_{score.card_oracle_id}",
-            )
-            submitted = st.form_submit_button(
-                "Apply Correction",
-                key=f"apply_correction_{score.card_oracle_id}",
-            )
-        if not submitted:
-            return
-
-        target_type, target_id = target_by_ref[target_ref]
-        action = action_values[action_label]
-        try:
-            session.rollback()
-            with session.begin():
-                if action == "reset":
-                    remove_card_classification_override(
-                        session,
-                        score.card_oracle_id,
-                        target_type,
-                        target_id,
-                        catalog,
-                    )
-                else:
-                    save_card_classification_override(
-                        session,
-                        score.card_oracle_id,
-                        ManualOverride(
-                            target_type=target_type,
-                            target_id=target_id,
-                            action=action,
-                            reason=reason,
-                        ),
-                        catalog,
-                    )
-        except ValueError as error:
-            st.error(str(error))
-            return
-        st.session_state["suggestion_notice"] = (
-            "Manual override saved; automatic evidence was preserved."
-            if action != "reset"
-            else "Override removed; classification reverted to automatic."
-        )
-        st.rerun()
-
-
-def _render_collection_suggestion(
-    session: Session,
-    suggestion: CollectionSuggestion,
-    catalog: StrategyCatalog,
-) -> None:
-    score = suggestion.score
-    strategy_names = {item.id: item.name for item in catalog.strategies}
-    tag_names = {item.id: item.name for item in catalog.tags}
-    role_names = {item.id: item.name for item in catalog.roles}
-    decisions = resolve_classification_overrides(
-        suggestion.classification,
-        suggestion.overrides,
-        catalog,
-    )
-    included = [item for item in decisions if item.included]
-    matches = [
-        item
-        for item in included
-        if item.target_type in {"strategy", "tag", "role"}
-    ]
-    with st.container(border=True):
-        st.subheader(f"{score.card_name} — {score.score:.1f} ({score.tier})")
-        details = [
-            item
-            for item in (suggestion.mana_cost, suggestion.type_line)
-            if item
-        ]
-        if details:
-            st.caption(" · ".join(details))
-        st.caption(
-            f"Available in collection after accounting for this deck: "
-            f"{score.available_quantity}"
-        )
-        if matches:
-            st.markdown(
-                "**Matches:** "
-                + ", ".join(
-                    (
-                        strategy_names[item.target_id]
-                        if item.target_type == "strategy"
-                        else tag_names[item.target_id]
-                        if item.target_type == "tag"
-                        else role_names[item.target_id]
-                    )
-                    for item in matches
-                )
-            )
-        detected_roles = [
-            role_names[item.target_id]
-            for item in included
-            if item.target_type == "role"
-        ]
-        selected_strategy = next(
-            (item for item in catalog.strategies if item.id == score.strategy_id),
-            None,
-        )
-        strategy_tag_ids = (
-            {item.tag_id for item in selected_strategy.tag_affinities}
-            if selected_strategy is not None
-            else set()
-        )
-        if any(
-            item.target_type == "strategy" and item.target_id == score.strategy_id
-            or item.target_type == "tag" and item.target_id in strategy_tag_ids
-            for item in included
-        ):
-            detected_roles.append("Main Strategy (dynamic)")
-        st.caption(
-            "Detected roles: "
-            + (", ".join(detected_roles) if detected_roles else "none")
-        )
-        with st.expander("Evidence and Score Breakdown"):
-            for decision in decisions:
-                label = (
-                    strategy_names[decision.target_id]
-                    if decision.target_type == "strategy"
-                    else tag_names[decision.target_id]
-                    if decision.target_type == "tag"
-                    else role_names[decision.target_id]
-                )
-                evidence = "; ".join(
-                    item.evidence_label for item in decision.automatic_evidence
-                )
-                state = "included" if decision.included else "excluded"
-                st.markdown(
-                    f"- **{label}** — {state}; origem: {decision.source}."
-                )
-                if evidence:
-                    st.caption(evidence)
-                if decision.override and decision.override.reason:
-                    st.caption(f"Justificativa manual: {decision.override.reason}")
-                if decision.conflict:
-                    st.warning(
-                        f"Manual override contradicts automatic evidence for {label}."
-                    )
-            st.markdown("**Components**")
-            for component, value in score.components.items():
-                st.text(f"{component}: {value:.3f}")
-            st.markdown("**Score Reasons**")
-            for reason in score.reasons:
-                detail = f" — {reason.detail}" if reason.detail else ""
-                st.text(f"{reason.code}: {reason.contribution:+.2f}{detail}")
-        _render_suggestion_correction(session, suggestion, catalog)
-
-
 def _render_collection_suggestions(session: Session) -> None:
     st.header("Card Suggestions")
     st.caption(
-        "Deterministic suggestions from your collection. Legality and color "
-        "identity are filters, not score bonuses. No external service is called."
+        "Explore classified cards from your collection by color identity and "
+        "strategy. Legality is checked for Commander; no commander is required."
+    )
+    st.caption(
+        "Cards are sorted by their strongest selected-strategy score. Optional "
+        "core-role priorities can add up to 15 points."
     )
     catalog = load_strategy_catalog()
-    commanders = _load_commander_options(session)
-    if not commanders:
-        st.warning(
-            "No commanders are available. Import your collection and run "
-            "`sync-scryfall` primeiro."
-        )
-        return
-    commander_by_id = {item.oracle_id: item for item in commanders}
-    commander_ids = list(commander_by_id)
-    previous_commander = st.session_state.get(
-        "suggestion_commander_id",
-        st.session_state.get("deck_commander_id"),
-    )
-    commander_index = (
-        commander_ids.index(previous_commander)
-        if previous_commander in commander_by_id
-        else 0
-    )
-    commander_id = st.selectbox(
-        "Commander",
-        options=commander_ids,
-        index=commander_index,
-        key="suggestion_commander_id",
-        format_func=lambda oracle_id: (
-            f"{commander_by_id[oracle_id].name} — "
-            f"{_format_identity(commander_by_id[oracle_id].color_identity)}"
-        ),
-    )
-    profile = load_commander_affinity_profile(session, commander_id, catalog)
+    color_options = _color_identity_options()
     strategies = tuple(item for item in catalog.strategies if item.active)
-    strategy_ids = [item.id for item in strategies]
-    current_affinity_id = next(
-        (
-            item.strategy_id
-            for item in profile.strategy_affinities
-            if item.strategy_id in strategy_ids
-        ),
-        strategy_ids[0],
-    ) if profile else strategy_ids[0]
-    current_strategy = st.session_state.get(
-        "suggestion_strategy_id",
-        current_affinity_id,
-    )
-    strategy_index = (
-        strategy_ids.index(current_strategy)
-        if current_strategy in strategy_ids
-        else strategy_ids.index(current_affinity_id)
-    )
-    strategy_id = st.selectbox(
-        "Target Strategy",
-        options=strategy_ids,
-        index=strategy_index,
-        key="suggestion_strategy_id",
-        format_func=lambda value: next(
-            item.name for item in strategies if item.id == value
-        ),
-    )
+    strategy_names = {item.id: item.name for item in strategies}
     role_names = {item.id: item.name for item in catalog.roles}
-    service_role_ids = [item.id for item in catalog.roles if item.group == "deck_service"]
-    with st.expander("Prioritize Roles in Suggestions", expanded=False):
-        service_roles = st.multiselect(
-            "Core Deck Roles",
-            options=service_role_ids,
-            format_func=lambda value: role_names[value],
-            key="suggestion_service_roles",
-            help="Prioritize ramp, card advantage, and spot or mass interaction.",
+    with st.form("suggestion_filters"):
+        color_identity = st.selectbox(
+            "Color identity",
+            options=color_options,
+            index=0,
+            format_func=_format_identity,
+            key="suggestion_color_identity",
+            help="Colorless selects cards with no colors in their color identity.",
         )
-        st.caption(
-            "Main Strategy contribution is calculated from the selected strategy "
-            "and card classification; it is not a universal role filter."
+        strategy_ids = tuple(
+            st.multiselect(
+                "Strategies",
+                options=[item.id for item in strategies],
+                format_func=lambda value: strategy_names[value],
+                key="suggestion_strategy_ids",
+                placeholder="Choose one or more strategies",
+            )
         )
-    required_roles = service_roles
-    search_clicked = st.button(
-        "Find Suggestions",
-        type="primary",
-        key="search_collection_suggestions",
-    )
+        role_ids = tuple(
+            st.multiselect(
+                "Prioritize core roles (optional)",
+                options=[item.id for item in catalog.roles],
+                format_func=lambda value: role_names[value],
+                key="suggestion_role_ids",
+                placeholder="No role priority",
+                help="Selected roles add a ranking preference; they do not exclude other cards.",
+            )
+        )
+        search_clicked = st.form_submit_button(
+            "Find suggestions",
+            type="primary",
+            key="search_collection_suggestions",
+        )
+    active_query = (tuple(color_identity), strategy_ids, role_ids)
     if search_clicked:
-        st.session_state["suggestion_query"] = (
-            commander_id,
-            strategy_id,
-            tuple(required_roles),
-        )
+        st.session_state["suggestion_query"] = active_query
+        st.session_state["suggestion_visible_count"] = 20
 
     notice = st.session_state.pop("suggestion_notice", None)
     if notice:
         st.success(notice)
-    _render_commander_affinity_editor(session, commander_id, catalog)
+    saved_query = st.session_state.get("suggestion_query")
+    if saved_query != active_query:
+        st.info("Choose the filters and click **Find suggestions**.")
+        return
+    if not strategy_ids:
+        st.info("Choose at least one strategy to rank cards.")
+        return
 
     if st.button(
-        "Reclassify Collection Cards",
+        "Reclassify collection cards",
         key="reclassify_collection_for_suggestions",
     ):
         oracle_ids = collection_oracle_ids(session)
@@ -1743,10 +1544,7 @@ def _render_collection_suggestions(session: Session) -> None:
             session.rollback()
             with session.begin():
                 summary = reclassify_cards(
-                    session,
-                    catalog,
-                    DEFAULT_CATALOG_DIR,
-                    oracle_ids,
+                    session, catalog, DEFAULT_CATALOG_DIR, oracle_ids
                 )
         except ValueError as error:
             st.error(str(error))
@@ -1757,51 +1555,97 @@ def _render_collection_suggestions(session: Session) -> None:
         )
         st.rerun()
 
-    saved_query = st.session_state.get("suggestion_query")
-    active_query = (commander_id, strategy_id, tuple(required_roles))
-    if saved_query != active_query:
-        st.info("Choose filters and click **Find Suggestions**.")
-        return
-
-    used_quantities: dict[str, int] = {}
-    if st.session_state.get("deck_commander_id") == commander_id:
-        for item in st.session_state.get("deck_cards", []):
-            oracle_id = item.get("oracle_id")
-            quantity = item.get("quantity")
-            if isinstance(oracle_id, str) and isinstance(quantity, int):
-                used_quantities[oracle_id] = quantity
     try:
-        batch = suggest_collection_cards(
+        batch = suggest_collection_cards_by_identity(
             session,
-            commander_id,
-            strategy_id,
+            tuple(color_identity),
+            strategy_ids,
             catalog,
             config_dir=DEFAULT_CATALOG_DIR,
-            required_roles=tuple(required_roles) or None,
-            already_used=used_quantities,
+            prioritized_roles=role_ids,
+            limit=50,
         )
     except ValueError as error:
         st.warning(str(error))
         return
 
-    metrics = st.columns(3)
-    metrics[0].metric("Collection Cards", batch.total_candidates)
-    metrics[1].metric("Not Currently Classified", batch.unclassified_count)
-    metrics[2].metric("Ineligible", batch.ineligible_count)
+    metric_columns = st.columns(3)
+    metric_columns[0].metric("Cards in color identity", batch.total_candidates)
+    metric_columns[1].metric("Not currently classified", batch.unclassified_count)
+    metric_columns[2].metric("Ineligible", batch.ineligible_count)
     if batch.unclassified_count:
         st.info(
-            "Some cards do not have current classifications. Use **Reclassify "
-            "Collection Cards**. This is local and does not download data."
+            "Some cards do not have current classifications. Use "
+            "**Reclassify collection cards** to refresh them locally."
         )
     if not batch.suggestions:
-        st.info("No eligible cards were found for these filters.")
+        st.info("No classified cards matched these filters.")
         return
-    st.subheader(
-        f"Best matches for {batch.strategy_name} — "
-        f"{batch.commander.name}"
+
+    visible_count = min(
+        50,
+        max(20, int(st.session_state.get("suggestion_visible_count", 20))),
+        len(batch.suggestions),
     )
-    for suggestion in batch.suggestions:
-        _render_collection_suggestion(session, suggestion, catalog)
+    visible_suggestions = batch.suggestions[:visible_count]
+    row_keys = {
+        item.oracle_id: f"suggestion-row-{index}"
+        for index, item in enumerate(visible_suggestions)
+    }
+    st.subheader(f"Top {visible_count} of {len(batch.suggestions)} matches")
+    list_column, preview_column = st.columns([0.68, 0.32], vertical_alignment="top")
+    with list_column:
+        for item in visible_suggestions:
+            row_key = row_keys[item.oracle_id]
+            strategy_labels = [
+                strategy_names[strategy_id]
+                for strategy_id in item.matching_strategy_ids
+            ]
+            role_labels = [role_names[role_id] for role_id in item.role_ids if role_id in role_names]
+            cost = _mana_cost_markdown(item.mana_cost)
+            heading = f"**{item.name}**"
+            if cost:
+                heading += f" &nbsp; {cost}"
+            with st.container(key=row_key):
+                st.markdown(heading)
+                st.caption(
+                    f"Score {item.score:.1f} · {item.type_line or 'Unknown type'} · "
+                    f"Owned: {item.available_quantity}"
+                )
+                summary_parts = []
+                if strategy_labels:
+                    summary_parts.append("Strategies: " + ", ".join(strategy_labels))
+                if role_labels:
+                    summary_parts.append("Roles: " + ", ".join(role_labels))
+                st.caption(" · ".join(summary_parts) if summary_parts else "No matched tags or roles")
+                with st.expander("Classification details"):
+                    st.markdown(
+                        "**Strategy scores:** "
+                        + ", ".join(
+                            f"{strategy_names[key]} {value:.1f}"
+                            for key, value in item.strategy_scores.items()
+                        )
+                    )
+                    for evidence in item.classification.evidence:
+                        st.caption(
+                            f"{evidence.target_type}: {evidence.target_id} — "
+                            f"{evidence.evidence_label}"
+                        )
+    with preview_column:
+        st.html(
+            _suggestion_preview_markup(
+                visible_suggestions,
+                row_keys,
+                visible_suggestions[0].oracle_id,
+            )
+        )
+
+    if visible_count < len(batch.suggestions):
+        _SUGGESTION_SCROLL_SENTINEL(
+            key="suggestion_scroll_sentinel",
+            data={"visible_count": visible_count},
+            on_loadMore_change=_load_more_suggestions,
+        )
 
 
 def _render_deck_builder(session: Session) -> None:

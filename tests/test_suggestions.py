@@ -17,7 +17,10 @@ from mana_architect.commander_affinity import (
 from mana_architect.database import create_database_engine, initialize_database
 from mana_architect.overrides import ManualOverride
 from mana_architect.models import Card, CollectionPrinting
-from mana_architect.suggestions import suggest_collection_cards
+from mana_architect.suggestions import (
+    suggest_collection_cards,
+    suggest_collection_cards_by_identity,
+)
 
 
 @pytest.fixture
@@ -156,6 +159,78 @@ def test_suggestions_rank_only_classified_owned_color_legal_candidates(
     ]
     assert result.suggestions[0].score.available_quantity == 2
     assert result.suggestions[0].classification.evidence
+
+
+def test_identity_suggestions_need_no_commander_and_filter_by_color_and_strategy(
+    database,
+    catalog,
+) -> None:
+    with Session(database) as session, session.begin():
+        reclassify_cards(session, catalog, DEFAULT_CATALOG_DIR)
+
+    with Session(database) as session:
+        result = suggest_collection_cards_by_identity(
+            session,
+            ("G",),
+            ("tokens", "spellslinger"),
+            catalog,
+        )
+
+    assert result.color_identity == ("G",)
+    assert result.strategy_ids == ("tokens", "spellslinger")
+    assert result.total_candidates == 3
+    assert result.unclassified_count == 0
+    assert [item.oracle_id for item in result.suggestions] == [
+        "token-card-id",
+        "plain-card-id",
+    ]
+    assert result.suggestions[0].strategy_scores["tokens"] > 0
+    assert [item.score for item in result.suggestions] == sorted(
+        (item.score for item in result.suggestions), reverse=True
+    )
+
+
+def test_identity_suggestions_allow_colorless_and_optional_role_priorities(
+    database,
+    catalog,
+) -> None:
+    with Session(database) as session, session.begin():
+        card = Card(
+            oracle_id="colorless-card-id",
+            name="Colorless Token Source",
+            mana_cost="{2}",
+            cmc=2,
+            colors=[],
+            color_identity=[],
+            produced_mana=None,
+            type_line="Artifact",
+            oracle_text=(
+                "Whenever an artifact enters the battlefield under your control, "
+                "create a Treasure token."
+            ),
+            keywords=[],
+            legalities={"commander": "legal"},
+            image_uri=None,
+            scryfall_updated_at="2026-11-11T12:00:00Z",
+        )
+        session.add(card)
+        session.add(_printing("colorless-card-id", card.name, 1))
+        reclassify_cards(session, catalog, DEFAULT_CATALOG_DIR)
+
+    with Session(database) as session:
+        result = suggest_collection_cards_by_identity(
+            session,
+            (),
+            ("tokens", "artifacts"),
+            catalog,
+            prioritized_roles=("ramp",),
+        )
+
+    assert result.color_identity == ()
+    assert result.total_candidates == 1
+    assert [item.oracle_id for item in result.suggestions] == ["colorless-card-id"]
+    assert set(result.suggestions[0].matching_strategy_ids) == {"tokens", "artifacts"}
+    assert "ramp" in result.suggestions[0].role_ids
 
 
 def test_suggestions_respect_current_deck_copies_and_required_roles(
