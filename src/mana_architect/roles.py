@@ -29,8 +29,12 @@ _REPEATED_RESOURCE_PATTERN = re.compile(
     r"return\b[^.\n]*\bfrom your graveyard)\b",
     re.IGNORECASE,
 )
-_REPEATABLE_ACTIVATED_DRAW_PATTERN = re.compile(
-    r"(?:^|\n)[^\n:]{0,100}:\s*[^\n.]*\bdraw\s+(?:a|one)\s+cards?\b",
+_ACTIVATED_ABILITY_PATTERN = re.compile(
+    r"(?:^|\n)(?P<cost>[^:\n]{1,160}):\s*(?P<effect>[^.\n]*)",
+    re.IGNORECASE,
+)
+_CARD_CONSUMING_COST_PATTERN = re.compile(
+    r"\b(?:discard|sacrifice|exile|return)\b",
     re.IGNORECASE,
 )
 _REPEATED_INVESTIGATE_PATTERN = re.compile(
@@ -105,7 +109,7 @@ def _has_card_advantage(text: str) -> bool:
     for segment in re.split(r"\n\s*\n", text):
         if (
             _REPEATED_RESOURCE_PATTERN.search(segment)
-            or _REPEATABLE_ACTIVATED_DRAW_PATTERN.search(segment)
+            or _has_repeatable_activated_draw(segment)
             or (
                 _REPEATED_INVESTIGATE_PATTERN.search(segment)
                 and not _ONE_SHOT_ETB_INVESTIGATE_PATTERN.search(segment)
@@ -135,6 +139,29 @@ def _has_card_advantage(text: str) -> bool:
             )
         )
         if draw_count - discard_count - 1 > 0:
+            return True
+    return False
+
+
+def _has_repeatable_activated_draw(segment: str) -> bool:
+    for ability in _ACTIVATED_ABILITY_PATTERN.finditer(segment):
+        cost = ability.group("cost")
+        effect = ability.group("effect")
+        if _CARD_CONSUMING_COST_PATTERN.search(cost):
+            continue
+        draw_count = sum(
+            _quantity_value(match.group("count").casefold())
+            for match in _CARD_DRAW_PATTERN.finditer(effect)
+        )
+        discard_count = sum(
+            _quantity_value(match.group("count").casefold())
+            for match in re.finditer(
+                r"\bdiscard\s+(?P<count>a|one|two|three|four|five|\d+)\s+cards?\b",
+                effect,
+                re.IGNORECASE,
+            )
+        )
+        if draw_count > discard_count:
             return True
     return False
 
