@@ -16,6 +16,8 @@
   transactions, and reclassification guidance.
 - [Oracle text parser](./oracle-text-parser.md) — parser foundation, current
   integration boundary, and migration steps.
+- [Card Advantage implementation guide](./card_advantage_engine_implementation_guide.md)
+  — accounting model, module design, fixtures, and delivery phases.
 - [Catalog-guided deck generation](./catalog-guided-deck-generation.md) — scope,
   acceptance criteria, and implementation record.
 
