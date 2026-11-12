@@ -79,7 +79,7 @@ def test_seed_rules_return_traceable_evidence_for_token_creation(catalog: Strate
 
     result = classify_card(card, catalog)
 
-    assert len(result.evidence) == 1
+    assert len(result.evidence) == 2
     evidence = result.evidence[0]
     assert evidence.rule_id == "tag_create_tokens_oracle_text"
     assert (evidence.target_type, evidence.target_id) == ("tag", "create_tokens")
@@ -88,6 +88,7 @@ def test_seed_rules_return_traceable_evidence_for_token_creation(catalog: Strate
     assert evidence.weight == 0.8
     assert evidence.confidence == 0.75
     assert not evidence.requires_review
+    assert result.evidence[1].target_id == "instant_sorcery_spell_density"
 
 
 def test_artifact_type_is_only_a_weak_reviewable_candidate(catalog: StrategyCatalog) -> None:

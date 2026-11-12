@@ -31,7 +31,29 @@ commander without a profile still uses the general role and mana-curve scoring.
 
 ## Evolution
 
-Before adding numeric targets for ramp, card draw, removal, protection, or lands,
+Before adding numeric targets for ramp, card advantage, interaction, or lands,
 compare reference decks and different collections. In the future, user
 preferences and deck context may adjust these targets without changing legality
 rules.
+
+The core roles are `spot_interaction`, `mass_interaction`, `ramp`, and
+`card_advantage`. Protection is interaction too: a targeted shield is spot
+interaction, while a fog or board-wide shield is mass interaction. Parser
+mechanics and synergy tags should preserve the method (counter, destroy, exile,
+return, prevention, and so on).
+
+`main_strategy` is a dynamic role assigned against the selected deck strategy.
+It can overlap with every core role. A card may contribute to +1/+1 counters
+and card advantage at once, for example. Strategy tag affinities define the
+initial evidence used for this dynamic role. Catalog-guided generation uses a
+configurable soft target (currently half the nonland slots) for
+`main_strategy`; this changes ranking but never blocks a complete deck. The
+ratio is a starting heuristic, not a calibrated recommendation. Configure its
+ratio and weight in `config/scoring.json`. Card selection and neutral card
+replacement are useful optional signals, but are not universal deck quotas.
+
+Card advantage is an outcome, not a synonym for drawing or recursion. A
+one-for-one cantrip or loot effect does not qualify by itself; repeatable or
+net-positive access to resources can. The current Oracle text heuristic is
+conservative and should be refined as the parser captures quantities, costs,
+repeatability, and selection choices more precisely.

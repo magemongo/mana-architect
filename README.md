@@ -176,7 +176,8 @@ python -m mana_architect build-deck "Anowon, the Ruin Thief" --lands 36 --output
 
 The default is 38 lands. The generator includes the commander, distributes
 basic lands across its colors when available, and ranks other cards using
-heuristic roles (ramp, card draw, removal, and recursion), with mana value as a
+heuristic roles (ramp, card advantage, spot interaction, and mass interaction),
+with mana value as a
 secondary criterion. This is not a guaranteed recommendation; review synergy,
 curve, lands, and game plan.
 

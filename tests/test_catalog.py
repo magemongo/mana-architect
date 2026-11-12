@@ -16,9 +16,9 @@ def _copy_catalog(tmp_path: Path) -> Path:
 def test_loads_versioned_catalog_and_all_initial_strategy_roles() -> None:
     catalog = load_strategy_catalog()
 
-    assert catalog.catalog_version == "1.1.0"
-    assert catalog.ruleset_version == "1.3.0"
-    assert catalog.scoring_version == "1.0.0"
+    assert catalog.catalog_version == "1.3.0"
+    assert catalog.ruleset_version == "1.5.0"
+    assert catalog.scoring_version == "1.1.0"
     assert len(catalog.strategies) == 15
     assert {strategy.id for strategy in catalog.strategies} == {
         "tokens",
@@ -38,28 +38,13 @@ def test_loads_versioned_catalog_and_all_initial_strategy_roles() -> None:
         "midrange",
     }
     assert len(catalog.tags) >= 70
-    assert {role.id for role in catalog.roles} >= {
+    assert {role.id for role in catalog.roles} == {
         "ramp",
-        "mana_fixing",
-        "card_draw",
-        "card_selection",
-        "tutor",
-        "removal",
-        "board_wipe",
-        "counterspell",
-        "protection",
-        "recursion",
-        "graveyard_hate",
-        "token_generator",
-        "sacrifice_outlet",
-        "enabler",
-        "payoff",
-        "engine",
-        "finisher",
-        "threat",
-        "land",
-        "win_condition",
+        "spot_interaction",
+        "mass_interaction",
+        "card_advantage",
     }
+    assert len(catalog.roles) == 4
     assert catalog.scoring.components["strategy_evidence"] == 0.4
     assert any(rule.requires_review for rule in catalog.rules)
 

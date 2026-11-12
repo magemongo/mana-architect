@@ -511,6 +511,17 @@
       "manual_review_recommended": true
     },
     {
+      "id": "instant_sorcery_spell_density",
+      "name": "Instant/Sorcery Spell Density",
+      "description": "Is an instant or sorcery that contributes to the deck's spell density.",
+      "family": "spells",
+      "related_strategy_ids": [
+        "spellslinger"
+      ],
+      "aliases": [],
+      "manual_review_recommended": false
+    },
+    {
       "id": "spell_copy",
       "name": "Spell Copying",
       "description": "Copies a spell or a spell ability.",
@@ -1071,6 +1082,18 @@
       "description": "Protects one creature from removal or interaction.",
       "family": "protection",
       "related_strategy_ids": [
+        "voltron"
+      ],
+      "aliases": [],
+      "manual_review_recommended": true
+    },
+    {
+      "id": "mass_protection",
+      "name": "Mass Protection",
+      "description": "Prevents or avoids interaction against multiple permanents or players at once.",
+      "family": "protection",
+      "related_strategy_ids": [
+        "control",
         "voltron"
       ],
       "aliases": [],

@@ -2,142 +2,28 @@
   "schema_version": 1,
   "roles": [
     {
+      "id": "spot_interaction",
+      "name": "Spot Interaction",
+      "group": "deck_service",
+      "description": "Answers or protects one spell, ability, permanent, or player. Mechanics identify the response mode."
+    },
+    {
+      "id": "mass_interaction",
+      "name": "Mass Interaction",
+      "group": "deck_service",
+      "description": "Answers or protects multiple objects or players at once. Mechanics identify the response mode."
+    },
+    {
       "id": "ramp",
       "name": "Ramp",
       "group": "deck_service",
-      "description": "Accelerates mana availability."
+      "description": "Accelerates mana availability beyond the normal land drop."
     },
     {
-      "id": "mana_fixing",
-      "name": "Mana Fixing",
+      "id": "card_advantage",
+      "name": "Card Advantage",
       "group": "deck_service",
-      "description": "Helps produce the colors your deck needs."
-    },
-    {
-      "id": "card_draw",
-      "name": "Card Draw",
-      "group": "deck_service",
-      "description": "Improves access to cards."
-    },
-    {
-      "id": "card_selection",
-      "name": "Card Selection",
-      "group": "deck_service",
-      "description": "Filters or organizes available cards."
-    },
-    {
-      "id": "tutor",
-      "name": "Tutor",
-      "group": "deck_service",
-      "description": "Searches for a specific card or card type."
-    },
-    {
-      "id": "removal",
-      "name": "Removal",
-      "group": "deck_service",
-      "description": "Answers a threat or permanent."
-    },
-    {
-      "id": "board_wipe",
-      "name": "Board Wipe",
-      "group": "deck_service",
-      "description": "Answers multiple permanents at once."
-    },
-    {
-      "id": "counterspell",
-      "name": "Counterspell",
-      "group": "deck_service",
-      "description": "Counters spells or abilities."
-    },
-    {
-      "id": "protection",
-      "name": "Protection",
-      "group": "deck_service",
-      "description": "Protects cards or your game plan from interaction."
-    },
-    {
-      "id": "recursion",
-      "name": "Recursion",
-      "group": "deck_service",
-      "description": "Recovers cards or permanents from other zones."
-    },
-    {
-      "id": "graveyard_hate",
-      "name": "Graveyard Hate",
-      "group": "deck_service",
-      "description": "Limits or removes resources from graveyards."
-    },
-    {
-      "id": "token_generator",
-      "name": "Token Generator",
-      "group": "synergy_role",
-      "description": "Creates tokens for other uses or board presence.",
-      "oracle_keywords": [
-        "populate"
-      ]
-    },
-    {
-      "id": "sacrifice_outlet",
-      "name": "Sacrifice Outlet",
-      "group": "synergy_role",
-      "description": "Lets you sacrifice permanents as a cost or resource.",
-      "oracle_keywords": [
-        "sacrifice a creature",
-        "sacrifice another creature",
-        "sacrifice a token"
-      ]
-    },
-    {
-      "id": "enabler",
-      "name": "Enabler",
-      "group": "synergy_role",
-      "description": "Enables a mechanic or game plan.",
-      "oracle_keywords": [
-        "landfall",
-        "whenever a creature dies",
-        "whenever you cast a spell"
-      ]
-    },
-    {
-      "id": "payoff",
-      "name": "Payoff",
-      "group": "synergy_role",
-      "description": "Turns a mechanic into value or progress toward a win.",
-      "oracle_keywords": [
-        "mill",
-        "+1/+1 counter",
-        "whenever you gain life"
-      ]
-    },
-    {
-      "id": "engine",
-      "name": "Engine",
-      "group": "synergy_role",
-      "description": "Generates recurring value when supported."
-    },
-    {
-      "id": "finisher",
-      "name": "Finisher",
-      "group": "synergy_role",
-      "description": "Helps close out the game."
-    },
-    {
-      "id": "threat",
-      "name": "Threat",
-      "group": "synergy_role",
-      "description": "Pressures opponents or demands an answer."
-    },
-    {
-      "id": "land",
-      "name": "Land",
-      "group": "deck_service",
-      "description": "Provides a mana source or utility land effect."
-    },
-    {
-      "id": "win_condition",
-      "name": "Win Condition",
-      "group": "synergy_role",
-      "description": "Directly contributes to achieving a win condition."
+      "description": "Provides net or repeatable access to additional usable resources; one-for-one replacement and filtering alone do not qualify."
     }
   ]
 }

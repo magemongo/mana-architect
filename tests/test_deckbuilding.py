@@ -182,7 +182,7 @@ def test_build_deck_uses_only_owned_cards_and_validates_draft(tmp_path: Path) ->
     }
     assert result.land_count == 98
     assert result.validation.status == "valid"
-    assert result.role_counts["Card Draw (heuristic)"] == 1
+    assert result.role_counts["Card Advantage (heuristic)"] == 1
 
 
 def test_catalog_strategy_prioritizes_cards_without_changing_legacy_mode(
@@ -382,7 +382,7 @@ def test_analyze_deck_reports_names_curve_roles_and_exports_text(
     assert analysis.land_count == 98
     assert analysis.nonland_count == 2
     assert analysis.mana_curve == {2: 1}
-    assert analysis.role_counts["Card Draw (heuristic)"] == 1
+    assert analysis.role_counts["Card Advantage (heuristic)"] == 1
     assert analysis.validation.status == "valid"
     assert "# Commander: Blue Captain" in contents
     assert "1 Blue Captain" in contents

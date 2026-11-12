@@ -63,21 +63,25 @@ require a reason, and remain separate from automatic evidence. Contradictory
 exclusions are shown as conflicts; removing an override restores the automatic
 classification.
 
-Roles are grouped as `deck_service` (for example, ramp, card draw, and
-interaction) and `synergy_role` (for example, token generator, enabler, and
-payoff). Optional priority filters are separate for each group. `oracle_keywords`
-edited on the Catalog page are literal matches against Oracle text or Scryfall
-keywords and produce heuristic evidence marked for review. More precise
-combinations remain configurable in `config/classification_rules.json`.
+The core role catalog contains `spot_interaction`, `mass_interaction`, `ramp`,
+and `card_advantage`. Heuristic role evidence is calculated from Oracle text for
+deck selection and Suggestions. Card draw and recursion remain mechanics: a
+one-for-one replacement or one-shot recovery is not automatically card
+advantage. `main_strategy` is a dynamic deckbuilding role derived from evidence
+matching the selected strategy's tag affinities, not a universal card label.
+Catalog role terms remain available for user-configured rules and are reviewable.
 
 The generator also accepts an explicit catalog strategy. In that mode,
 `build_deck` scores legal, color-identity-compatible cards available in the
 collection using current classifications and overrides. The score is
 normalized to `[0, 1]` using the configured scale and contributes a weight of
-`0.25` alongside dynamic role and mana-curve balance. Scorer role coverage is
-not enabled in this call because the generator updates role coverage while
-selecting cards. For lands, strategy score only breaks ties with the same
-structural color-coverage result, utility, and tapped-land status.
+`0.25` alongside core-role, dynamic `main_strategy`, and mana-curve balance.
+The generator updates those role counts as it selects cards. Suggestions can
+optionally apply role coverage to requested core roles. For lands, strategy
+score only breaks ties with the same structural color-coverage result, utility,
+and tapped-land status. The initial soft target for dynamic `main_strategy` is
+configurable in `config/scoring.json` (currently half the nonland slots); it
+affects ranking but cannot prevent deck completion.
 
 Guided mode requires an explicit commander/strategy affinity. Cards without a
 current classification are not scored or selected; their count is reported,

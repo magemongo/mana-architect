@@ -123,6 +123,7 @@ class ScoringConfig:
     thresholds: Mapping[str, float]
     caps: Mapping[str, float]
     user_priority_adjustment: Mapping[str, float]
+    deckbuilding_role_targets: Mapping[str, float]
 
 
 @dataclass(frozen=True)
@@ -202,7 +203,8 @@ def _parse_oracle_mechanics(data: dict[str, object]) -> tuple[MechanicalPattern,
     _version(data, filename, "mechanic_catalog_version")
     entries: list[MechanicalPattern] = []
     supported_matchers = {
-        "token_create", "counter_put", "counter_double",
+        "token_create", "counter_put", "plus_one_counter_put",
+        "plus_one_counter_matters", "counter_double",
         "token_create_replacement", "counter_placement_replacement",
         "card_draw", "life_gain", "life_gain_trigger",
         "noncombat_damage_opponents", "combat_damage", "land_search", "land_ramp",
@@ -488,6 +490,32 @@ def _parse_scoring(data: dict[str, object]) -> ScoringConfig:
         filename,
         "user_priority_adjustment",
     )
+    deckbuilding_role_targets = _number_map(
+        data,
+        filename,
+        "deckbuilding_role_targets",
+    )
+    if set(deckbuilding_role_targets) != {
+        "main_strategy_soft_target_ratio",
+        "main_strategy_weight",
+    }:
+        raise _error(
+            filename,
+            "deckbuilding_role_targets",
+            "expected main_strategy_soft_target_ratio and main_strategy_weight",
+        )
+    if not 0 <= deckbuilding_role_targets["main_strategy_soft_target_ratio"] <= 1:
+        raise _error(
+            filename,
+            "deckbuilding_role_targets.main_strategy_soft_target_ratio",
+            "expected a value between 0 and 1",
+        )
+    if deckbuilding_role_targets["main_strategy_weight"] < 0:
+        raise _error(
+            filename,
+            "deckbuilding_role_targets.main_strategy_weight",
+            "expected a non-negative value",
+        )
     if set(commander_levels) != _COMMANDER_LEVELS:
         raise _error(
             filename,
@@ -513,6 +541,7 @@ def _parse_scoring(data: dict[str, object]) -> ScoringConfig:
         thresholds=MappingProxyType(thresholds),
         caps=MappingProxyType(caps),
         user_priority_adjustment=MappingProxyType(user_priority_adjustment),
+        deckbuilding_role_targets=MappingProxyType(deckbuilding_role_targets),
     )
 
 

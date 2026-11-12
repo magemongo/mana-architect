@@ -19,10 +19,16 @@ from mana_architect.classification_repository import (
     load_current_classifications,
 )
 from mana_architect.commanders import CommanderOption, resolve_commander
-from mana_architect.classification import ClassificationResult
+from mana_architect.classification import (
+    ClassificationResult,
+    with_deck_role_heuristics,
+)
 from mana_architect.commander_affinity import CommanderAffinityProfile
 from mana_architect.models import Card, CollectionPrinting
-from mana_architect.overrides import ManualOverride
+from mana_architect.overrides import (
+    ManualOverride,
+    resolve_classification_overrides,
+)
 from mana_architect.roles import classify_card_roles
 from mana_architect.strategy import (
     CommanderStrategyProfile,
@@ -49,10 +55,11 @@ BASIC_LAND_COLORS = {
 }
 ROLE_NAMES = (
     "Ramp (heuristic)",
-    "Card Draw (heuristic)",
-    "Removal (heuristic)",
-    "Recursion (heuristic)",
+    "Card Advantage (heuristic)",
+    "Spot Interaction (heuristic)",
+    "Mass Interaction (heuristic)",
 )
+MAIN_STRATEGY_ROLE = "Main Strategy (dynamic)"
 _CATALOG_SCORE_WEIGHT = 0.25
 
 
@@ -66,6 +73,7 @@ class DeckBuildResult:
     cards: tuple[DeckCard, ...]
     land_count: int
     role_counts: dict[str, int]
+    card_roles: dict[str, tuple[str, ...]]
     validation: DeckValidationResult
     catalog_strategy_id: str | None = None
     catalog_strategy_name: str | None = None
@@ -126,12 +134,24 @@ def _candidate_score(
     role_counts: Counter[str],
     curve_counts: Counter[float],
     profile: CommanderStrategyProfile | None = None,
+    main_strategy_target: int | None = None,
+    main_strategy_weight: float = 0.0,
 ) -> tuple[float, float, str, str]:
+    general_roles = tuple(
+        role for role in candidate.roles if role != MAIN_STRATEGY_ROLE
+    )
     role_score = (
-        sum(1 / (1 + role_counts[role]) for role in candidate.roles) / len(candidate.roles)
-        if candidate.roles
+        sum(1 / (1 + role_counts[role]) for role in general_roles)
+        / len(general_roles)
+        if general_roles
         else 0.0
     )
+    if MAIN_STRATEGY_ROLE in candidate.roles and main_strategy_target:
+        remaining_target = max(
+            0,
+            main_strategy_target - role_counts[MAIN_STRATEGY_ROLE],
+        )
+        role_score += main_strategy_weight * remaining_target / main_strategy_target
     curve_score = (
         0.25 / (1 + curve_counts[candidate.card.cmc])
         if candidate.card.cmc is not None
@@ -349,6 +369,7 @@ def build_deck(
     commander_affinities: CommanderAffinityProfile | None = None
     unclassified_count = 0
     catalog_scores: dict[str, float] = {}
+    catalog_main_strategy_ids: set[str] = set()
     if strategy_id is not None:
         catalog = load_strategy_catalog(config_dir)
         strategy = next(
@@ -418,6 +439,9 @@ def build_deck(
             raise DeckBuildError(
                 "The commander's affinity profile is unavailable."
             )
+        strategy_tag_ids = {
+            affinity.tag_id for affinity in strategy.tag_affinities
+        }
         for card, quantity in candidate_rows:
             if (
                 card.oracle_id == commander.oracle_id
@@ -427,6 +451,26 @@ def build_deck(
             classification = classifications.get(card.oracle_id)
             if classification is None:
                 continue
+            classification = with_deck_role_heuristics(
+                card.type_line,
+                card.oracle_text,
+                classification,
+                catalog,
+            )
+            effective_classifications = resolve_classification_overrides(
+                classification,
+                overrides.get(card.oracle_id, ()),
+                catalog,
+            )
+            if any(
+                item.included
+                and (
+                    (item.target_type == "strategy" and item.target_id == strategy_id)
+                    or (item.target_type == "tag" and item.target_id in strategy_tag_ids)
+                )
+                for item in effective_classifications
+            ):
+                catalog_main_strategy_ids.add(card.oracle_id)
             score = score_card_for_strategy(
                 card=CardScoreInput(
                     oracle_id=card.oracle_id,
@@ -470,7 +514,11 @@ def build_deck(
         _Candidate(
             card=card,
             quantity=int(quantity),
-            roles=classify_card_roles(card.type_line, card.oracle_text),
+            roles=classify_card_roles(
+                card.type_line,
+                card.oracle_text,
+                main_strategy=card.oracle_id in catalog_main_strategy_ids,
+            ),
             strategy_signals=match_strategy_signals(
                 profile,
                 card.type_line,
@@ -534,6 +582,20 @@ def build_deck(
         < deck_name_copy_limit(candidate.card.name, candidate.card.oracle_text)
     ]
     target_nonlands = 99 - land_count
+    main_strategy_target = None
+    main_strategy_weight = 0.0
+    if strategy_id is not None and catalog is not None:
+        target_ratio = catalog.scoring.deckbuilding_role_targets[
+            "main_strategy_soft_target_ratio"
+        ]
+        main_strategy_target = (
+            max(1, round(target_nonlands * target_ratio))
+            if target_ratio > 0
+            else 0
+        )
+        main_strategy_weight = catalog.scoring.deckbuilding_role_targets[
+            "main_strategy_weight"
+        ]
     role_counts: Counter[str] = Counter()
     curve_counts: Counter[float] = Counter()
     selected_nonlands = 0
@@ -554,6 +616,8 @@ def build_deck(
                 role_counts,
                 curve_counts,
                 profile,
+                main_strategy_target,
+                main_strategy_weight,
             ),
         )
         copies = min(
@@ -608,7 +672,18 @@ def build_deck(
         commander=commander,
         cards=deck_cards,
         land_count=land_count,
-        role_counts={role: actual_role_counts[role] for role in ROLE_NAMES},
+        role_counts={
+            role: actual_role_counts[role]
+            for role in (
+                *ROLE_NAMES,
+                *((MAIN_STRATEGY_ROLE,) if strategy_id is not None else ()),
+            )
+        },
+        card_roles={
+            deck_card.oracle_id: cards_by_id[deck_card.oracle_id].roles
+            for deck_card in deck_cards
+            if deck_card.oracle_id in cards_by_id
+        },
         validation=validation,
         catalog_strategy_id=strategy_id,
         catalog_strategy_name=catalog_strategy_name,
@@ -640,7 +715,11 @@ def export_deck(result: DeckBuildResult, path: Path, overwrite: bool = False) ->
     payload = {
         "commander": result.commander.oracle_id,
         "cards": [
-            {"oracle_id": entry.oracle_id, "quantity": entry.quantity}
+            {
+                "oracle_id": entry.oracle_id,
+                "quantity": entry.quantity,
+                "roles": result.card_roles.get(entry.oracle_id, ()),
+            }
             for entry in result.cards
         ],
         "draft": draft,

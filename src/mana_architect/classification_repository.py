@@ -364,7 +364,20 @@ def load_card_classification_overrides(
         )
     )
     overrides_by_card: dict[str, list[ManualOverride]] = {}
+    valid_catalog_ids = {
+        "strategy": {item.id for item in catalog.strategies},
+        "tag": {item.id for item in catalog.tags},
+        "role": {item.id for item in catalog.roles},
+    }
     for record in records:
+        # Ignore overrides for removed catalog roles. This project treats
+        # role taxonomy edits as playground changes; obsolete overrides should
+        # not prevent loading current classifications or building a deck.
+        if (
+            record.target_type == "role"
+            and record.target_id not in valid_catalog_ids["role"]
+        ):
+            continue
         override = ManualOverride(
             target_type=record.target_type,  # validated by resolver below
             target_id=record.target_id,

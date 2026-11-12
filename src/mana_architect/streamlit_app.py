@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import json
 import re
+from dataclasses import replace
 from datetime import datetime, timezone
 from itertools import combinations
 from pathlib import Path
@@ -181,7 +182,11 @@ def _deck_json(
                 card.oracle_id for card in analysis.cards if card.is_commander
             ),
             "cards": [
-                {"oracle_id": card.oracle_id, "quantity": card.quantity}
+                {
+                    "oracle_id": card.oracle_id,
+                    "quantity": card.quantity,
+                    "roles": card.roles,
+                }
                 for card in analysis.cards
             ],
             "draft": draft,
@@ -252,6 +257,8 @@ def _generate_deck_from_form() -> None:
         st.session_state.pop("deck_catalog_strategy_id", None)
         st.session_state.pop("deck_catalog_strategy_name", None)
     st.session_state["deck_unclassified_count"] = result.unclassified_count
+    st.session_state["deck_role_counts"] = result.role_counts
+    st.session_state["deck_card_roles"] = result.card_roles
     st.session_state["deck_cards"] = [
         {"oracle_id": card.oracle_id, "quantity": card.quantity}
         for card in result.cards
@@ -424,6 +431,21 @@ def _render_deck_page(session: Session) -> None:
         st.error(str(error))
         return
 
+    generated_role_counts = st.session_state.get("deck_role_counts")
+    generated_card_roles = st.session_state.get("deck_card_roles")
+    if isinstance(generated_role_counts, dict) and isinstance(generated_card_roles, dict):
+        analysis = replace(
+            analysis,
+            role_counts=generated_role_counts,
+            cards=tuple(
+                replace(
+                    card,
+                    roles=tuple(generated_card_roles.get(card.oracle_id, card.roles)),
+                )
+                for card in analysis.cards
+            ),
+        )
+
     st.title(analysis.commander_name)
     catalog_strategy_name = st.session_state.get("deck_catalog_strategy_name")
     if catalog_strategy_name:
@@ -584,7 +606,7 @@ def _render_deck_page(session: Session) -> None:
             )
         else:
             st.caption("No mana costs available to display.")
-        st.markdown("**Detected Roles (Heuristic)**")
+        st.markdown("**Deckbuilding Roles**")
         for role, quantity in analysis.role_counts.items():
             st.text(f"{role}: {quantity}")
 
@@ -1005,18 +1027,11 @@ def _render_catalog_admin(session: Session) -> None:
                 help="Unique snake_case ID. Existing IDs cannot be renamed.",
             )
             name = st.text_input("Nome", value=current["name"] if current else "")
-            group = st.selectbox(
-                "Grupo",
-                options=["deck_service", "synergy_role"],
-                index=(
-                    ["deck_service", "synergy_role"].index(current["group"])
-                    if current else 0
-                ),
-                format_func=lambda value: {
-                    "deck_service": "Deck Service",
-                    "synergy_role": "Synergy Role",
-                }[value],
+            st.caption(
+                "Catalog roles describe general deck needs. Main Strategy is "
+                "calculated dynamically from the selected strategy."
             )
+            group = "deck_service"
             description = st.text_area(
                 "Description", value=current["description"] if current else ""
             )
@@ -1570,6 +1585,21 @@ def _render_collection_suggestion(
             for item in included
             if item.target_type == "role"
         ]
+        selected_strategy = next(
+            (item for item in catalog.strategies if item.id == score.strategy_id),
+            None,
+        )
+        strategy_tag_ids = (
+            {item.tag_id for item in selected_strategy.tag_affinities}
+            if selected_strategy is not None
+            else set()
+        )
+        if any(
+            item.target_type == "strategy" and item.target_id == score.strategy_id
+            or item.target_type == "tag" and item.target_id in strategy_tag_ids
+            for item in included
+        ):
+            detected_roles.append("Main Strategy (dynamic)")
         st.caption(
             "Detected roles: "
             + (", ".join(detected_roles) if detected_roles else "none")
@@ -1674,23 +1704,19 @@ def _render_collection_suggestions(session: Session) -> None:
     )
     role_names = {item.id: item.name for item in catalog.roles}
     service_role_ids = [item.id for item in catalog.roles if item.group == "deck_service"]
-    synergy_role_ids = [item.id for item in catalog.roles if item.group == "synergy_role"]
     with st.expander("Prioritize Roles in Suggestions", expanded=False):
         service_roles = st.multiselect(
-            "Deck Services",
+            "Core Deck Roles",
             options=service_role_ids,
             format_func=lambda value: role_names[value],
             key="suggestion_service_roles",
-            help="Ramp, card draw, interaction, protection, and other support roles.",
+            help="Prioritize ramp, card advantage, and spot or mass interaction.",
         )
-        synergy_roles = st.multiselect(
-            "Strategy Synergies",
-            options=synergy_role_ids,
-            format_func=lambda value: role_names[value],
-            key="suggestion_synergy_roles",
-            help="Thematic roles such as creating tokens, enabling sacrifices, or turning a mechanic into value.",
+        st.caption(
+            "Main Strategy contribution is calculated from the selected strategy "
+            "and card classification; it is not a universal role filter."
         )
-    required_roles = [*service_roles, *synergy_roles]
+    required_roles = service_roles
     search_clicked = st.button(
         "Find Suggestions",
         type="primary",

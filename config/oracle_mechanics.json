@@ -1,11 +1,13 @@
 {
   "schema_version": 1,
-  "mechanic_catalog_version": "1.2.0",
+  "mechanic_catalog_version": "1.3.0",
   "patterns": [
     {"id":"token_create_replacement","matcher":"token_create_replacement","mechanic_id":"token.create_replacement","attributes":{"multiplier":2}},
     {"id":"counter_placement_replacement","matcher":"counter_placement_replacement","mechanic_id":"counter.placement_replacement","attributes":{"multiplier":2}},
     {"id":"counter_double","matcher":"counter_double","mechanic_id":"counter.double","attributes":{"counter_type":"+1/+1"}},
     {"id":"counter_put","matcher":"counter_put","mechanic_id":"counter.put"},
+    {"id":"plus_one_counter_put","matcher":"plus_one_counter_put","mechanic_id":"counter.put_plus_one_plus_one","attributes":{"counter_type":"+1/+1"}},
+    {"id":"plus_one_counter_matters","matcher":"plus_one_counter_matters","mechanic_id":"counter.matters_plus_one_plus_one","attributes":{"counter_type":"+1/+1"}},
     {"id":"token_create","matcher":"token_create","mechanic_id":"token.create"},
     {"id":"card_draw","matcher":"card_draw","mechanic_id":"card.draw"},
     {"id":"life_gain","matcher":"life_gain","mechanic_id":"life.gain"},

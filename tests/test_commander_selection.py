@@ -174,7 +174,6 @@ def test_initial_card_roles_are_explicitly_heuristic() -> None:
 
     assert roles == (
         "Ramp (heuristic)",
-        "Card Draw (heuristic)",
-        "Removal (heuristic)",
+        "Spot Interaction (heuristic)",
     )
-    assert classify_card_roles("Basic Land — Island", None) == ("Terreno",)
+    assert classify_card_roles("Basic Land — Island", None) == ()

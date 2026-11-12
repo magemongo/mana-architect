@@ -170,7 +170,7 @@ def test_suggestions_respect_current_deck_copies_and_required_roles(
             "commander-id",
             "tokens",
             catalog,
-            required_roles=("token_generator",),
+            required_roles=("card_advantage",),
             already_used={"token-card-id": 1},
         )
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "ruleset_version": "1.3.0",
+  "ruleset_version": "1.5.0",
   "rules": [
     {
       "id": "tag_create_tokens_oracle_text",
@@ -38,44 +38,6 @@
       "weight": 0.3,
       "confidence": 0.4,
       "evidence_label": "The type line contains Artifact; this alone does not establish functional synergy.",
-      "requires_review": true
-    },
-    {
-      "id": "role_land_type_line",
-      "enabled": true,
-      "target_type": "role",
-      "target_id": "land",
-      "source_fields": [
-        "type_line_normalized"
-      ],
-      "match": {
-        "type": "type_line_contains",
-        "values": [
-          "land"
-        ]
-      },
-      "weight": 0.9,
-      "confidence": 0.95,
-      "evidence_label": "The type line identifies a land.",
-      "requires_review": false
-    },
-    {
-      "id": "role_card_draw_oracle_text",
-      "enabled": true,
-      "target_type": "role",
-      "target_id": "card_draw",
-      "source_fields": [
-        "oracle_mechanics"
-      ],
-      "match": {
-        "type": "oracle_mechanic_any",
-        "values": [
-          "card.draw"
-        ]
-      },
-      "weight": 0.7,
-      "confidence": 0.65,
-      "evidence_label": "Oracle text suggests card draw.",
       "requires_review": true
     },
     {
@@ -192,6 +154,138 @@
       "weight": 0.35,
       "confidence": 0.45,
       "evidence_label": "Oracle text suggests a concentrated buff; this alone does not establish a Voltron strategy.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_add_plus_one_counters_oracle_text",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "add_plus_one_counters",
+      "source_fields": ["oracle_mechanics"],
+      "match": {"type": "oracle_mechanic_any", "values": ["counter.put_plus_one_plus_one"]},
+      "weight": 0.9,
+      "confidence": 0.85,
+      "evidence_label": "Oracle text puts +1/+1 counters on a permanent.",
+      "requires_review": false
+    },
+    {
+      "id": "tag_counter_doubler_oracle_text",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "counter_doubler",
+      "source_fields": ["oracle_mechanics"],
+      "match": {"type": "oracle_mechanic_any", "values": ["counter.double", "counter.placement_replacement"]},
+      "weight": 0.9,
+      "confidence": 0.8,
+      "evidence_label": "Oracle text doubles +1/+1 counters.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_counter_matters_oracle_text",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "counter_matters",
+      "source_fields": ["oracle_mechanics"],
+      "match": {"type": "oracle_mechanic_any", "values": ["counter.matters_plus_one_plus_one"]},
+      "weight": 0.7,
+      "confidence": 0.65,
+      "evidence_label": "Oracle text appears to reward or refer to +1/+1 counters.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_instant_sorcery_spell_density_type_line",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "instant_sorcery_spell_density",
+      "source_fields": ["type_line_normalized"],
+      "match": {"type": "type_line_contains", "values": ["instant", "sorcery"]},
+      "weight": 0.8,
+      "confidence": 0.9,
+      "evidence_label": "Card type contributes to instant/sorcery spell density.",
+      "requires_review": false
+    },
+    {
+      "id": "tag_instant_sorcery_matters_oracle_text",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "instant_sorcery_matters",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {"type": "phrase_any", "values": ["instant or sorcery spell", "instant and/or sorcery spell"]},
+      "weight": 0.8,
+      "confidence": 0.7,
+      "evidence_label": "Oracle text explicitly references instants or sorceries.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_spell_cast_noncreature_oracle_text",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "spell_cast_noncreature",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {"type": "phrase_all", "values": ["cast", "noncreature spell"]},
+      "weight": 0.75,
+      "confidence": 0.6,
+      "evidence_label": "Oracle text references casting noncreature spells.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_counterspell_interaction",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "counterspell",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {"type": "phrase_any", "values": ["counter target spell", "counter target activated ability", "counter target triggered ability"]},
+      "weight": 0.8,
+      "confidence": 0.8,
+      "evidence_label": "Oracle text counters one spell or ability.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_spot_removal_interaction",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "spot_removal",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {"type": "phrase_any", "values": ["destroy target", "exile target", "return target permanent to its owner's hand", "return target creature to its owner's hand", "damage to target"]},
+      "weight": 0.8,
+      "confidence": 0.7,
+      "evidence_label": "Oracle text suggests a targeted answer to one opposing resource.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_board_wipe_interaction",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "board_wipe",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {"type": "phrase_any", "values": ["destroy all", "exile all", "each player sacrifices", "each opponent sacrifices", "damage to each creature"]},
+      "weight": 0.8,
+      "confidence": 0.7,
+      "evidence_label": "Oracle text suggests an answer that affects multiple resources.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_protect_single_creature_interaction",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "protect_single_creature",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {"type": "phrase_any", "values": ["target creature you control gains hexproof", "target creature you control gains indestructible", "target creature you control gains protection"]},
+      "weight": 0.75,
+      "confidence": 0.65,
+      "evidence_label": "Oracle text suggests protection for one creature.",
+      "requires_review": true
+    },
+    {
+      "id": "tag_mass_protection_interaction",
+      "enabled": true,
+      "target_type": "tag",
+      "target_id": "mass_protection",
+      "source_fields": ["oracle_text_normalized"],
+      "match": {"type": "phrase_any", "values": ["prevent all combat damage that would be dealt this turn", "creatures you control gain hexproof", "creatures you control gain indestructible", "all permanents you control phase out", "you and permanents you control gain protection from everything"]},
+      "weight": 0.75,
+      "confidence": 0.65,
+      "evidence_label": "Oracle text suggests protection for multiple permanents or players.",
       "requires_review": true
     }
   ]

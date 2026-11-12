@@ -13,6 +13,7 @@ from mana_architect.catalog import (
 )
 from mana_architect.oracle_text import OracleParse, parse_oracle_text
 from mana_architect.oracle_text import LexiconEntry
+from mana_architect.roles import classify_card_roles
 
 
 _WHITESPACE = re.compile(r"\s+")
@@ -226,6 +227,79 @@ def classify_card(
                 )
                 break
     return ClassificationResult(evidence=tuple(evidence), oracle_parse=oracle_parse)
+
+
+def with_deck_role_heuristics(
+    type_line: str | None,
+    oracle_text: str | None,
+    classification: ClassificationResult,
+    catalog: StrategyCatalog,
+) -> ClassificationResult:
+    """Add non-persisted, reviewable core-role evidence for deck workflows."""
+    role_ids_by_label = {
+        "Ramp (heuristic)": "ramp",
+        "Card Advantage (heuristic)": "card_advantage",
+        "Spot Interaction (heuristic)": "spot_interaction",
+        "Mass Interaction (heuristic)": "mass_interaction",
+    }
+    role_ids = {item.id for item in catalog.roles}
+    tag_ids = {item.id for item in catalog.tags}
+    existing_roles = {
+        item.target_id
+        for item in classification.evidence
+        if item.target_type == "role"
+    }
+    existing_tags = {
+        item.target_id
+        for item in classification.evidence
+        if item.target_type == "tag"
+    }
+    evidence = list(classification.evidence)
+    for label in classify_card_roles(type_line, oracle_text):
+        role_id = role_ids_by_label.get(label)
+        if role_id is None or role_id not in role_ids:
+            continue
+        if role_id not in existing_roles:
+            evidence.append(
+                ClassificationEvidence(
+                    rule_id=f"heuristic_{role_id}",
+                    target_type="role",
+                    target_id=role_id,
+                    source_field="oracle_text",
+                    matched_value=label,
+                    weight=0.5,
+                    confidence=0.5,
+                    requires_review=True,
+                    evidence_label=(
+                        "Heuristic text patterns suggest the "
+                        f"{role_id.replace('_', ' ')} role. Review the Oracle text."
+                    ),
+                )
+            )
+            existing_roles.add(role_id)
+        if (
+            role_id == "card_advantage"
+            and "card_advantage" in tag_ids
+            and "card_advantage" not in existing_tags
+        ):
+            evidence.append(
+                ClassificationEvidence(
+                    rule_id="heuristic_tag_card_advantage",
+                    target_type="tag",
+                    target_id="card_advantage",
+                    source_field="oracle_text",
+                    matched_value=label,
+                    weight=0.5,
+                    confidence=0.5,
+                    requires_review=True,
+                    evidence_label=(
+                        "Heuristic text patterns suggest net or repeatable card "
+                        "advantage; review the Oracle text and costs."
+                    ),
+                )
+            )
+            existing_tags.add("card_advantage")
+    return ClassificationResult(tuple(evidence), classification.oracle_parse)
 
 
 def _normalize_oracle_faces(value: str | None) -> tuple[str, ...]:

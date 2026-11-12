@@ -229,8 +229,8 @@ def test_reclassification_persists_reproducible_evidence_and_skips_unchanged_car
         catalog,
     )
     assert len(runs) == 3
-    assert len(candidates) == 2
-    assert len(evidence) == 2
+    assert len(candidates) == 4
+    assert len(evidence) == 4
     assert len(versions) == 1
     assert set(versions[0].configuration_snapshot) == {
         "strategy_catalog.json",
@@ -265,7 +265,9 @@ def test_incremental_reclassification_only_reprocesses_changed_card(
         latest = load_latest_classification(session, "spell-id")
     assert len(runs) == 2
     assert latest is not None
-    assert {item.target_id for item in latest.evidence} == {"card_draw"}
+    assert {item.target_id for item in latest.evidence} == {
+        "instant_sorcery_spell_density"
+    }
 
 
 def test_changes_outside_rule_inputs_do_not_reclassify_and_score_changes_are_separate(

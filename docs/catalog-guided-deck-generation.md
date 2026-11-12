@@ -31,7 +31,10 @@ decklist manually from Suggestions remains future work.
 2. Choose an active strategy. The UI confirms that an affinity exists for the
    commander/strategy pair.
 3. The generator uses the catalog to prioritize candidates while still
-   producing a complete list according to land, role, and curve targets.
+   producing a complete list according to land, core-role, dynamic strategy,
+   and curve targets. Land targets use card type and mana-base logic; lands are
+   not classified as roles. `main_strategy` is calculated from current
+   classification evidence for that selected strategy.
 4. The result identifies the strategy used and passes the existing validation
    before export is allowed.
 5. If no catalog strategy is selected, legacy behavior remains in use. The app
@@ -55,11 +58,12 @@ CLI behavior.
 - **Missing or stale classifications:** report the affected count and direct
   the user to explicit reclassification. Do not treat unscored cards as score
   zero or silently switch to legacy mode.
-- **Structural composition:** combine strategy score with role and curve
-  balance. Normalize using the configured range and cap its contribution at
-  `0.25`. Do not simply select the highest-scoring 99 cards; scorer role
-  coverage is disabled here because the generator updates roles during
-  selection.
+- **Structural composition:** combine strategy score with core-role, dynamic
+  `main_strategy`, and curve balance. Normalize using the configured range and
+  cap its contribution at `0.25`. Do not simply select the highest-scoring 99
+  cards; the generator updates role counts during selection. The configurable
+  soft target for `main_strategy` starts at half the nonland slots and only
+  affects ranking.
 - **Mana base:** preserve color coverage, utility-land limits, inventory, and
   existing rules. Strategy score can break ties with the same structural
   result, but cannot outweigh color coverage or multicolor-source priority.

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import re
 from typing import Iterable
 
-PARSER_VERSION = "oracle-lexical-v1"
+PARSER_VERSION = "oracle-lexical-v2"
 
 
 @dataclass(frozen=True)
@@ -221,6 +221,15 @@ _COUNTER_PUT_PATTERN = re.compile(
     r"\bput\b[^.\n]{0,100}\b(?:\+1/\+1 counters?|counters?)\b",
     re.IGNORECASE,
 )
+_PLUS_ONE_COUNTER_PUT_PATTERN = re.compile(
+    r"\bput\b[^.\n]{0,100}\b\+1/\+1 counters?\b",
+    re.IGNORECASE,
+)
+_PLUS_ONE_COUNTER_MATTERS_PATTERN = re.compile(
+    r"\b(?:with|has|have|gets?)\b[^.;\n]{0,100}\b\+1/\+1 counters?\b|"
+    r"\bwhenever\b[^.;\n]{0,100}\b\+1/\+1 counter\b[^.;\n]{0,100}\bput\b",
+    re.IGNORECASE,
+)
 _TOKEN_CREATE_PATTERN = re.compile(
     r"\bcreate(?:s|d)?\b[^.\n]{0,100}\btokens?\b", re.IGNORECASE
 )
@@ -273,6 +282,8 @@ _CREATURE_BUFF_PATTERN = re.compile(
 _MECHANIC_MATCHERS = {
     "token_create": _TOKEN_CREATE_PATTERN,
     "counter_put": _COUNTER_PUT_PATTERN,
+    "plus_one_counter_put": _PLUS_ONE_COUNTER_PUT_PATTERN,
+    "plus_one_counter_matters": _PLUS_ONE_COUNTER_MATTERS_PATTERN,
     "counter_double": _DOUBLE_PATTERN,
     "token_create_replacement": _TOKEN_REPLACEMENT_PATTERN,
     "counter_placement_replacement": _COUNTER_REPLACEMENT_PATTERN,
@@ -291,6 +302,8 @@ DEFAULT_MECHANIC_PATTERNS = (
     MechanicalPattern("counter_placement_replacement", "counter_placement_replacement", "counter.placement_replacement", (("multiplier", 2),)),
     MechanicalPattern("counter_double", "counter_double", "counter.double", (("counter_type", "+1/+1"),)),
     MechanicalPattern("counter_put", "counter_put", "counter.put"),
+    MechanicalPattern("plus_one_counter_put", "plus_one_counter_put", "counter.put_plus_one_plus_one", (("counter_type", "+1/+1"),)),
+    MechanicalPattern("plus_one_counter_matters", "plus_one_counter_matters", "counter.matters_plus_one_plus_one", (("counter_type", "+1/+1"),)),
     MechanicalPattern("token_create", "token_create", "token.create"),
     MechanicalPattern("card_draw", "card_draw", "card.draw"),
     MechanicalPattern("life_gain", "life_gain", "life.gain"),

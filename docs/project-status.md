@@ -41,8 +41,8 @@ their administration in the UI. That work is in progress:
 | Status | Work item | Current state |
 |---|---|---|
 | In progress | Multiple strategies per commander and a responsive editor for all three affinity levels | Domain and table editor support multiple strategies and levels on one screen; visual and workflow review remains |
-| In progress | Separate universal deck-service roles from strategy-specific synergy roles | `deck_service` and `synergy_role` are separate filters |
-| In progress | Admin screen for strategies and roles, including Oracle terms per role | Admin screen is implemented; visual review and delete/save workflow review remain |
+| In progress | Use four core deck roles and calculate strategy contribution dynamically | Catalog roles are spot/mass interaction, ramp, and card advantage; `main_strategy` is derived from selected-strategy evidence |
+| In progress | Admin screen for strategies and core roles | Admin screen is implemented; visual review and delete/save workflow review remain |
 | Later | Manually add, remove, or replace cards in a generated list and revalidate | Deferred; direct decklist editing is unavailable |
 | Later | Save and manage multiple decks and versions | Not implemented; decks have no dedicated persistence |
 | Later | Support Partner/Background commanders | Not implemented |
@@ -90,8 +90,9 @@ related validation and generation tests.
 
 ### Catalog and interface
 
-- Versioned JSON configuration with **15 strategies, 106 tags, 20 roles, and
-  10 classification rules**.
+- Versioned JSON configuration with **15 strategies, 108 tags, 4 core roles, and
+  19 classification rules**. `main_strategy` is calculated dynamically; land
+  remains a card type and deck-composition property, not a role.
 - Deterministic rule-based classification with evidence, fingerprints, and
   review indicators. Per-card overrides and commander affinities are persisted
   separately.
@@ -102,16 +103,18 @@ related validation and generation tests.
 - The domain and UI support multiple strategy and tag affinities per commander,
   with `primary`, `secondary`, and `complementary` levels. The responsive table
   editor still needs visual verification.
-- Roles use the `deck_service` and `synergy_role` groups, shown separately in
-  Suggestions and its filters.
-- Roles accept `oracle_keywords`, literal terms that produce reviewable
-  classification evidence. Terms now pass through parser-backed lexical
-  extraction before the compatibility mapping to role evidence.
+- The core role catalog contains `spot_interaction`, `mass_interaction`,
+  `ramp`, and `card_advantage`. Deck generation calculates `main_strategy`
+  dynamically from evidence associated with the selected strategy. Card
+  selection, interaction modes, and other mechanics remain separate tags or
+  parser facts.
+- Initial role heuristics are reviewable and do not equate one-for-one draw or
+  filtering with card advantage.
 - The Oracle parser uses versioned lexicon and mechanic catalogs, supports
   parser-backed classification predicates, and persists the parse document and
-  source spans additively. All seven Oracle-text classification rules now use
-  mechanical IDs; broader target/zone modeling and corpus review remain. See
-  [oracle-text-parser.md](./oracle-text-parser.md).
+  source spans additively. Oracle rules combine structured mechanics with
+  explicit phrase rules; broader target/zone modeling and corpus review remain.
+  See [oracle-text-parser.md](./oracle-text-parser.md).
 - Catalog now includes an Oracle Parser inspector for collection cards, with
   live previews and explicit single-card reclassification.
 - The Catalog page can view, create, edit, and delete strategies and roles.

@@ -159,7 +159,7 @@ def test_conflicting_manual_values_for_same_target_are_rejected(catalog) -> None
     [
         (ManualOverride("tag", "missing_tag", "force_include"), "ID does not exist"),
         (
-            ManualOverride("role", "land", "set_level", level="primary"),
+            ManualOverride("role", "ramp", "set_level", level="primary"),
             "only valid for strategy targets",
         ),
         (

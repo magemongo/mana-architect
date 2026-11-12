@@ -9,7 +9,7 @@ Keep these concepts separate:
 - **Oracle keywords**: extracted lexical or normalized terms and phrases found in Oracle text, such as `landfall`, `counter`, or `instead`.
 - **Mechanical tags**: normalized rules concepts inferred from one or more text spans, such as `creates_tokens`, `doubles_counters`, or `land_enters_battlefield`.
 - **Strategy tags**: deck-building themes such as `+1/+1_counters`, `tokens`, `landfall`, or `aristocrats`. These are assigned by deterministic strategy rules downstream.
-- **Card roles**: functional deck roles such as `counter_doubler`, `token_generator`, `ramp`, or `removal`. These are also derived downstream and can be many-to-many.
+- **Card roles**: the four generic deck needs `spot_interaction`, `mass_interaction`, `ramp`, and `card_advantage`. `main_strategy` is a dynamic role calculated for the selected plan; mechanic names such as counter doubling and token creation remain tags/facts, not roles.
 
 Do not make the parser decide that a card belongs to a strategy merely because it contains a word. Preserve source spans and evidence so downstream rules can be audited.
 
@@ -111,7 +111,7 @@ Use a stable, language-neutral representation. The following is illustrative and
 {
   "card_id": "string",
   "oracle_text": "string",
-  "parser_version": "1.0.0",
+  "parser_version": "oracle-lexical-v2",
   "catalog_version": "2026-01",
   "abilities": [
     {
@@ -178,7 +178,7 @@ Illustrative parsed result:
 ```json
 {
   "card_id": "doubling-season",
-  "parser_version": "1.0.0",
+  "parser_version": "oracle-lexical-v2",
   "abilities": [
     {
       "ability_id": "a1",
@@ -241,7 +241,7 @@ Illustrative parsed result:
 ```json
 {
   "card_id": "bristly-bill-spine-sower",
-  "parser_version": "1.0.0",
+  "parser_version": "oracle-lexical-v2",
   "abilities": [
     {
       "ability_id": "a1",
@@ -282,15 +282,18 @@ Illustrative parsed result:
     }
   ],
   "strategy_tags": [
-    {"id": "landfall", "evidence": ["land.enters_trigger"], "rule_id": "strategy.landfall.from_land_entry_trigger"},
-    {"id": "plus_one_plus_one_counters", "evidence": ["counter.put", "counter.double"], "rule_id": "strategy.plus_counters.from_counter_mechanics"}
+    {"id": "add_plus_one_counters", "evidence": ["counter.put_plus_one_plus_one"], "rule_id": "tag_add_plus_one_counters_oracle_text"},
+    {"id": "counter_doubler", "evidence": ["counter.double"], "rule_id": "tag_counter_doubler_oracle_text"},
+    {"id": "counter_matters", "evidence": ["counter.matters_plus_one_plus_one"], "rule_id": "tag_counter_matters_oracle_text"}
   ],
-  "card_roles": [
-    {"id": "counter_placer", "evidence": ["counter.put"], "rule_id": "role.counter_placer"},
-    {"id": "counter_doubler", "evidence": ["counter.double"], "rule_id": "role.counter_doubler"}
+  "deckbuilding_roles": [
+    {"id": "main_strategy", "computed_for": "plus_one_counters", "evidence": ["add_plus_one_counters", "counter_doubler", "counter_matters"]}
   ]
 }
 ```
+
+`main_strategy` is not part of the persisted parser document; it is calculated
+for a selected strategy by the deckbuilder from the card's current tag evidence.
 
 `Landfall` remains an ability word feature; the trigger and counter effect are the evidence for mechanics and downstream strategy tags. The cost belongs to the activated ability, not to a keyword list.
 
@@ -298,9 +301,9 @@ Illustrative parsed result:
 
 Implement downstream matching as declarative rules over mechanics, not raw substring search or generative output. Example rules:
 
-- `counter.put` with counter type `+1/+1` -> strategy `plus_one_plus_one_counters` and role `counter_placer`.
-- `counter.double` -> strategy `plus_one_plus_one_counters` when the type is `+1/+1`; role `counter_doubler`.
-- `token.create` or `token.creation_replacement` -> strategy `tokens`; roles `token_generator` or `token_doubler` respectively.
+- `counter.put` with counter type `+1/+1` -> strategy tag `add_plus_one_counters` and dynamic role `main_strategy` for a selected counter strategy.
+- `counter.double` -> strategy tag `counter_doubler` when the type is `+1/+1`; it contributes to dynamic role `main_strategy` in that strategy.
+- `token.create` or `token.creation_replacement` -> token strategy tags; these contribute to dynamic role `main_strategy` when Tokens is selected.
 - `land.enters_trigger` -> strategy `landfall`.
 
 Each rule should have a stable ID, version, required facts, and emitted tags. Keep thresholds and exclusions explicit. For commander matching, compare normalized commander needs with these tags and return the exact evidence path. AI may help explain or rank candidates, but hard filtering should use deterministic facts and rules.

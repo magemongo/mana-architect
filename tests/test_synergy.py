@@ -119,11 +119,11 @@ def test_role_coverage_participates_only_when_needed_roles_are_provided(catalog)
     card = _card(
         evidence=(
             _evidence("tag", "create_tokens"),
-            _evidence("role", "card_draw", rule_id="draw_rule"),
+            _evidence("role", "card_advantage", rule_id="advantage_rule"),
         )
     )
 
-    result = _score(catalog, card, required_roles=("card_draw",))
+    result = _score(catalog, card, required_roles=("card_advantage",))
 
     assert result.score == 81.0
     assert result.components["role_coverage"] == 1.0

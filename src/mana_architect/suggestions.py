@@ -8,7 +8,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from mana_architect.catalog import DEFAULT_CATALOG_DIR, StrategyCatalog
-from mana_architect.classification import ClassificationResult
+from mana_architect.classification import (
+    ClassificationResult,
+    with_deck_role_heuristics,
+)
 from mana_architect.classification_repository import (
     load_card_classification_overrides,
     load_commander_affinity_profile,
@@ -151,6 +154,12 @@ def suggest_collection_cards(
             ineligible_count += 1
             continue
         overrides = card_overrides.get(card.oracle_id, ())
+        scoring_classification = with_deck_role_heuristics(
+            card.type_line,
+            card.oracle_text,
+            classification,
+            catalog,
+        )
         score = score_card_for_strategy(
             card=CardScoreInput(
                 oracle_id=card.oracle_id,
@@ -161,7 +170,7 @@ def suggest_collection_cards(
                     else None
                 ),
                 format_legal=_commander_legality(card),
-                classifications=classification,
+                classifications=scoring_classification,
                 available_quantity=quantity,
                 already_used_quantity=already_used_quantity,
             ),
@@ -184,7 +193,7 @@ def suggest_collection_cards(
                 mana_cost=card.mana_cost,
                 oracle_text=card.oracle_text,
                 image_uri=card.image_uri,
-                classification=classification,
+                classification=scoring_classification,
                 overrides=overrides,
             )
         )
