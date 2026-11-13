@@ -92,7 +92,7 @@
         {"id": "spellslinger_reduce_spell_cost", "capability": "reduce_spell_cost", "role": "enabler", "weight": 0.85, "types": ["instant", "sorcery"]},
         {"id": "spellslinger_recover_to_hand", "capability": "recover_to_hand", "role": "converter", "weight": 0.65, "types": ["instant", "sorcery"]}
       ],
-      "interaction_rule_ids": ["spell_copy_amplifies_spell_effect", "spell_copy_triggers_payoff", "casting_triggers_payoff"],
+      "interaction_rule_ids": ["spell_copy_amplifies_spell_effect", "spell_copy_triggers_payoff", "casting_triggers_payoff", "casting_or_copying_triggers_payoff"],
       "exclusions": ["copy_is_not_cast"]
     },
     {

@@ -70,10 +70,11 @@ def test_unknown_and_negative_constructions_are_not_positive_capabilities():
         "Choose one —\n"
         "• Create a 1/1 green creature token.\n"
         "An opponent creates a Treasure token.\n"
-        "If you would create a token, draw a card instead."
+        "If you would create a token, draw a card instead.\n"
+        "If you would create a token, gain twice that much life instead."
     )
     assert profile.capabilities == ()
-    assert len(profile.unknowns) == 5
+    assert len(profile.unknowns) == 6
 
 
 def test_self_reference_is_linked_without_shifting_unicode_offsets():

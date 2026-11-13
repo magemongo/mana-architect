@@ -1,9 +1,11 @@
 import argparse
+import json
 import sys
 from pathlib import Path
 
 from sqlalchemy.exc import SQLAlchemyError
 
+from mana_architect.candidate_evaluation import rank_collection_candidates
 from mana_architect.collection import search_collection
 from mana_architect.commanders import list_available_commanders, search_for_commander
 from mana_architect.deckbuilding import (
@@ -22,6 +24,7 @@ from mana_architect.manabox import ImportFormatError
 from mana_architect.models import SyncMetadata
 from mana_architect.roles import classify_card_roles
 from mana_architect.scryfall import ScryfallError, sync_collection
+from mana_architect.strategy_synergy import SelectedStrategy
 from mana_architect.validation import load_deck_file, validate_deck
 
 
@@ -64,6 +67,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Filtra opções pelo nome do comandante.",
     )
     commanders_command.add_argument("--limit", type=int, default=100)
+
+    evaluate_command = commands.add_parser(
+        "evaluate-candidates", help="Rank owned candidates by mechanical synergy before building a deck.",
+    )
+    evaluate_command.add_argument("commander", help="Exact name or Oracle ID of an owned commander.")
+    evaluate_command.add_argument(
+        "--strategy", action="append", default=[], metavar="ID[=PRIORITY]",
+        help="Select a strategy with an optional priority. Repeat for multiple strategies.",
+    )
+    evaluate_command.add_argument("--limit", type=int, default=20, help="Number of ranked candidates to return.")
 
     sync_command = commands.add_parser(
         "sync-scryfall",
@@ -206,6 +219,19 @@ def main(argv: list[str] | None = None) -> int:
                     f"{option.name}  [{identity}]  "
                     f"quantidade: {option.quantity}  oracle_id: {option.oracle_id}"
                 )
+            return 0
+
+        if args.command == "evaluate-candidates":
+            strategies = []
+            for value in args.strategy:
+                strategy_id, separator, priority = value.partition("=")
+                strategies.append(SelectedStrategy(strategy_id, float(priority) if separator else 1.0))
+            session_factory = create_session_factory(engine)
+            with session_factory() as session:
+                result = rank_collection_candidates(
+                    session, args.commander, tuple(strategies), limit=args.limit,
+                )
+            print(json.dumps(result.to_json(), indent=2, allow_nan=False))
             return 0
 
         if args.command == "validate-deck":

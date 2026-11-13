@@ -9,7 +9,9 @@ from pathlib import Path
 from mana_architect.catalog import StrategyCatalog, load_strategy_catalog
 from mana_architect.collection import VALID_COLORS
 from mana_architect.models import Card
-from mana_architect.oracle_text import PARSER_VERSION, OracleParse, parse_oracle_text
+from mana_architect.oracle_text import (
+    PARSER_VERSION, LexiconEntry, MechanicalPattern, OracleParse, parse_oracle_text,
+)
 from mana_architect.synergy_capabilities import (
     CAPABILITY_IDS,
     CAPABILITY_VERSION,
@@ -161,18 +163,19 @@ class StrategySynergyProfile:
         return result
 
 
-def parse_synergy_oracle(card: Card, context: SynergyCatalogContext) -> OracleParse:
-    return parse_oracle_text(
-        card.oracle_text, context.oracle.oracle_lexicon, context.oracle.oracle_mechanical_patterns,
-    )
-
-
 @lru_cache(maxsize=4096)
-def _compiled_capabilities(
-    oracle_hash: str, parser_version: str, capability_version: str,
-    text: str, name: str, type_line: str,
-) -> MechanicalProfile:
-    return extract_mechanical_capabilities(parse_oracle_text(text), name=name, type_line=type_line)
+def _parse_cached(
+    text: str, parser_version: str, lexicon: tuple[LexiconEntry, ...],
+    patterns: tuple[MechanicalPattern, ...],
+) -> OracleParse:
+    return parse_oracle_text(text, lexicon, patterns)
+
+
+def parse_synergy_oracle(card: Card, context: SynergyCatalogContext) -> OracleParse:
+    return _parse_cached(
+        card.oracle_text or "", PARSER_VERSION, context.oracle.oracle_lexicon,
+        context.oracle.oracle_mechanical_patterns,
+    )
 
 
 @lru_cache(maxsize=4096)
@@ -182,19 +185,13 @@ def _compile_parsed_capabilities(
     return extract_mechanical_capabilities(parsed, name=name, type_line=type_line)
 
 
-def _capabilities(card: Card, parsed: OracleParse | None) -> MechanicalProfile:
-    text = card.oracle_text or ""
-    if parsed is not None:
-        if parsed.oracle_text != text:
-            raise ValueError("The supplied Oracle parse does not match the card's text.")
-        return _compile_parsed_capabilities(parsed, card.name, card.type_line or "", CAPABILITY_VERSION)
-    return _compiled_capabilities(
-        hashlib.sha256(text.encode("utf-8")).hexdigest(), PARSER_VERSION, CAPABILITY_VERSION,
-        text, card.name, card.type_line or "",
-    )
+def _capabilities(card: Card, parsed: OracleParse) -> MechanicalProfile:
+    if parsed.oracle_text != (card.oracle_text or ""):
+        raise ValueError("The supplied Oracle parse does not match the card's text.")
+    return _compile_parsed_capabilities(parsed, card.name, card.type_line or "", CAPABILITY_VERSION)
 
 
-def _priorities(selected: tuple[SelectedStrategy, ...], context: SynergyCatalogContext) -> dict[str, float]:
+def normalize_priorities(selected: tuple[SelectedStrategy, ...], context: SynergyCatalogContext) -> dict[str, float]:
     known = {strategy.id for strategy in context.strategies.strategies}
     aliases = dict(context.strategies.aliases)
     weights: dict[str, float] = {}
@@ -332,7 +329,7 @@ def evaluate_synergy(
     candidate_parse: OracleParse | None = None, commander_parse: OracleParse | None = None,
 ) -> StrategySynergyProfile:
     """Return separate direct, strategy, and bridge scores for an owned candidate."""
-    priorities = _priorities(selected_strategies, context)
+    priorities = normalize_priorities(selected_strategies, context)
     reasons = candidate_rejections(commander, candidate, owned_quantity)
     versions = (
         ("capabilities", CAPABILITY_VERSION), ("strategies", context.strategies.version),
@@ -342,8 +339,8 @@ def evaluate_synergy(
     if reasons:
         return StrategySynergyProfile(candidate.oracle_id, commander.oracle_id, versions, False, reasons)
 
-    own = _capabilities(candidate, candidate_parse)
-    leader = _capabilities(commander, commander_parse)
+    own = _capabilities(candidate, candidate_parse or parse_synergy_oracle(candidate, context))
+    leader = _capabilities(commander, commander_parse or parse_synergy_oracle(commander, context))
     if own.parser_version != PARSER_VERSION or leader.parser_version != PARSER_VERSION:
         raise ValueError("Use current Oracle parses to evaluate strategy synergy.")
     policy = context.scoring

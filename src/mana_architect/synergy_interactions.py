@@ -166,7 +166,7 @@ def validate_interaction(
         card = _card_object(target_type if producer is target else source_type, kind="permanent")
         produced = replace(produced, types=card.types)
     if rule.id == "spell_copy_amplifies_spell_effect":
-        required_controller = "you" if "you control" in source.evidence.oracle_span.casefold() else "any"
+        required_controller = source.resolution
     if rule.id == "equipment_enables_voltron":
         if target.object.reference == "self":
             produced = _card_object(target_type, kind="permanent")
@@ -236,6 +236,15 @@ def validate_interaction(
         return RuleMatch(MatchStatus.UNKNOWN, "The replacement's controller restriction is unresolved.")
     if {controller, required_controller} == {"you", "opponent"}:
         return RuleMatch(MatchStatus.INVALID, "The event is attributed to an incompatible player.")
+    if controller == "any" and required_controller in {"you", "opponent"}:
+        dependencies.add("qualifying_player_controls_object")
+    if rule.relation == "amplifies" and target.quantity.kind in {"up_to", "variable"}:
+        dependencies.add("positive_event_quantity")
+    if source.id == "blink" and target.object.reference != "self" and source.resolution == "its owner's":
+        if source.owner != "you" and required_controller != "any":
+            dependencies.add("return_under_qualifying_controller")
+    if source.id == "sacrifice" and source.object.reference != "self":
+        dependencies.add("sacrifice_eligible_permanent")
     if rule.id == "spell_copy_amplifies_spell_effect":
         dependencies.add("legal_copy_target")
     if source.targeting == "target" or target.targeting == "target":

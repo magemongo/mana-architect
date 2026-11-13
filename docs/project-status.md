@@ -52,6 +52,7 @@ their administration in the UI. That work is in progress:
 | In progress | Card Advantage module | Strict stock evaluator for fixed draw casts and self-enters draw, including evoke. Conditional engines, interactions, and ranking integration remain pending. |
 | In progress | [Ramp Evaluation Engine](./ramp_evaluation_engine_implementation_guide.md) | Suggestions ranks supported mana production, land development, and mana tokens with an optional strategy bonus. Broader mechanics, calibration, and persisted profiles remain pending. |
 | In progress | [Interaction Evaluation Engine](./interaction_evaluation_engine_implementation_guide.md) | The card-level API and Suggestions expose independent scores, source evidence, and execution variants. Pattern coverage and score calibration remain in progress. |
+| Implemented | [Strategy Synergy Engine MVP](./strategy_synergy_engine_implementation_guide.md) | CLI and Python API rank owned candidates before deck construction with typed Oracle evidence, all 15 built-in strategies, and independent functional evaluations. Oracle and rule coverage are partial and weights are heuristic. |
 
 Items marked Later are not approved or scheduled. Current work should preserve
 catalog versioning and classification provenance.
@@ -165,8 +166,8 @@ heuristics.
 - Legality and the ban list depend on locally synchronized data. A passing
   validation does not guarantee that the snapshot reflects today's ban list;
   sync and check the displayed date.
-- Text rules do not understand full context or cross-card synergy. Infinite
-  combos require explicit curation.
+- The mechanical candidate evaluator checks supported commander interactions
+  and reports unresolved clauses. Infinite combos require explicit curation.
 - Catalog-guided generation needs a configured affinity and current
   classifications. Cards without current classifications are omitted and
   reported.

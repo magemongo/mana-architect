@@ -172,6 +172,19 @@ Two-commander partner decks are not supported yet.
 
 ## Generate a Deck Draft
 
+Use the mechanical candidate evaluator to rank owned cards for a commander
+before generating a draft:
+
+```powershell
+python -m mana_architect evaluate-candidates "Anowon, the Ruin Thief" --strategy tokens --strategy aristocrats=2 --limit 10
+```
+
+The JSON includes the ranked candidates, commander and strategy evidence,
+rejection reasons for ineligible cards, and independent Ramp, Card Advantage,
+and Interaction evaluations. Each `--strategy` accepts an optional priority.
+Omit the strategy options to rank by commander interactions. See the
+[mechanical scoring reference](docs/synergy-scoring.md#mechanical-candidate-evaluation).
+
 ```powershell
 python -m mana_architect build-deck "Anowon, the Ruin Thief" --output .\data\decks\anowon.json
 python -m mana_architect build-deck "Anowon, the Ruin Thief" --lands 36 --output .\data\decks\anowon.json

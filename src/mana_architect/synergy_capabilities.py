@@ -218,6 +218,7 @@ def _match_action(text: str) -> tuple[str, str, MechanicalObject, dict] | None:
         return "copy_spell", "copy", _object(match["object"]), dict(
             event="spell_copy", controller="you", source_zone="stack", destination_zone="stack",
             conditions=("eligible_spell_on_stack",),
+            resolution=_controller(match["object"], "any"),
         )
     for capability_id, action, pattern in _SIMPLE_EFFECTS:
         match = pattern.fullmatch(text)
@@ -283,7 +284,8 @@ _OBSERVERS = tuple(
 
 _REPLACEMENTS = (
     ("multiply_token_creation", "token_creation", re.compile(
-        r"(?P<actor>you|a player|an opponent|an effect) would create (?P<object>.+?tokens?)(?: under your control)?")),
+        r"(?:(?P<actor>you|a player|an opponent|an effect) would create (?P<active>.+?tokens?)|"
+        r"(?P<passive_object>.+?tokens?) would be created)(?: under your control)?")),
     ("multiply_counter_placement", "counter_placement", re.compile(
         r"(?:(?P<actor>you|a player|an opponent|an effect) would put (?P<counter>.+?) counters? on |"
         r"(?P<passive>.+?) counters? would be put on )(?P<object>.+)")),
@@ -382,17 +384,35 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
         capabilities.append(MechanicalCapability(capability_id, action, object=obj, **details))
 
     if replacement := _REPLACEMENT.fullmatch(compact):
-        multiplier = re.search(r"\b(?:twice|double|triple|three times)\b", replacement["effect"])
+        effect = replacement["effect"]
+        multiplier = re.search(r"\b(?:twice|double|triple|three times)\b", effect)
         for capability_id, event, pattern in _REPLACEMENTS:
             match = pattern.fullmatch(replacement["event"])
             if match and multiplier:
+                if event == "token_creation" and not re.fullmatch(
+                    r"(?:(?:you |that player |they |it )?creates? (?:twice|double|triple|three times) that many (?:of those )?tokens|"
+                    r"(?:twice|double|triple|three times) that many (?:of those )?tokens (?:are|would be) created) instead", effect,
+                ):
+                    continue
+                if event == "counter_placement" and not re.fullmatch(
+                    r"(?:(?:you |that player |they |it )?puts? (?:twice|double|triple|three times) that many .*counters? on (?:it|that permanent|that creature)|"
+                    r"(?:twice|double|triple|three times) that many .*counters? (?:are|would be) put on (?:it|that permanent|that creature)) instead",
+                    effect,
+                ):
+                    continue
+                if event == "noncombat_damage" and " damage " not in effect:
+                    continue
                 fields = match.groupdict()
-                obj = _object(match["object"], kind="token" if event == "token_creation" else "permanent")
+                object_text = fields.get("object") or fields.get("active") or fields.get("passive_object") or ""
+                obj = _object(object_text, kind="token" if event == "token_creation" else "permanent")
                 counter = fields.get("counter") or fields.get("passive")
                 if counter and counter not in {"one or more", "a", "any number of"}:
                     counter_type = counter.split()[-1]
                     obj = MechanicalObject(obj.kind, obj.types, (counter_type,), obj.reference, obj.restrictions)
-                controller = _controller(replacement["event"], {"you": "you", "an opponent": "opponent", "a player": "any"}.get(fields.get("actor"), "unknown"))
+                default = {"you": "you", "an opponent": "opponent", "a player": "any"}.get(
+                    fields.get("actor"), "any" if fields.get("passive_object") else "unknown",
+                )
+                controller = _controller(replacement["event"], default)
                 emit(capability_id, "multiply", obj, timing="replacement", repeatability="repeatable",
                      event=event, controller=controller, targeting="none",
                      quantity=_quantity("two" if multiplier[0] in {"twice", "double"} else "three"))
@@ -420,6 +440,8 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
                     obj = MechanicalObject(obj.kind, obj.types, obj.subtypes, obj.reference, obj.restrictions + (tail,))
                     controller = _controller(tail, controller)
                 conditions = ()
+                if _CONDITION.search(text[remainder_start:]):
+                    conditions = (evidence.oracle_span[remainder_start:].strip(),)
                 emit(capability_id, "observe", obj, event=event, controller=controller,
                      source_zone=source, destination_zone=zone, targeting="none",
                      resolution=evidence.oracle_span[remainder_start:].strip())

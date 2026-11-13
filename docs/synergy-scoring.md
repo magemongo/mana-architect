@@ -1,5 +1,30 @@
 # Deterministic Synergy Scoring
 
+## Mechanical candidate evaluation
+
+`evaluate_synergy` scores one card against the commander's Oracle abilities
+and optional weighted strategies. `rank_collection_candidates` applies the
+same evaluation to owned cards, using Commander legality and color identity
+from the synchronized collection. The `evaluate-candidates` CLI command
+returns that batch as JSON, with scores, source offsets, rule IDs, and unmet
+dependencies. It also includes independent Ramp, Card Advantage, and
+Interaction profiles for each returned card.
+
+The overall score combines direct commander synergy at 40%, strategy affinity
+at 35%, cross-strategy bridges at 15%, and reliability at 10%. The evaluator
+uses the strongest supported contribution for each strategy and favors that
+specialist score when combining strategies. A bridge needs evidence for
+distinct objectives on the same event. Conditional and potential matches are
+discounted, and unsupported or incompatible matches contribute zero.
+Coverage reports unresolved Oracle clauses separately from strength.
+
+The mechanical strategy definitions are in `config/strategy_synergy.json`.
+The rule and scoring defaults are versioned in Python. These values are
+heuristics. Supported Oracle forms and fixtures are documented in the
+[implementation guide](./strategy_synergy_engine_implementation_guide.md).
+The remainder of this reference covers the tag-based scorer used by
+Suggestions and catalog-guided deck generation.
+
 ## Formula
 
 `score_card_for_strategy` scores a card for an explicitly selected commander and
