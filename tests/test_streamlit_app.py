@@ -298,6 +298,21 @@ def test_suggestions_page_filters_by_identity_and_strategy_without_corrections(
         assert not app.exception
         assert any("Net mana +2" in item.value for item in app.caption)
         assert any(item.value == "Add {G}{G}{G}." for item in app.text)
+
+        oracle = "Return target nonland permanent you don't control to its owner's hand."
+        with Session(get_engine()) as session, session.begin():
+            card = session.get(Card, "ui-token-card")
+            card.type_line = "Instant"
+            card.mana_cost = "{1}{G}"
+            card.oracle_text = f"{oracle}\nOverload {{6}}{{G}}"
+            reclassify_cards(session, catalog, DEFAULT_CATALOG_DIR, ("ui-token-card",))
+        for role, cost in (("spot", "{1}{G}"), ("mass", "{6}{G}")):
+            app.selectbox(key="suggestion_role_id").select(f"{role}_interaction")
+            app.form_submit_button(key="search_collection_suggestions").click().run()
+            assert not app.exception
+            assert any(item.value.startswith(f"Base {role} interaction score ") for item in app.caption)
+            assert any(item.value == f"Variant cost {cost}" for item in app.caption)
+            assert any(item.value == oracle for item in app.text)
     finally:
         app_engine = get_engine()
         app_engine.dispose()

@@ -48,6 +48,7 @@ from mana_architect.models import (
 )
 from mana_architect.oracle_text import PARSER_VERSION
 from mana_architect.suggestions import (
+    INTERACTION_SUGGESTION_ROLES,
     IdentityCollectionSuggestion,
     STANDALONE_SUGGESTION_ROLES,
     collection_oracle_ids,
@@ -1476,12 +1477,7 @@ def _render_oracle_parser_inspector(
 def _render_collection_suggestions(session: Session) -> None:
     st.header("Card Suggestions")
     st.caption(
-        "Explore classified cards from your collection by color identity and "
-        "strategy. Legality is checked for Commander; no commander is required."
-    )
-    st.caption(
-        "Card Advantage uses net cards when measurable and includes classified "
-        "engines. Selected strategies add a ranking bonus."
+        "Find Commander-legal cards in your collection by color identity, strategy, or core role."
     )
     catalog = load_strategy_catalog()
     color_options = _color_identity_options()
@@ -1504,7 +1500,7 @@ def _render_collection_suggestions(session: Session) -> None:
                 format_func=lambda value: strategy_names[value],
                 key="suggestion_strategy_ids",
                 placeholder="Choose strategies for synergy ranking",
-                help="Strategies are optional for Ramp and Card Advantage and add a ranking bonus.",
+                help="When a scored core role is selected, matching strategies add a ranking bonus.",
             )
         )
         selected_role_id = st.selectbox(
@@ -1512,7 +1508,7 @@ def _render_collection_suggestions(session: Session) -> None:
             options=[None, *(item.id for item in catalog.roles)],
             format_func=lambda value: "No role filter" if value is None else role_names[value],
             key="suggestion_role_id",
-            help="Filter by role or rank cards directly by Ramp or Card Advantage.",
+            help="Rank cards by Ramp, Card Advantage, Spot Interaction, or Mass Interaction without selecting a strategy.",
         )
         role_ids = (selected_role_id,) if selected_role_id is not None else ()
         search_clicked = st.form_submit_button(
@@ -1522,6 +1518,11 @@ def _render_collection_suggestions(session: Session) -> None:
         )
     card_advantage_mode = selected_role_id == "card_advantage"
     ramp_mode = selected_role_id == "ramp"
+    interaction_kind = (
+        selected_role_id.split("_", 1)[0]
+        if selected_role_id is not None and selected_role_id in INTERACTION_SUGGESTION_ROLES
+        else None
+    )
     active_query = (tuple(color_identity), strategy_ids, role_ids)
     if search_clicked:
         st.session_state["suggestion_query"] = active_query
@@ -1535,7 +1536,7 @@ def _render_collection_suggestions(session: Session) -> None:
         st.info("Choose the filters and click **Find suggestions**.")
         return
     if not strategy_ids and selected_role_id not in STANDALONE_SUGGESTION_ROLES:
-        st.info("Choose a strategy or select Ramp or Card Advantage.")
+        st.info("Choose a strategy or select a core role with its own ranking.")
         return
 
     if st.button(
@@ -1611,9 +1612,27 @@ def _render_collection_suggestions(session: Session) -> None:
                 heading += f" &nbsp; {cost}"
             with st.container(key=row_key):
                 st.markdown(heading)
-                score_precision = 3 if card_advantage_mode or ramp_mode else 1
+                score_precision = 3 if selected_role_id in STANDALONE_SUGGESTION_ROLES else 1
                 ranking_label = f"Score {item.score:.{score_precision}f}"
                 ramp_line = item.ramp_profile.best_line if item.ramp_profile else None
+                interaction_variant = None
+                interaction_effects = ()
+                interaction_score = None
+                if interaction_kind and item.interaction_profile:
+                    interaction_variant = item.interaction_profile.best_variant(interaction_kind)
+                    if interaction_variant:
+                        interaction_effects = tuple(
+                            effect for effect in interaction_variant.effects if effect.interaction_type == interaction_kind
+                        )
+                        interaction_score = (
+                            interaction_variant.spot_score if interaction_kind == "spot" else interaction_variant.mass_score
+                        )
+                        mechanisms = dict.fromkeys(tag for effect in interaction_effects for tag in effect.mechanical_tags)
+                        ranking_label += " · " + ", ".join(tag.replace("_", " ").capitalize() for tag in mechanisms)
+                        if interaction_score.total is None:
+                            ranking_label += " · Base score unavailable"
+                    else:
+                        ranking_label += " · Manual role inclusion"
                 if card_advantage_mode:
                     if item.strict_card_advantage is None:
                         ranking_label += " · Card advantage from classification"
@@ -1642,6 +1661,15 @@ def _render_collection_suggestions(session: Session) -> None:
                     if ramp_line is not None:
                         st.caption(f"Base ramp score {ramp_line.score:.3f}")
                         st.text(ramp_line.event.evidence.oracle_span)
+                    if interaction_variant and interaction_score:
+                        if interaction_score.total is not None:
+                            st.caption(f"Base {interaction_kind} interaction score {interaction_score.total:.3f}")
+                        if interaction_variant.cost:
+                            st.caption(f"Variant cost {interaction_variant.cost}")
+                        if interaction_variant.requirements:
+                            st.caption(", ".join(value.replace("_", " ").capitalize() for value in interaction_variant.requirements))
+                        for effect in interaction_effects:
+                            st.text(effect.evidence.oracle_span)
                     if item.strategy_scores:
                         st.markdown(
                             "**Strategy scores:** "

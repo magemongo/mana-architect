@@ -64,9 +64,8 @@ advantageous over time. These checks are deterministic heuristics, not a full
 simulation of rules, costs, or game-state repetition.
 
 On **Suggestions**, choose a color identity and select strategies, a core role,
-or both. Ramp and Card Advantage can be searched without a strategy. They use
-their role evaluators for ranking and add a bonus for matching strategy
-evidence. The interaction roles require a strategy and use its score for
-ranking. `card_selection` is a tag and is not selectable as a core role.
+or both. Ramp, Card Advantage, Spot Interaction, and Mass Interaction use
+their own scores for ranking. Selecting strategies adds a bonus for matching
+strategy evidence. `card_selection` is available as a mechanical tag.
 Cards with stale classifications are reported until the collection is
 explicitly reclassified on the Suggestions page.

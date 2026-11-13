@@ -84,10 +84,11 @@ defines the JSON output contract.
 Supported variants include distinct modal choices, overload, and common kicker
 conditions. The profile carries warnings for recognized but unsupported
 syntax or ambiguous scope, such as repeatable mode selection and complex
-alternate costs. The profile is available through the card-level Python API.
-Suggestions and stored catalog classifications continue to use their existing
-role rules. The registry covers the tested Oracle patterns, and the scores have
-yet to be calibrated against a full collection corpus.
+alternate costs. The profile is available through the card-level Python API
+and supplies the base scores and evidence for Spot Interaction and Mass
+Interaction on [Suggestions](./synergy-scoring.md#collection-integration).
+The registry covers the tested Oracle patterns, and the scores have yet to be
+calibrated against a full collection corpus.
 
 ## Downstream card-advantage and selection heuristics
 

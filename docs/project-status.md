@@ -41,7 +41,7 @@ their administration in the UI. That work is in progress:
 | Status | Work item | Current state |
 |---|---|---|
 | In progress | Multiple strategies per commander and a responsive editor for all three affinity levels | Domain and table editor support multiple strategies and levels on one screen; visual and workflow review remains |
-| Implemented | Filter suggestions by one optional core role and rank by strategy synergy | Ramp and Card Advantage have role scores and optional strategy bonuses; interaction roles use strategy scores |
+| Implemented | Filter suggestions by one optional core role and rank by strategy synergy | All four core roles have role scores and optional strategy bonuses |
 | Implemented | Use four core deck roles and calculate strategy contribution dynamically | Catalog roles are spot/mass interaction, ramp, and card advantage; `main_strategy` is derived from selected-strategy evidence |
 | In progress | Admin screen for strategies and core roles | Admin screen is implemented; visual review and delete/save workflow review remain |
 | Later | Manually add, remove, or replace cards in a generated list and revalidate | Deferred; direct decklist editing is unavailable |
@@ -51,7 +51,7 @@ their administration in the UI. That work is in progress:
 | Later | Optional natural-language interface using an LLM | Idea from the initial document; not implemented |
 | In progress | Card Advantage module | Strict stock evaluator for fixed draw casts and self-enters draw, including evoke. Conditional engines, interactions, and ranking integration remain pending. |
 | In progress | [Ramp Evaluation Engine](./ramp_evaluation_engine_implementation_guide.md) | Suggestions ranks supported mana production, land development, and mana tokens with an optional strategy bonus. Broader mechanics, calibration, and persisted profiles remain pending. |
-| Implemented | [Interaction Evaluation Engine](./interaction_evaluation_engine_implementation_guide.md) | The card-level Python API classifies supported spot and mass interaction and returns source evidence, execution variants, and independent heuristic scores. |
+| Implemented | [Interaction Evaluation Engine](./interaction_evaluation_engine_implementation_guide.md) | The card-level Python API and Suggestions expose source evidence, execution variants, and independent spot and mass interaction scores. |
 
 Items marked Later are not approved or scheduled. Current work should preserve
 catalog versioning and classification provenance.
@@ -105,9 +105,9 @@ related validation and generation tests.
 - Deterministic scorer explains its components and reasons. Suggestions are
   filtered by collection, legality, and color identity.
 - The Suggestions page accepts multiple strategies and zero or one core role.
-  Ramp and Card Advantage support role-only searches and add an optional
-  strategy bonus. Interaction roles use strategy scores. With no role selected,
-  strategy evidence determines inclusion and ranking.
+  Ramp, Card Advantage, Spot Interaction, and Mass Interaction support role-only
+  searches and add an optional strategy bonus. With no role selected, strategy
+  evidence determines inclusion and ranking.
 - The domain and UI support multiple strategy and tag affinities per commander,
   with `primary`, `secondary`, and `complementary` levels. The responsive table
   editor still needs visual verification.

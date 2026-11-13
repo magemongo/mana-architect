@@ -49,12 +49,11 @@ rules are applied after the formula and shown in the reasons.
 
 ## Collection Integration
 
-The Suggestions page reads cards and physical quantities from the collection,
-excludes the commander, and applies legality, color identity, and classification
-filters before showing rankings. The page accepts one or more strategies and
-zero or one core role. Without a role, cards need evidence for at least one
-selected strategy. With a role selected, only cards in that role remain; the
-strongest selected-strategy score orders those cards for interaction roles.
+The Suggestions page reads cards and physical quantities from the collection
+and applies Commander legality, color identity, and classification filters
+before showing rankings. The page accepts zero or more strategies and zero or
+one core role. In a strategy-only search, cards need evidence for at least one
+selected strategy. A supported core role can be searched by itself.
 Card Advantage uses the highest positive strict net gain on successful
 resolution as its base. When the evaluator lacks coverage, an included Card
 Advantage classification receives one ranking point. This is a ranking value
@@ -71,6 +70,14 @@ and mana-neutral production are excluded by the evaluator. Explicit catalog
 role evidence and manual inclusions can supply a one-point fallback, and
 manual role exclusions take precedence. The current evaluator covers direct
 mana production, land development, and mana tokens.
+
+Spot Interaction and Mass Interaction use the best available variant's score
+for the selected scope, plus the same optional strategy bonus. A card that can
+perform both roles may rank differently in each search. The result shows the
+mechanism, variant cost, and Oracle evidence. Engine matches with unresolved
+scores and manual role inclusions use a one-point ranking fallback. Manual
+role exclusions take precedence. Automatic interaction eligibility comes from
+the engine's affected scope.
 
 Results include score, matched strategies, detected roles,
 evidence, and remaining quantity. Only classifications whose fingerprint still
