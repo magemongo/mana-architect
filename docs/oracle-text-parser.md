@@ -63,6 +63,22 @@ features or mechanical facts.
 - Reminder text that gives a Clue a sacrifice-to-draw ability does not make
   that one Clue source repeatable. The surrounding trigger must be capable of
   recurring for it to count as a recurring card-advantage source.
+- Counter-linked draw patterns now include draws for creatures with +1/+1
+  counters, draws when those counters are placed, and draws scaled by counters
+  placed. The +1/+1 counter mechanics also recognize passive placement wording
+  such as “counters are put,” explicit placement verbs, and creatures entering
+  with counters. This supports card-advantage and strategy evidence without
+  treating reminder text as an independent engine.
+
+This role heuristic is broader than the structured parser patterns and remains
+conservative. It uses text patterns rather than a complete ability-cost syntax
+tree or game-state simulation; ambiguous wording should be reviewed through the
+Catalog Oracle Parser inspector and classification evidence.
+
+The Card Advantage role and Suggestions score for conditional engines indicate
+potential payoffs. They do not estimate trigger frequency, available fodder,
+board state, or realized net cards. The selected strategy score adds ranking
+weight when configured.
 
 This role heuristic is broader than the structured parser patterns and remains
 conservative. It uses text patterns rather than a complete ability-cost syntax
