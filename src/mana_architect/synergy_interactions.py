@@ -6,7 +6,7 @@ import re
 
 from mana_architect.synergy_capabilities import MechanicalCapability, MechanicalObject
 
-INTERACTION_RULE_VERSION = "1.0.0"
+INTERACTION_RULE_VERSION = "1.0.1"
 
 
 class MatchStatus(StrEnum):
@@ -154,6 +154,8 @@ def validate_interaction(
     """Check the event and object contracts for a pair of explicit capabilities."""
     if (source.id, target.id) != (rule.source, rule.target):
         return None
+    source_type = source.face_type_line or source_type
+    target_type = target.face_type_line or target_type
     if not rule_applies_to_capability(rule, source) or not rule_applies_to_capability(rule, target):
         return None
 

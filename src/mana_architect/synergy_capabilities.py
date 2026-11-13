@@ -1,6 +1,6 @@
 """Compile card-local mechanics from Oracle ability spans for strategy synergy."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import re
 from typing import Literal
 
@@ -9,7 +9,7 @@ from mana_architect.mana_resource_extractor import extract_mana_resources
 from mana_architect.oracle_text import OracleParse
 from mana_architect.ramp_rules_catalog import NUMBER_WORDS
 
-CAPABILITY_VERSION = "1.0.0"
+CAPABILITY_VERSION = "1.0.1"
 
 # One event can satisfy multiple strategies through its object types. Creating a
 # Treasure therefore produces a single capability and a single quantity.
@@ -46,6 +46,7 @@ _QUANTITY_WORDS = {"a": 1, "an": 1, **NUMBER_WORDS}
 _TRIGGER = re.compile(r"^(?:[^,.:]+? — )?(?:when(?:ever)?|at) (?P<event>[^,]+),\s*", _FLAGS)
 _REPLACEMENT = re.compile(r"^if (?P<event>[^,]+), (?P<effect>.*\binstead)\.?$", _FLAGS)
 _CLAUSE = re.compile(r"[^.\n]+")
+_FACE_OR_LINE = re.compile(r" // |(?<!\S)//(?!\S)|[^\r\n]+?(?= // |(?<!\S)//(?!\S)|[\r\n]|$)")
 _CONDITION = re.compile(
     r"\b(?:if|unless|only|as long as|for each|equal to|where|except|rather than)\b", _FLAGS,
 )
@@ -95,6 +96,7 @@ class MechanicalCapability:
     duration: str = "unknown"
     modality: str = "mandatory"
     resolution: str = "unknown"
+    face_type_line: str = ""
 
     @property
     def event_key(self) -> str:
@@ -251,7 +253,7 @@ _SIMPLE_EFFECTS = tuple(
         ("token_count_payoff", "scale", r".+ (?:for each|equal to the number of) (?:creature )?tokens you control"),
         ("double_existing_counters", "double", r"double the number of (?:\+1/\+1 )?counters on (?P<object>.+)"),
         ("untap", "untap", r"untap (?P<object>target .+|all .+|this .+)"),
-        ("counter_spell", "counter", r"counter (?P<object>target .+spell)"),
+        ("counter_spell", "counter", r"counter (?P<object>target (?:.+ )?spell)"),
         ("remove_permanent", "remove", r"(?:destroy|exile) (?P<object>(?:target|all|each) (?:nonland )?(?:artifact|creature|enchantment|land|permanent|planeswalker)s?(?: (?:an opponent|you) controls?)?)"),
         ("remove_permanent", "remove", r"return (?P<object>(?:target|all|each) .+?) to (?:its owner's hand|their owners' hands)"),
         ("restrict_actions", "restrict", r"(?P<object>players|opponents|your opponents) (?:can't|cannot) (?:cast|activate|attack|block).+"),
@@ -274,7 +276,7 @@ _OBSERVERS = tuple(
         ("enter_payoff", "enter", r"(?P<object>.+?) enters?(?: the battlefield)?(?P<tail>.*)"),
         ("sacrifice_payoff", "sacrifice", r"(?P<actor>you|a player|an opponent) sacrifices? (?P<object>.+)"),
         ("lifegain_payoff", "life_gain", r"(?P<actor>you|a player|an opponent) gains? life"),
-        ("cast_or_copy_payoff", "cast_or_copy", r"(?P<actor>you|a player|an opponent) casts? or copies? (?P<object>.+ spell)"),
+        ("cast_or_copy_payoff", "cast_or_copy", r"(?P<actor>you|a player|an opponent) casts? or (?:copy|copies) (?P<object>.+ spell)"),
         ("cast_payoff", "cast", r"(?P<actor>you|a player|an opponent) casts? (?P<object>.+ spell)"),
         ("counter_payoff", "counter_placement", r"(?:one or more )?(?P<counter>\+1/\+1) counters? (?:is|are) put on (?P<object>.+)"),
         ("single_attacker_payoff", "attack_alone", r"(?P<object>.+) attacks? alone"),
@@ -305,19 +307,35 @@ def extract_mechanical_capabilities(
     """Interpret the parser's source-linked abilities without using lexical tags."""
     capabilities: list[MechanicalCapability] = []
     unknowns: list[CapabilityEvidence] = []
+    # Scryfall joins faces inline. Mask only their separators when asking the
+    # resource extractor to find abilities, preserving absolute offsets.
+    resource_parse = parsed
+    if " // " in parsed.oracle_text:
+        resource_parse = replace(
+            parsed, oracle_text=parsed.oracle_text.replace(" // ", "\n   "),
+            abilities=tuple(
+                replace(ability, text=ability.text.replace(" // ", "\n   "))
+                for ability in parsed.abilities
+            ),
+        )
     resource_events = {}
-    for resource in extract_mana_resources(parsed):
+    for resource in extract_mana_resources(resource_parse):
         if resource.action != "create_token":
-            resource_events.setdefault(resource.evidence.start, []).append(resource)
+            leading = len(resource.evidence.oracle_span) - len(resource.evidence.oracle_span.lstrip())
+            resource_events.setdefault(resource.evidence.start + leading, []).append(resource)
     names = tuple(part.casefold() for part in name.split(" // ") if part)
     face_types = tuple(type_line.casefold().split(" // "))
     face = 0
     spell_faces = set()
     for ability in parsed.abilities:
-        for line in re.finditer(r"[^\r\n]+", ability.text):
-            start, end = ability.start + line.start(), ability.start + line.end()
+        for line in _FACE_OR_LINE.finditer(ability.text):
+            if line[0].strip() == "//":
+                face += 1
+                continue
+            leading = len(line[0]) - len(line[0].lstrip())
+            start, end = ability.start + line.start() + leading, ability.start + line.end()
             evidence = _evidence(parsed, ability.id, start, end)
-            text = line[0]
+            text = line[0][leading:]
             masked = mask_reminder_text(text)
             while (updated := mask_reminder_text(masked)) != masked:
                 masked = updated
@@ -325,9 +343,6 @@ def extract_mechanical_capabilities(
                 character.casefold() if len(character.casefold()) == 1 else character
                 for character in masked
             ).replace("’", "'")
-            if normalized.strip() == "//":
-                face += 1
-                continue
             # Pad the self marker to keep offsets in the original ability.
             if face < len(names) and len(names[face]) >= 5:
                 name_pattern = r"(?<![\w@])" + re.escape(names[face]) + r"(?!\w)"
@@ -347,6 +362,7 @@ def extract_mechanical_capabilities(
                     MechanicalObject("spell", (spell_type[1],), reference="self"),
                     evidence, source_zone="stack", controller="you",
                     timing=f"{spell_type[1]}_speed", repeatability="single_use",
+                    face_type_line=face_type,
                 ))
             if incomplete:
                 unknowns.append(evidence)
@@ -377,6 +393,7 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
             event="resolution", targeting=_targeting(source), duration=duration,
             conditions=conditions + local_conditions,
             modality="optional" if re.search(r"\b(?:may|up to)\b", source) else "mandatory",
+            face_type_line=type_line,
         )
         if fields.get("costs") == ():
             fields.pop("costs")
@@ -447,6 +464,12 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
                      resolution=evidence.oracle_span[remainder_start:].strip())
                 conditions = (observed,)
                 break
+    elif match := re.fullmatch(r"as an additional cost to cast (?:this spell|@self), (.+?)\.?", compact):
+        if result := _match_action(match[1]):
+            capability_id, action, obj, fields = result
+            emit(capability_id, action, obj, costs=(match[1],), **fields)
+            return capabilities, False
+        return [], True
     elif ":" in text and not text.lstrip().startswith(("choose", "if ")):
         cost, _, _ = text.partition(":")
         timing = "sorcery_speed" if "activate only as a sorcery" in text else "activated"

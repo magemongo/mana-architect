@@ -86,3 +86,16 @@ def test_self_reference_is_linked_without_shifting_unicode_offsets():
     assert trigger.object.reference == "self"
     assert gain.quantity.value == 2
     assert gain.evidence.oracle_span == "you gain 2 life"
+
+
+def test_inline_scryfall_face_separator_keeps_offsets_and_face_types():
+    profile = compile_card(
+        "Draw a card. // {T}: Add {B}.",
+        name="Front Face // Back Face", type_line="Instant // Land",
+    )
+    draw, spell, mana = profile.capabilities
+    assert draw.id == "draw" and draw.face_type_line == "instant"
+    assert spell.id == "resolve_spell" and spell.object.types == ("instant",)
+    assert mana.id == "add_mana" and mana.face_type_line == "land"
+    assert mana.evidence.oracle_span == "{T}: Add {B}."
+    assert profile.unknowns == ()

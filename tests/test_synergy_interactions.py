@@ -77,6 +77,8 @@ def test_rule_rejects_incompatible_events(rule, source, target, status):
 @pytest.mark.parametrize("rule,source,target,dependency", [
     ("sacrifice_triggers_death_payoff", "Sacrifice a creature: Add {B}.",
      "Whenever another creature you control dies, you may draw a card.", "choose_optional_effect"),
+    ("sacrifice_triggers_payoff", "As an additional cost to cast this spell, sacrifice an artifact.",
+     "Whenever you sacrifice a permanent, draw a card.", "pay_ability_cost"),
     ("treasure_feeds_artifact_sacrifice", "Create a Treasure token.",
      "Whenever you sacrifice a permanent, draw a card.", "activate_treasure_sacrifice_ability"),
     ("blink_retriggers_etb", "Exile target creature you control. Return it to the battlefield under its owner's control.",
@@ -87,6 +89,8 @@ def test_rule_rejects_incompatible_events(rule, source, target, status):
      "Landfall — Whenever a land you control enters, draw a card.", "land_available_to_play"),
     ("spell_copy_amplifies_spell_effect", "Copy target instant or sorcery spell.",
      "Draw a card.", "legal_copy_target"),
+    ("spell_copy_triggers_payoff", "Copy target instant or sorcery spell.",
+     "Whenever you cast or copy an instant or sorcery spell, draw a card.", "eligible_spell_on_stack"),
     ("equipment_enables_voltron", "Equip {2}",
      "Whenever this creature attacks alone, draw a card.", "sorcery_timing"),
 ])

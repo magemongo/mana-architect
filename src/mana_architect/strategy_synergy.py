@@ -239,7 +239,7 @@ def _preference_matches(preference: CapabilityPreference, cap: MechanicalCapabil
         return False
     types = set(cap.object.types) | {cap.object.kind}
     if cap.object.reference == "self" and not cap.object.types:
-        types.update((card.type_line or "").casefold().split(" — ")[0].split())
+        types.update((cap.face_type_line or card.type_line or "").casefold().split(" — ")[0].split())
     if preference.types and not types.intersection(preference.types):
         return False
     if preference.subtype and preference.subtype not in cap.object.subtypes:
@@ -248,7 +248,7 @@ def _preference_matches(preference: CapabilityPreference, cap: MechanicalCapabil
         return False
     if cap.controller == "opponent" and cap.id in {"gain_life", "lifegain_payoff", "enter_payoff"}:
         return False
-    if cap.id == "add_mana" and "land" in (card.type_line or "").casefold().split(" — ")[0].split():
+    if cap.id == "add_mana" and "land" in (cap.face_type_line or card.type_line or "").casefold().split(" — ")[0].split():
         return False
     return cap.quantity.value != 0
 
