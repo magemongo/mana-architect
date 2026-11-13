@@ -48,6 +48,19 @@ time. New classification runs store the parser version, ability segmentation,
 feature spans, and mechanics as JSON. Evidence rows also store source offsets.
 Older runs remain readable with `oracle_parse=None`.
 
+## Mana resource extraction
+
+The first phase of the [Ramp Evaluation Engine](./ramp_evaluation_engine_implementation_guide.md)
+is available through `extract_mana_resources(parsed)`. It extracts direct
+mana production, land searches onto the battlefield, lands put into play from
+hand, extra land plays, and creation of Treasure, Gold, and Powerstone tokens.
+Events retain source offsets, activation costs, quantities, and recognized
+conditions. Quantities that depend on the board or a variable remain unknown.
+The versioned extraction patterns live in `ramp_rules_catalog.py`.
+
+Ramp classification, static scores, and candidate filtering are later phases
+of the guide.
+
 ## Downstream card-advantage and selection heuristics
 
 Deckbuilding role assignment currently adds a separate, reviewable heuristic

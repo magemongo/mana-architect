@@ -18,6 +18,8 @@
   integration boundary, and migration steps.
 - [Card Advantage implementation guide](./card_advantage_engine_implementation_guide.md)
   — accounting model, module design, fixtures, and delivery phases.
+- [Ramp Evaluation implementation guide](./ramp_evaluation_engine_implementation_guide.md)
+  — mana resource events, classification, scoring, and integration phases.
 - [Catalog-guided deck generation](./catalog-guided-deck-generation.md) — scope,
   acceptance criteria, and implementation record.
 

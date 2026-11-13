@@ -341,7 +341,7 @@ def parse_oracle_text(
     all_features: list[OracleFeature] = []
     mechanics: list[MechanicalFact] = []
     entries = tuple(lexicon or DEFAULT_LEXICON)
-    patterns = tuple(mechanical_patterns or DEFAULT_MECHANICAL_PATTERNS)
+    patterns = tuple(mechanical_patterns or DEFAULT_MECHANIC_PATTERNS)
 
     for ability_index, (start, end) in enumerate(_segments(source), start=1):
         text = source[start:end]
