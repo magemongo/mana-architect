@@ -383,3 +383,29 @@ def test_strict_card_advantage_suggestions_rank_without_strategy(database, catal
             else:
                 assert token_engine.score == 1
                 assert not token_engine.strategy_scores
+
+
+def test_counter_payoffs_rank_as_conditional_card_advantage(database, catalog):
+    cards = {
+        "Armorcraft Judge": "When this creature enters, draw a card for each creature you control with a +1/+1 counter on it.",
+        "Cloaked Cadet": "Whenever one or more +1/+1 counters are put on one or more Humans you control, draw a card.",
+        "Terrasymbiosis": "Whenever you put one or more +1/+1 counters on a creature you control, you may draw that many cards.",
+        "Agonasaur Rex": "Cycling {2}{G} ({2}{G}, Discard this card: Draw a card.)\nWhen you cycle this card, put two +1/+1 counters on target creature.",
+    }
+    with Session(database) as session, session.begin():
+        for name, oracle_text in cards.items():
+            session.add(Card(
+                oracle_id=name, name=name, type_line="Creature", oracle_text=oracle_text,
+                mana_cost="{3}{G}", color_identity=["G"], legalities={"commander": "legal"},
+            ))
+            session.add(_printing(name, name, 1))
+        reclassify_cards(session, catalog, DEFAULT_CATALOG_DIR)
+    with Session(database) as session:
+        result = suggest_collection_cards_by_identity(
+            session, ("G",), ("plus_one_counters",), catalog,
+            prioritized_roles=("card_advantage",),
+        )
+    assert {item.name for item in result.suggestions} == set(cards) - {"Agonasaur Rex"}
+    for item in result.suggestions:
+        assert item.strict_card_advantage is None
+        assert item.strategy_scores["plus_one_counters"] > 0

@@ -17,6 +17,13 @@ _CARD_DRAW_PATTERN = re.compile(
     r"\bdraw\s+(?P<count>a|one|two|three|four|five|\d+)\s+cards?\b",
     re.IGNORECASE,
 )
+_COUNTER_SCALED_DRAW_PATTERN = re.compile(
+    r"(?:^|,\s*)(?:you may\s+)?draw a card for each\s+(?:\+1/\+1 counter\b|"
+    r"creature you control with a \+1/\+1 counter\b)|"
+    r"\bwhenever you put\b[^.;,\n]{0,80}\+1/\+1 counters? on a creature you control,"
+    r"\s+(?:you may\s+)?draw that many cards\b",
+    re.IGNORECASE | re.MULTILINE,
+)
 _MULTI_CARD_RECURSION_PATTERN = re.compile(
     r"\breturn\s+(?:up to\s+)?(?P<count>two|three|four|five|\d+)\s+"
     r"(?:target\s+)?[\w' -]{0,60}?cards?\s+from your graveyard\s+"
@@ -109,6 +116,7 @@ def _has_card_advantage(text: str) -> bool:
     for segment in re.split(r"\n\s*\n", re.sub(r"\([^()]*\)", "", text)):
         if (
             _REPEATED_RESOURCE_PATTERN.search(segment)
+            or _COUNTER_SCALED_DRAW_PATTERN.search(segment)
             or _has_repeatable_activated_draw(segment)
             or (
                 _REPEATED_INVESTIGATE_PATTERN.search(segment)

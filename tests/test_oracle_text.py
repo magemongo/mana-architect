@@ -36,7 +36,9 @@ def test_bristly_bill_segments_trigger_and_activated_counter_abilities() -> None
     assert parsed.abilities[1].mana_cost.symbols == ("3", "G", "G")
     assert any(item.id == "ability_word_landfall" for item in parsed.features)
     assert any(item.id == "counter_plus_one_plus_one" for item in parsed.features)
-    assert {item.id for item in parsed.mechanics} == {"counter.put", "counter.double"}
+    assert {item.id for item in parsed.mechanics} == {
+        "counter.put", "counter.put_plus_one_plus_one", "counter.double",
+    }
 
 
 def test_parser_matches_legacy_rule_patterns_with_structured_attributes() -> None:

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import re
 from typing import Iterable
 
-PARSER_VERSION = "oracle-lexical-v2"
+PARSER_VERSION = "oracle-lexical-v3"
 
 
 @dataclass(frozen=True)
@@ -222,12 +222,16 @@ _COUNTER_PUT_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _PLUS_ONE_COUNTER_PUT_PATTERN = re.compile(
-    r"\bput\b[^.\n]{0,100}\b\+1/\+1 counters?\b",
+    r"\bput\s+(?:an?|one|two|three|four|five|six|seven|eight|nine|ten|\d+|x|"
+    r"that many|one or more)\s+\+1/\+1 counters?\s+on\b|"
+    r"\benters(?: the battlefield)? with\b[^.;\n]{0,60}\+1/\+1 counters?\b",
     re.IGNORECASE,
 )
 _PLUS_ONE_COUNTER_MATTERS_PATTERN = re.compile(
-    r"\b(?:with|has|have|gets?)\b[^.;\n]{0,100}\b\+1/\+1 counters?\b|"
-    r"\bwhenever\b[^.;\n]{0,100}\b\+1/\+1 counter\b[^.;\n]{0,100}\bput\b",
+    r"\b(?:with|has|have|gets?)\s+(?:(?:a|one or more|any number of)\s+)?\+1/\+1 counters?\b|"
+    r"\bwhenever\b[^.;,\n]{0,100}\+1/\+1 counters?\s+(?:is|are)\s+put\b|"
+    r"\bwhenever (?:you|a player|an opponent) puts?\s+[^.;,\n]{0,60}\+1/\+1 counters?\b|"
+    r"\b(?:remove|for each)\s+[^.;,\n]{0,40}\+1/\+1 counters?\b",
     re.IGNORECASE,
 )
 _TOKEN_CREATE_PATTERN = re.compile(
