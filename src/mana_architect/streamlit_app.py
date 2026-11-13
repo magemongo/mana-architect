@@ -1479,8 +1479,8 @@ def _render_collection_suggestions(session: Session) -> None:
         "strategy. Legality is checked for Commander; no commander is required."
     )
     st.caption(
-        "A selected core role filters the results. Strategy scores rank the "
-        "remaining cards by synergy."
+        "Choose Card Advantage to rank supported cards by net cards on "
+        "successful resolution. Other searches use strategy scores."
     )
     catalog = load_strategy_catalog()
     color_options = _color_identity_options()
@@ -1502,7 +1502,8 @@ def _render_collection_suggestions(session: Session) -> None:
                 options=[item.id for item in strategies],
                 format_func=lambda value: strategy_names[value],
                 key="suggestion_strategy_ids",
-                placeholder="Choose one or more strategies",
+                placeholder="Choose strategies for synergy ranking",
+                help="Card Advantage searches use net cards and ignore these selections.",
             )
         )
         selected_role_id = st.selectbox(
@@ -1510,7 +1511,7 @@ def _render_collection_suggestions(session: Session) -> None:
             options=[None, *(item.id for item in catalog.roles)],
             format_func=lambda value: "No role filter" if value is None else role_names[value],
             key="suggestion_role_id",
-            help="When selected, only cards in this core role are shown.",
+            help="Card Advantage uses supported standalone cast lines. Other roles filter by classification.",
         )
         role_ids = (selected_role_id,) if selected_role_id is not None else ()
         search_clicked = st.form_submit_button(
@@ -1518,6 +1519,9 @@ def _render_collection_suggestions(session: Session) -> None:
             type="primary",
             key="search_collection_suggestions",
         )
+    strict_mode = selected_role_id == "card_advantage"
+    if strict_mode:
+        strategy_ids = ()
     active_query = (tuple(color_identity), strategy_ids, role_ids)
     if search_clicked:
         st.session_state["suggestion_query"] = active_query
@@ -1530,8 +1534,8 @@ def _render_collection_suggestions(session: Session) -> None:
     if saved_query != active_query:
         st.info("Choose the filters and click **Find suggestions**.")
         return
-    if not strategy_ids:
-        st.info("Choose at least one strategy to rank cards.")
+    if not strategy_ids and not strict_mode:
+        st.info("Choose a strategy or select the Card Advantage role.")
         return
 
     if st.button(
@@ -1578,7 +1582,10 @@ def _render_collection_suggestions(session: Session) -> None:
             "**Reclassify collection cards** to refresh them locally."
         )
     if not batch.suggestions:
-        st.info("No classified cards matched these filters.")
+        st.info(
+            "No classified cards had a supported standalone line with positive net cards."
+            if strict_mode else "No classified cards matched these filters."
+        )
         return
 
     visible_count = min(
@@ -1607,8 +1614,12 @@ def _render_collection_suggestions(session: Session) -> None:
                 heading += f" &nbsp; {cost}"
             with st.container(key=row_key):
                 st.markdown(heading)
+                ranking_label = (
+                    f"Net cards {item.strict_card_advantage:+d}"
+                    if item.strict_card_advantage is not None else f"Score {item.score:.1f}"
+                )
                 st.caption(
-                    f"Score {item.score:.1f} · {item.type_line or 'Unknown type'} · "
+                    f"{ranking_label} · {item.type_line or 'Unknown type'} · "
                     f"Owned: {item.available_quantity}"
                 )
                 summary_parts = []
@@ -1618,13 +1629,14 @@ def _render_collection_suggestions(session: Session) -> None:
                     summary_parts.append("Roles: " + ", ".join(role_labels))
                 st.caption(" · ".join(summary_parts) if summary_parts else "No matched tags or roles")
                 with st.expander("Classification details"):
-                    st.markdown(
-                        "**Strategy scores:** "
-                        + ", ".join(
-                            f"{strategy_names[key]} {value:.1f}"
-                            for key, value in item.strategy_scores.items()
+                    if item.strategy_scores:
+                        st.markdown(
+                            "**Strategy scores:** "
+                            + ", ".join(
+                                f"{strategy_names[key]} {value:.1f}"
+                                for key, value in item.strategy_scores.items()
+                            )
                         )
-                    )
                     for evidence in item.classification.evidence:
                         st.caption(
                             f"{evidence.target_type}: {evidence.target_id} — "

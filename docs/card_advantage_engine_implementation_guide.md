@@ -8,7 +8,7 @@ then pass a supported cast line to `evaluate_cast`. It evaluates casts from hand
 through immediate consequences under the documented assumptions. Coverage
 includes fixed draw spells, scry followed by fixed draw, and self-enters fixed
 draw with optional evoke casting mode. Unsupported shapes return a reason and
-no exact lines. Deck ranking and collection classification still use their
+no exact lines. Deck generation and collection classification still use their
 existing heuristics. The sections below describe the target architecture.
 
 The second increment adds event-based lines for Rhystic Study and Skullclamp
@@ -21,6 +21,12 @@ The blink increment evaluates explicit Ephemerate lines against supplied legal
 targets, including rebound and self-enters draw from compiled profiles. It
 tracks physical cards across exile and return, and models token losses
 separately. Automatic interaction discovery and deck ranking remain pending.
+
+In Suggestions, selecting the Card Advantage role ranks owned, color-compatible,
+Commander-legal cards with current classifications by the highest positive
+strict net gain among supported standalone cast lines on successful resolution.
+The search uses no strategy or synergy inputs and respects manual role
+exclusions. Conditional lines and unsupported effects receive no ranking.
 
 ## 1. Scope and integration
 

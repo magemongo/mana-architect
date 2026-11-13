@@ -54,7 +54,11 @@ excludes the commander, and applies legality, color identity, and classification
 filters before showing rankings. The page accepts one or more strategies and
 zero or one core role. Without a role, cards need evidence for at least one
 selected strategy. With a role selected, only cards in that role remain; the
-strongest selected-strategy score orders those cards. Role membership does not
+strongest selected-strategy score orders those cards, except for Card Advantage.
+That role ranks supported positive standalone cast lines by their highest strict
+net card gain on successful resolution. Strategy selection is optional for this
+search and contributes no score. Conditional and cross-card lines require
+additional context and are outside this search. Role membership does not
 add a score bonus. Results include score, matched strategies, detected roles,
 evidence, and remaining quantity. Only classifications whose fingerprint still
 matches card data and the current rules are scored. The page offers an explicit

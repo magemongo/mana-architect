@@ -333,3 +333,35 @@ def test_suggestions_require_explicit_commander_affinity(database, catalog) -> N
                 "tokens",
                 catalog,
             )
+
+
+def test_strict_card_advantage_suggestions_rank_without_strategy(database, catalog):
+    cards = (
+        ("divination", "Divination", "Sorcery", "Draw two cards.", "G", "legal"),
+        ("harmonize", "Harmonize", "Sorcery", "Draw three cards.", "G", "legal"),
+        ("engine", "Conditional Engine", "Enchantment",
+         "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.",
+         "G", "legal"),
+        ("banned-draw", "Banned Draw", "Sorcery", "Draw five cards.", "G", "banned"),
+        ("red-draw", "Red Draw", "Sorcery", "Draw five cards.", "R", "legal"),
+        ("unowned-draw", "Unowned Draw", "Sorcery", "Draw five cards.", "G", "legal"),
+    )
+    with Session(database) as session, session.begin():
+        for oracle_id, name, type_line, text, color, legality in cards:
+            session.add(Card(
+                oracle_id=oracle_id, name=name, type_line=type_line, oracle_text=text,
+                mana_cost="{3}", color_identity=[color], legalities={"commander": legality},
+            ))
+            if oracle_id != "unowned-draw":
+                session.add(_printing(oracle_id, name, 1))
+        reclassify_cards(session, catalog, DEFAULT_CATALOG_DIR)
+    with Session(database) as session:
+        for strategies in ((), ("tokens",)):
+            result = suggest_collection_cards_by_identity(
+                session, ("G",), strategies, catalog, prioritized_roles=("card_advantage",)
+            )
+            assert result.strategy_ids == ()
+            assert [(item.name, item.strict_card_advantage) for item in result.suggestions] == [
+                ("Harmonize", 2), ("Divination", 1)
+            ]
+            assert all(not item.strategy_scores for item in result.suggestions)

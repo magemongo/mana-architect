@@ -278,6 +278,16 @@ def test_suggestions_page_filters_by_identity_and_strategy_without_corrections(
         assert any("Token Spell" in item.value for item in app.markdown)
         assert not any("Correct This Card" in item.value for item in app.markdown)
         assert app.metric[0].label == "Cards in color identity"
+
+        with Session(get_engine()) as session, session.begin():
+            card = session.get(Card, "ui-token-card")
+            card.oracle_text = "Draw three cards."
+            reclassify_cards(session, catalog, DEFAULT_CATALOG_DIR, ("ui-token-card",))
+        app.multiselect(key="suggestion_strategy_ids").set_value([])
+        app.selectbox(key="suggestion_role_id").select("card_advantage")
+        app.form_submit_button(key="search_collection_suggestions").click().run()
+        assert not app.exception
+        assert any("Net cards +2" in item.value for item in app.caption)
     finally:
         app_engine = get_engine()
         app_engine.dispose()

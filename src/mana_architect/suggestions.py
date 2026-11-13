@@ -8,6 +8,7 @@ from typing import Mapping
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from mana_architect.card_advantage import compile_profile, evaluate_cast
 from mana_architect.catalog import DEFAULT_CATALOG_DIR, StrategyCatalog
 from mana_architect.classification import (
     ClassificationResult,
@@ -20,6 +21,7 @@ from mana_architect.classification_repository import (
 )
 from mana_architect.commanders import CommanderOption, resolve_commander
 from mana_architect.models import Card, CollectionPrinting
+from mana_architect.oracle_text import parse_oracle_text
 from mana_architect.overrides import ManualOverride, resolve_classification_overrides
 from mana_architect.synergy import (
     CardScoreInput,
@@ -67,6 +69,7 @@ class IdentityCollectionSuggestion:
     role_ids: tuple[str, ...]
     classification: ClassificationResult
     overrides: tuple[ManualOverride, ...]
+    strict_card_advantage: int | None = None
 
 
 @dataclass(frozen=True)
@@ -102,11 +105,14 @@ def suggest_collection_cards_by_identity(
     prioritized_roles: tuple[str, ...] = (),
     limit: int = 50,
 ) -> IdentityCollectionSuggestionBatch:
-    """Rank collection cards by selected strategy evidence and optional roles."""
+    """Rank by strategy evidence, or by strict stock for the Card Advantage role."""
+    strict_mode = prioritized_roles == ("card_advantage",)
+    if strict_mode:
+        strategy_ids = ()
     valid_colors = {"W", "U", "B", "R", "G"}
     if len(set(color_identity)) != len(color_identity) or not set(color_identity) <= valid_colors:
         raise ValueError("color_identity must contain unique Magic colors.")
-    if not strategy_ids or len(set(strategy_ids)) != len(strategy_ids):
+    if not strict_mode and (not strategy_ids or len(set(strategy_ids)) != len(strategy_ids)):
         raise ValueError("Select one or more unique strategies.")
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 50:
         raise ValueError("limit must be an integer between 1 and 50.")
@@ -170,6 +176,36 @@ def suggest_collection_cards_by_identity(
             for target_type, target_id in manual_inclusions
             if target_type == "role"
         }
+        if strict_mode:
+            if any(
+                item.target_type == "role" and item.target_id == "card_advantage"
+                and not item.included
+                for item in decisions
+            ):
+                continue
+            parsed = classification.oracle_parse or parse_oracle_text(
+                card.oracle_text, catalog.oracle_lexicon, catalog.oracle_mechanical_patterns
+            )
+            profile = compile_profile(card.oracle_id, card.type_line, card.mana_cost, parsed)
+            net_cards = max((evaluate_cast(line).self_delta for line in profile.lines), default=0)
+            if net_cards > 0:
+                suggestions.append(IdentityCollectionSuggestion(
+                    oracle_id=card.oracle_id,
+                    name=card.name,
+                    type_line=card.type_line,
+                    mana_cost=card.mana_cost,
+                    oracle_text=card.oracle_text,
+                    image_uri=card.image_uri,
+                    available_quantity=quantity,
+                    score=float(net_cards),
+                    strategy_scores=MappingProxyType({}),
+                    matching_strategy_ids=(),
+                    role_ids=tuple(sorted(found_roles | {"card_advantage"})),
+                    classification=enriched,
+                    overrides=overrides,
+                    strict_card_advantage=net_cards,
+                ))
+            continue
         strategy_scores: dict[str, float] = {}
         for strategy_id in strategy_ids:
             weights = {
