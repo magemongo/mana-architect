@@ -181,12 +181,22 @@ class InteractionProfile:
         return tuple(sorted({role for variant in self.variants for effect in variant.effects
                              for role in effect.roles}))
 
+    def best_variant(self, kind: str) -> InteractionVariant | None:
+        """Find the highest-scoring variant for a scope, including unscored matches."""
+        if kind not in {"spot", "mass"}:
+            raise ValueError("Interaction kind must be spot or mass.")
+
+        def rank(variant: InteractionVariant) -> float:
+            score = getattr(variant, f"{kind}_score").total
+            return score if score is not None else -1.0
+
+        return max((variant for variant in self.variants if kind in variant.interaction_types),
+                   key=rank, default=None)
+
     @property
     def scores(self) -> dict[str, float | None]:
         return {
-            kind: max((score for variant in self.variants
-                       if (score := getattr(variant, f"{kind}_score").total) is not None),
-                      default=None)
+            kind: getattr(variant, f"{kind}_score").total if (variant := self.best_variant(kind)) else None
             for kind in ("spot", "mass")
         }
 

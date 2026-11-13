@@ -20,6 +20,8 @@ from mana_architect.classification_repository import (
     load_current_classifications,
 )
 from mana_architect.commanders import CommanderOption, resolve_commander
+from mana_architect.interaction_evaluation_engine import classify_card_interaction
+from mana_architect.interaction_profile import InteractionProfile
 from mana_architect.models import Card, CollectionPrinting
 from mana_architect.oracle_text import parse_oracle_text
 from mana_architect.overrides import ManualOverride, resolve_classification_overrides
@@ -32,7 +34,8 @@ from mana_architect.synergy import (
 )
 from mana_architect.validation import deck_name_copy_limit
 
-STANDALONE_SUGGESTION_ROLES = frozenset({"card_advantage", "ramp"})
+INTERACTION_SUGGESTION_ROLES = frozenset({"spot_interaction", "mass_interaction"})
+STANDALONE_SUGGESTION_ROLES = INTERACTION_SUGGESTION_ROLES | {"card_advantage", "ramp"}
 
 
 @dataclass(frozen=True)
@@ -74,6 +77,7 @@ class IdentityCollectionSuggestion:
     overrides: tuple[ManualOverride, ...]
     strict_card_advantage: int | None = None
     ramp_profile: RampProfile | None = None
+    interaction_profile: InteractionProfile | None = None
 
 
 @dataclass(frozen=True)
@@ -110,15 +114,17 @@ def suggest_collection_cards_by_identity(
     limit: int = 50,
 ) -> IdentityCollectionSuggestionBatch:
     """Rank by strategy evidence or a standalone role evaluation."""
-    card_advantage_mode = prioritized_roles == ("card_advantage",)
-    ramp_mode = prioritized_roles == ("ramp",)
+    role_id = prioritized_roles[0] if len(prioritized_roles) == 1 else None
+    card_advantage_mode = role_id == "card_advantage"
+    ramp_mode = role_id == "ramp"
+    interaction_mode = role_id in INTERACTION_SUGGESTION_ROLES
     valid_colors = {"W", "U", "B", "R", "G"}
     if len(set(color_identity)) != len(color_identity) or not set(color_identity) <= valid_colors:
         raise ValueError("color_identity must contain unique Magic colors.")
     if len(set(strategy_ids)) != len(strategy_ids):
         raise ValueError("Select unique strategies.")
-    if not strategy_ids and not (card_advantage_mode or ramp_mode):
-        raise ValueError("Choose a strategy or select Ramp or Card Advantage.")
+    if not strategy_ids and role_id not in STANDALONE_SUGGESTION_ROLES:
+        raise ValueError("Choose a strategy or select a core role with its own ranking.")
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 50:
         raise ValueError("limit must be an integer between 1 and 50.")
     strategies = {item.id: item for item in catalog.strategies if item.active}
@@ -184,13 +190,13 @@ def suggest_collection_cards_by_identity(
         net_cards = None
         ramp_profile = None
         ramp_line = None
-        if card_advantage_mode or ramp_mode:
-            role_id = prioritized_roles[0]
-            if any(
-                item.target_type == "role" and item.target_id == role_id
-                and not item.included
-                for item in decisions
-            ):
+        interaction_profile = None
+        interaction_score = None
+        if role_id is not None and role_id in STANDALONE_SUGGESTION_ROLES:
+            excluded_roles = {
+                item.target_id for item in decisions if item.target_type == "role" and not item.included
+            }
+            if role_id in excluded_roles:
                 continue
             parsed = classification.oracle_parse or parse_oracle_text(
                 card.oracle_text, catalog.oracle_lexicon, catalog.oracle_mechanical_patterns
@@ -202,7 +208,7 @@ def suggest_collection_cards_by_identity(
                     continue
                 if net_cards is not None and net_cards <= 0:
                     continue
-            else:
+            elif ramp_mode:
                 ramp_profile = evaluate_ramp(
                     card.oracle_id, card.type_line, card.mana_cost, parsed,
                     colorless_identity=not allowed_identity,
@@ -213,6 +219,22 @@ def suggest_collection_cards_by_identity(
                     for item in classification.evidence
                 ):
                     continue
+            elif interaction_mode:
+                interaction_profile = classify_card_interaction(card, parsed)
+                supported_roles = set(interaction_profile.strategy_tags)
+                # A catalog phrase such as "exile target" can match blink or a
+                # whole graveyard. Use affected scope for interaction roles.
+                found_roles.difference_update(INTERACTION_SUGGESTION_ROLES)
+                found_roles.update(
+                    candidate_role for candidate_role in INTERACTION_SUGGESTION_ROLES & roles
+                    if candidate_role not in excluded_roles and (
+                        candidate_role in supported_roles
+                        or ("role", candidate_role) in manual_inclusions
+                    )
+                )
+                if role_id not in found_roles:
+                    continue
+                interaction_score = interaction_profile.scores[role_id.split("_", 1)[0]]
             found_roles.add(role_id)
 
         strategy_scores: dict[str, float] = {}
@@ -264,6 +286,9 @@ def suggest_collection_cards_by_identity(
             combined_score = (net_cards or 1) + best_strategy_score / 100
         elif ramp_mode:
             combined_score = (ramp_line.score if ramp_line else 1.0) + best_strategy_score / 100
+        elif interaction_mode:
+            base_score = interaction_score if interaction_score is not None else 1.0
+            combined_score = base_score + best_strategy_score / 100
         suggestions.append(
             IdentityCollectionSuggestion(
                 oracle_id=card.oracle_id,
@@ -276,6 +301,7 @@ def suggest_collection_cards_by_identity(
                 score=round(combined_score, 3),
                 strict_card_advantage=net_cards,
                 ramp_profile=ramp_profile,
+                interaction_profile=interaction_profile,
                 strategy_scores=MappingProxyType(strategy_scores),
                 matching_strategy_ids=matched_strategy_ids,
                 role_ids=tuple(sorted(found_roles)),

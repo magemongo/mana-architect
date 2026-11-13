@@ -471,3 +471,63 @@ def test_ramp_suggestions_use_the_profile_and_optional_strategy_bonus(database, 
     treasure = with_strategy["treasure"]
     assert treasure.strategy_scores["tokens"] > 0
     assert treasure.score == round(by_id["treasure"].score + treasure.strategy_scores["tokens"] / 100, 3)
+
+
+def test_interaction_suggestions_use_independent_scopes_and_optional_strategy_bonus(database, catalog):
+    cards = (
+        ("rift", "{1}{U}", "Return target nonland permanent you don't control to its owner's hand.\nOverload {6}{U}", "U", "legal"),
+        ("crypt", "{0}", "{T}, Sacrifice this artifact: Exile target player's graveyard.", "", "legal"),
+        ("counter", "{U}", "Counter target spell.", "U", "legal"),
+        ("token-counter", "{U}", "Counter target spell. Create a token.", "U", "legal"),
+        ("variable-cost", "{X}{U}", "Counter target spell unless its controller pays {X}.", "U", "legal"),
+        ("blink", "{G}", "Exile target creature you control, then return it to the battlefield under its owner's control.", "G", "legal"),
+        ("unresolved", "{X}{U}", "Exile up to X target creatures.", "U", "legal"),
+        ("banned", "{U}", "Counter target spell.", "U", "banned"),
+        ("off-color", "{R}", "Counter target spell.", "R", "legal"),
+        ("unowned", "{U}", "Counter target spell.", "U", "legal"),
+        ("unclassified", "{U}", "Counter target spell.", "U", "legal"),
+        ("manual", "{G}", "Scry 1.", "G", "legal"),
+    )
+    with Session(database) as session, session.begin():
+        for oracle_id, cost, oracle_text, color, legality in cards:
+            session.add(Card(
+                oracle_id=oracle_id, name=oracle_id, mana_cost=cost, oracle_text=oracle_text,
+                type_line="Artifact" if oracle_id == "crypt" else "Instant",
+                color_identity=list(color), legalities={"commander": legality},
+            ))
+            if oracle_id != "unowned":
+                session.add(_printing(oracle_id, oracle_id, 1))
+        reclassify_cards(session, catalog, DEFAULT_CATALOG_DIR,
+                         tuple(card[0] for card in cards if card[0] != "unclassified"))
+        for oracle_id, action in (("manual", "force_include"), ("rift", "force_exclude")):
+            save_card_classification_override(
+                session, oracle_id, ManualOverride("role", "spot_interaction", action, reason="Reviewed"), catalog,
+            )
+
+    with Session(database) as session:
+        spot = suggest_collection_cards_by_identity(
+            session, ("U", "G"), (), catalog, prioritized_roles=("spot_interaction",),
+        )
+        with_strategy = suggest_collection_cards_by_identity(
+            session, ("U", "G"), ("tokens",), catalog, prioritized_roles=("spot_interaction",),
+        )
+        mass = suggest_collection_cards_by_identity(
+            session, ("U", "G"), (), catalog, prioritized_roles=("mass_interaction",),
+        )
+
+    assert spot.unclassified_count >= 1
+    assert spot.ineligible_count == 1
+    assert [item.oracle_id for item in spot.suggestions] == ["counter", "token-counter", "manual", "variable-cost"]
+    assert [item.oracle_id for item in with_strategy.suggestions[:2]] == ["token-counter", "counter"]
+    token_counter = with_strategy.suggestions[0]
+    assert token_counter.score == round(spot.suggestions[1].score + token_counter.strategy_scores["tokens"] / 100, 3)
+    assert spot.suggestions[2].score == spot.suggestions[3].score == 1.0
+    assert spot.suggestions[2].interaction_profile.best_variant("spot") is None
+    assert spot.suggestions[3].interaction_profile.best_variant("spot").spot_score.total is None
+    assert {item.oracle_id for item in mass.suggestions} == {"crypt", "rift"}
+    for item in mass.suggestions:
+        assert item.score == item.interaction_profile.scores["mass"]
+        assert "spot_interaction" not in item.role_ids
+    rift = next(item for item in mass.suggestions if item.oracle_id == "rift")
+    assert rift.interaction_profile.best_variant("mass").cost == "{6}{U}"
+    assert rift.interaction_profile.best_variant("spot").cost == "{1}{U}"
