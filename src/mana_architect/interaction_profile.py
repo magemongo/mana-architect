@@ -45,7 +45,7 @@ class Quantity:
     max: int | None = None
 
     def __post_init__(self) -> None:
-        if self.min is not None and self.min < 0 or self.max is not None and self.max < 0:
+        if (self.min is not None and self.min < 0) or (self.max is not None and self.max < 0):
             raise ValueError("Interaction quantity bounds must be nonnegative.")
         if self.min is not None and self.max is not None and self.min > self.max:
             raise ValueError("Interaction quantity minimum exceeds its maximum.")
@@ -122,6 +122,8 @@ class InteractionVariant:
     additional_costs: tuple[str, ...] = ()
     mode_ids: tuple[str, ...] = ()
     face_index: int | None = None
+    base_mana_value: float | None = None
+    activated: bool = False
     spot_score: InteractionScore = InteractionScore()
     mass_score: InteractionScore = InteractionScore()
 
@@ -199,4 +201,12 @@ class InteractionProfile:
         for name in ("is_interaction", "spot_interaction", "mass_interaction", "strategy_tags",
                      "mechanical_tags", "roles", "scores"):
             profile[name] = getattr(self, name)
-        return {"card_id": self.card_id, "interaction_profile": profile}
+        return {"card_id": self.card_id, "interaction_profile": _json_arrays(profile)}
+
+
+def _json_arrays(value: object) -> object:
+    if isinstance(value, (tuple, list)):
+        return [_json_arrays(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _json_arrays(item) for key, item in value.items()}
+    return value

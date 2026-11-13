@@ -39,7 +39,10 @@ INTERACTION_RULES = (
           r"(?:shuffle|(?P<actor>.+?) shuffles?) (?P<subject>.+?) (?:from|in) "
           r"(?P<zone>.+?\bgraveyards?) into "),
     _rule("GY_RESTRICT_001", "restrict", "graveyard_hate", "suppression",
-          rf"{_SUBJECT} in graveyards? (?:can't be|cannot be) (?P<restriction>targeted|cast|returned|the targets? of)\b"),
+          rf"{_SUBJECT} in graveyards? (?:can't be|cannot be) (?P<restriction>(?:targeted|cast|returned|the targets? of)\b.*)"),
+    _rule("GY_CAST_RESTRICT_001", "restrict", "graveyard_hate", "suppression",
+          r"(?P<actor>players|opponents|each opponent) (?:can't|cannot) "
+          r"(?P<restriction>cast (?P<subject>spells) from (?P<zone>graveyards))\b"),
     _rule("GY_REPLACE_001", "exile", "graveyard_hate", "suppression",
           r"if (?P<subject>.+?) would be put into (?P<zone>.+?\bgraveyard)(?: .+?)?, "
           r"exile (?:it|that card) instead\b"),
@@ -52,9 +55,9 @@ INTERACTION_RULES = (
           r"(?:into|on) (?:the )?(?:top|bottom) of )(?:its |their |target |that player's |your )?"
           r"(?:owners?'s? )?librar(?:y|ies)\b"),
     _rule("ABILITY_COUNTER_001", "counter_ability", "ability_counter", "disruption",
-          rf"counter (?P<subject>.+?\b(?:activated|triggered) abilit(?:y|ies))\b"),
+          r"counter (?P<subject>(?![^.;]*\bspells?\b).+?\b(?:activated|triggered) abilit(?:y|ies))\b"),
     _rule("SPELL_COUNTER_001", "counter_spell", "counterspell", "disruption",
-          r"counter (?P<subject>.+?\bspells?)\b"),
+          r"counter (?P<subject>.+?\bspells?\b.*)"),
     _rule("PROTECT_001", "grant_keyword", "protection", "protection",
           rf"{_SUBJECT} (?:gains?|has|have) (?P<grants>(?:hexproof|indestructible|protection from|ward)\b.+|"
           r"(?:hexproof|indestructible|ward)\b)"),
@@ -78,7 +81,7 @@ INTERACTION_RULES = (
     _rule("SHRINK_001", "reduce_stats", "stat_reduction", "threat_answer",
           rf"{_SUBJECT} gets? (?P<stats>[+−-][\dX]+/[+−-][\dX]+)\b"),
     _rule("DAMAGE_001", "deal_damage", "damage_removal", "threat_answer",
-          rf".+? deals? (?P<damage>\d+|x) damage to (?P<subject>.+)"),
+          r".+? deals? (?P<damage>(?:\d+|x) damage|damage equal to .+?) to (?P<subject>.+)"),
     _rule("RESTRICT_001", "restrict", "rule_restriction", "suppression",
           rf"{_SUBJECT} (?:can't|cannot) (?P<restriction>cast spells?|activate abilities|play lands?|gain life|draw cards?)\b"),
     _rule("TAX_001", "tax", "rule_restriction", "suppression",

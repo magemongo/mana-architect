@@ -12,6 +12,7 @@ from mana_architect.interaction_profile import (
     Quantity,
 )
 from mana_architect.interaction_rules_catalog import INTERACTION_RULES, mask_reminder_text
+from mana_architect.interaction_scoring import InteractionScoringConfig
 from mana_architect.models import Card
 from mana_architect.oracle_text import parse_oracle_text
 
@@ -97,7 +98,7 @@ def test_regression_matrix(name, oracle, tags, mechanics, profile_schema):
     profile = build_interaction_profile(name, parsed, type_line="Instant", mana_cost="{1}{U}")
     assert profile.strategy_tags == tags
     assert set(profile.mechanical_tags) == mechanics
-    profile_schema.validate(json.loads(json.dumps(profile.to_json())))
+    profile_schema.validate(profile.to_json())
     for variant in profile.variants:
         for effect in variant.effects:
             evidence = effect.evidence
@@ -119,12 +120,16 @@ def test_targeted_graveyard_and_bounded_targets_count_differently():
 
 
 def test_modal_combinations_and_shared_evidence():
-    options = "\n• Destroy all artifacts.\n• Destroy all enchantments.\n• Destroy all creatures.\n• Draw a card."
+    options = (
+        "\n• Destroy all artifacts.\n• Destroy all enchantments."
+        "\n• Destroy all creatures with mana value 3 or less."
+        "\n• Destroy all creatures with mana value 4 or greater."
+    )
     choose_two = build_interaction_profile("command", parse_oracle_text("Choose two —" + options))
     assert len(choose_two.variants) == 6
     assert all(len(item.mode_ids) == 2 for item in choose_two.variants)
     assert len(choose_two.mode_choices[0].modes) == 4
-    assert len({e.effect_id for v in choose_two.variants for e in v.effects}) == 3
+    assert len({e.effect_id for v in choose_two.variants for e in v.effects}) == 4
     farewell = "Choose one or more —\n• Exile all artifacts.\n• Exile all enchantments.\n• Exile all creatures.\n• Exile all graveyards."
     profile = build_interaction_profile("farewell", parse_oracle_text(farewell))
     assert len(profile.variants) == 15
@@ -178,3 +183,132 @@ def test_overload_changes_selection_and_cost_without_duplicate_effect():
     assert normal.effects[0].effect_id == overload.effects[0].effect_id
     assert normal.effects[0].target_count.max == 1
     assert overload.effects[0].target_count.max == 0
+
+
+def _instant(oracle, cost="{U}", **kwargs):
+    return build_interaction_profile("test", parse_oracle_text(oracle), type_line="Instant", mana_cost=cost, **kwargs)
+
+
+def test_independent_scores_and_best_available_variant():
+    oracle = "Return target nonland permanent you don't control to its owner's hand.\nOverload {6}{U}"
+    profile = _instant(oracle, "{1}{U}")
+    normal, overloaded = profile.variants
+    assert normal.spot_score.total == pytest.approx(8.35)
+    assert normal.mass_score.total is None
+    assert overloaded.spot_score.total is None
+    assert overloaded.mass_score.total is not None
+    assert dict(normal.spot_score.components)["efficiency"] == 7
+    assert dict(overloaded.mass_score.components)["efficiency"] == 3
+    assert profile.scores == {"spot": normal.spot_score.total, "mass": overloaded.mass_score.total}
+
+
+def test_unresolved_or_disabled_scoring_preserves_classification():
+    oracle = "Counter target spell unless its controller pays {X}."
+    unknown = _instant(oracle, "{X}{U}", mana_value=1)
+    assert unknown.spot_interaction
+    assert unknown.scores == {"spot": None, "mass": None}
+    assert dict(unknown.variants[0].spot_score.components)["efficiency"] is None
+    assert dict(unknown.variants[0].spot_score.components)["reliability"] < 10
+    assert _instant(oracle, None, mana_value=2).scores["spot"] is not None
+    disabled = _instant(oracle, scoring=None)
+    assert disabled.spot_interaction and disabled.scoring_version is None
+    assert disabled.variants[0].spot_score.components == ()
+
+
+def test_scoring_weights_are_validated_and_independently_configurable():
+    defaults = InteractionScoringConfig()
+    weights = tuple((name, float(name == "speed")) for name, _ in defaults.spot_weights)
+    config = InteractionScoringConfig(spot_weights=weights, version="speed-only")
+    profile = _instant("Counter target spell.", scoring=config)
+    assert profile.scores["spot"] == 10
+    assert profile.scoring_version == "speed-only"
+    with pytest.raises(ValueError):
+        InteractionScoringConfig(spot_weights=(("speed", 1),))
+
+
+def test_kicker_preserves_mutually_exclusive_effects_and_additional_payment():
+    oracle = (
+        "Kicker {4}\nExile target creature if this spell wasn't kicked.\n"
+        "If this spell was kicked, exile all creatures instead."
+    )
+    profile = _instant(oracle, "{1}{W}")
+    normal, kicked = profile.variants
+    assert normal.interaction_types == ("spot",)
+    assert kicked.interaction_types == ("mass",)
+    assert kicked.additional_costs == ("{4}",)
+    assert kicked.effects[0].conditions == ("if this spell was kicked",)
+    assert dict(kicked.mass_score.components)["efficiency"] == 4
+
+
+def test_modal_scores_do_not_sum_overlapping_effects():
+    oracle = "Choose one or more —\n• Destroy all creatures.\n• Destroy all artifacts."
+    profile = _instant(oracle, "{3}{W}")
+    first, second, both = profile.variants
+    assert len(both.effects) == 2
+    assert both.mass_score.total == max(first.mass_score.total, second.mass_score.total)
+
+
+def test_restriction_and_durations_remain_auditable():
+    profile = _instant("Counter target creature spell unless its controller pays {3}.")
+    effect, = profile.variants[0].effects
+    assert effect.object_types == ("spell",)
+    assert effect.restrictions == ("creature spell",)
+    assert effect.conditions == ("unless its controller pays {3}",)
+    wrath = _instant("Destroy all creatures. They can't be regenerated.")
+    wipe, = wrath.variants[0].effects
+    assert wipe.symmetry == "symmetric" and wipe.wipe_potential == "direct"
+    assert wipe.exceptions == ("they can't be regenerated",)
+    assert wipe.evidence.oracle_span.endswith("They can't be regenerated.")
+    shrink = _instant("All creatures get -X/-X until end of turn.", "{X}{B}")
+    wipe, = shrink.variants[0].effects
+    assert wipe.wipe_potential == "potential" and wipe.duration == "until end of turn"
+    assert shrink.mass_interaction and shrink.scores["mass"] is None
+
+
+def test_single_and_distributed_player_actions_keep_distinct_target_counts():
+    targeted = _instant("Target opponent sacrifices a creature.").variants[0].effects[0]
+    distributed = _instant("Each opponent sacrifices a creature.").variants[0].effects[0]
+    assert targeted.target_count == Quantity("fixed", 1, 1)
+    assert targeted.affected_object_count == Quantity("fixed", 1, 1)
+    assert targeted.choices == distributed.choices == ("affected_player_chooses",)
+    assert targeted.interaction_type == "spot" and distributed.interaction_type == "mass"
+    assert distributed.target_count == Quantity("fixed", 0, 0)
+
+
+def test_one_counter_can_have_two_mechanisms_without_gaining_a_target():
+    oracle = "Counter target spell or activated ability."
+    profile = _instant(oracle)
+    effect, = profile.variants[0].effects
+    assert set(effect.mechanical_tags) == {"counterspell", "ability_counter"}
+    assert len(effect.evidence.rule_ids) == 2
+    assert effect.target_count == Quantity("fixed", 1, 1)
+    assert effect.scope_type == "single"
+
+
+def test_one_clause_can_have_several_explicit_targets():
+    oracle = "Destroy target artifact, target enchantment, and target creature."
+    effect, = _instant(oracle).variants[0].effects
+    assert effect.scope_type == "multi_target"
+    assert effect.target_count == Quantity("fixed", 3, 3)
+
+
+def test_replacement_restriction_and_one_time_graveyard_hate_are_distinct():
+    replacement = _instant("If a card would be put into a graveyard from anywhere, exile it instead.")
+    effect, = replacement.variants[0].effects
+    assert effect.roles == ("suppression",)
+    assert effect.affected_zone == "graveyard" and effect.duration == "while_source_remains"
+    assert replacement.mass_interaction
+    purge = _instant("Exile all cards from all graveyards.")
+    effect, = purge.variants[0].effects
+    assert effect.roles == ("disruption",) and effect.duration == "indefinite"
+
+
+def test_spell_paragraphs_share_a_variant_and_independent_activations_do_not():
+    spell = _instant("Counter target spell.\n\nDestroy all creatures.")
+    variant, = spell.variants
+    assert variant.interaction_types == ("spot", "mass")
+    assert variant.spot_score.total is not None and variant.mass_score.total is not None
+    assert [effect.evidence.ability_id for effect in variant.effects] == ["a1", "a2"]
+    parsed = parse_oracle_text("{U}: Counter target spell.\n{W}: Destroy all creatures.")
+    activations = build_interaction_profile("test", parsed, type_line="Artifact")
+    assert [variant.interaction_types for variant in activations.variants] == [("spot",), ("mass",)]

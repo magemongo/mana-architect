@@ -38,21 +38,25 @@ _DURATION = re.compile(
 )
 _QUALIFIERS = re.compile(r"\b(?:unless|if|except|with|without|other than|of your choice|"
                          r"chosen at random)\b[^.;]*")
+_SPELL_FILTER = re.compile(r"^(?:up to )?(?:(?:\w+ )?target )?(?P<filter>[^ ]+) spells?\b")
 _CONTROLLER = re.compile(r"\b(?:you (?:don't control|control|own)|"
                           r"(?:an|your|that) opponent controls?|"
                           r"(?:your|(?:an|one) opponent's) graveyards?)\b")
 _MODIFIERS = re.compile(r"\b(?:nonland|noncreature|nonartifact|nonblack|monocolored|"
                         r"tapped|untapped|attacking|blocking|legendary|nontoken|other)\b")
 _ACTION_CANDIDATE = re.compile(
-    r"^(?:destroy|exile|return|counter|tap|prevent|shuffle|regenerate|gain control of)\b"
+    r"^(?:destroy|exile|return|counter|tap|prevent|shuffle|regenerate|fight|gain control of)\b"
     r"|\b(?:sacrifices?|discards?|gains? (?:hexproof|indestructible)|phases? out|"
-    r"gets? [-−]\d|can't (?:attack|block|cast|activate|untap))\b",
+    r"gets? [-−](?:\d|x)|deals? (?:\d+|x) damage|can't (?:attack|block|cast|activate|untap))\b",
 )
 _ZONE_MOVES = re.compile(r"\b(?:from|in) (?:[^.;]+ )?(?:graveyards?|hand|library|exile)\b")
 _EXILE_ACCESS = re.compile(r"\b(?:may (?:cast|play) (?:it|them|that card|those cards)|"
                            r"top .*?(?:library|libraries))\b")
 _SELF_REFERENCE = re.compile(r"^(?:it|them|him|her|this (?:permanent|spell|card|creature|artifact|enchantment|land)|the exiled card)\b")
 _COMBAT_SCOPE = re.compile(r"^(?:all |each )?combat damage\b")
+_NEXT_DAMAGE = re.compile(r"^(?:the )?next \d+ damage\b")
+_SPELL_OR_ABILITY = re.compile(r"\bspell or (?:an? |target )?(?:(?:activated|triggered)(?: or triggered)? )?ability\b")
+_GRAVEYARD_OBJECT = re.compile(r"\b(?:cards?|tokens?|graveyards?)\b")
 
 
 def _quantity(phrase: str) -> Quantity:
@@ -69,7 +73,10 @@ def _quantity(phrase: str) -> Quantity:
         return Quantity("all", 0)
     if phrase.startswith("each "):
         return Quantity("each", 0)
-    if phrase.startswith(("target ", "any target", "that card")):
+    if phrase.startswith("target "):
+        count = 1 + len(re.findall(r"(?:, (?:and )?| and )target ", phrase))
+        return Quantity("fixed", count, count)
+    if phrase.startswith(("any target", "that card")):
         return Quantity("fixed", 1, 1)
     return Quantity()
 
@@ -111,7 +118,8 @@ def _controller(phrase: str) -> tuple[str, str]:
         return "you_dont_control", "opponent_only"
     if re.search(r"\b(?:you (?:control|own)|your graveyard|yourself|dealt to you)\b", phrase):
         return "you_control", "self_only"
-    if re.search(r"\b(?:opponents? controls?|each opponent|target opponent|opponent's graveyard)\b", phrase):
+    if re.search(r"\b(?:opponents? controls?|each opponent|target opponent|opponent's graveyard|"
+                 r"your opponents cast|opponents can't)\b", phrase):
         return "opponent_controls", "opponent_only"
     return "any", "unknown"
 
@@ -145,24 +153,32 @@ def _facts(
     controller, symmetry = _controller(" ".join((subject, actor, source_zone, recipient)))
 
     if mechanic == "graveyard_hate":
-        if controller == "you_control":
+        if controller == "you_control" or not (_GRAVEYARD_OBJECT.search(subject) or rule.id == "GY_CAST_RESTRICT_001"):
             return None
         zone = "graveyard"
-        if "graveyard" in subject or rule.id in {"GY_RESTRICT_001", "GY_REPLACE_001"}:
+        if "graveyard" in subject or rule.role == "suppression":
             if rule.id == "GY_RESTRICT_001" and "card" not in objects:
                 return None
             scope_phrase = "all cards"
         if _TARGET.search(source_zone):
             selection_phrase = source_zone
         if actor:
+            if actor == "you" or "your graveyard" in source_zone:
+                return None
             selection_phrase = actor
             if actor.startswith(("each ", "opponents")):
                 scope_phrase = "each " + subject
+            if actor == "opponents":
+                controller, symmetry = "opponent_controls", "opponent_only"
         objects = ("card",)
     elif mechanic in {"counterspell", "ability_counter"}:
         zone = "stack"
         if not objects or controller == "you_control":
             return None
+        if mechanic == "counterspell":
+            objects = ("spell",)
+            if _SPELL_OR_ABILITY.search(subject):
+                objects += ("activated_ability", "triggered_ability")
     elif mechanic in {"forced_sacrifice", "discard_disruption"}:
         if not re.match(r"(?:each|target|that|an) (?:opponent|player)\b|opponents\b", actor):
             return None
@@ -188,14 +204,17 @@ def _facts(
             selection_phrase = scope_phrase = recipient.removeprefix(" to ").strip()
         elif recipient.startswith(" to you"):
             scope_phrase = "a player"
+            controller, symmetry = "you_control", "self_only"
         elif _COMBAT_SCOPE.match(subject) and not subject.startswith("the next "):
             scope_phrase = "all damage"
-        elif subject.startswith("the next ") and recipient.startswith(" to "):
+        elif _NEXT_DAMAGE.match(subject) and recipient.startswith(" to "):
             scope_phrase = recipient.removeprefix(" to ")
     elif mechanic == "rule_restriction":
         zone = "stack" if "cast" in clause else "rules"
         if subject in {"players", "opponents"}:
             scope_phrase = "all " + subject
+        if subject == "opponents":
+            controller, symmetry = "opponent_controls", "opponent_only"
         if "spell" in objects and "player" in objects:
             objects = ("spell",)
         if re.search(r"\byou (?:can't|cannot)\b", clause):
@@ -208,12 +227,12 @@ def _facts(
         if _SELF_REFERENCE.fullmatch(subject):
             objects = objects or ("permanent",)
             scope_phrase, symmetry = "a permanent", "self_only"
-        if not objects and _SELF_REFERENCE.match(subject):
-            objects, scope_phrase, symmetry = ("permanent",), "a permanent", "self_only"
         if not (_BATTLEFIELD.intersection(objects) or "player" in objects):
             return None
     else:
         if controller == "you_control" or _ZONE_MOVES.search(subject):
+            return None
+        if mechanic in {"bounce", "tuck"} and "card" in objects:
             return None
         if mechanic in _REMOVAL and _SELF_REFERENCE.match(subject):
             return None
@@ -241,7 +260,7 @@ def _facts(
     target_count = _quantity(selection_phrase) if selection == Selection.TARGET else Quantity("fixed", 0, 0)
     if selection == Selection.TARGET and target_count.kind == "unknown":
         target_count = Quantity("fixed", 1, 1)
-    if affected.kind in {"all", "each"} and symmetry == "unknown" and zone in {"battlefield", "stack", "graveyard", "hand", "damage"}:
+    if affected.kind in {"all", "each"} and symmetry == "unknown":
         symmetry = "selective" if selection == Selection.TARGET else "symmetric"
     if affected.kind in {"all", "each"} and zone == "battlefield":
         if mechanic in {"destroy_removal", "exile_removal", "bounce", "tuck"}:
@@ -278,6 +297,10 @@ def _classify_clause(
             facts = replace(facts, targets=Quantity("fixed", 0, 0), selection=Selection.NON_TARGETED)
         mechanic = rule.mechanism
         tags = [mechanic]
+        rule_ids = (rule.id,)
+        if mechanic == "counterspell" and _SPELL_OR_ABILITY.search(raw_subject):
+            tags.append("ability_counter")
+            rule_ids += ("ABILITY_COUNTER_001",)
         if facts.wipe:
             tags.append("board_wipe")
         if mechanic == "damage_prevention" and _COMBAT_SCOPE.match(raw_subject) and facts.affected.kind == "all":
@@ -304,6 +327,10 @@ def _classify_clause(
             *(item.group() for item in _MODIFIERS.finditer(raw_subject)),
             *(filter(None, (groups.get("restriction"), groups.get("stats"), groups.get("damage"), groups.get("grants")))),
         )))
+        if mechanic == "counterspell":
+            spell_filter = _SPELL_FILTER.match(raw_subject)
+            if spell_filter and spell_filter["filter"] not in {"target", "all", "each", "a", "one"}:
+                restrictions = tuple(dict.fromkeys((*restrictions, f"{spell_filter['filter']} spell")))
         if mechanic in {"forced_sacrifice", "discard_disruption"} and facts.affected.kind != "all":
             if "at random" in clause:
                 choices = ("random",)
@@ -314,7 +341,7 @@ def _classify_clause(
         else:
             choices = ()
         text, start, end, ability_id = span
-        evidence = InteractionEvidence(text, start, end, (rule.id,), ability_id)
+        evidence = InteractionEvidence(text, start, end, rule_ids, ability_id)
         effect = InteractionEffect(
             f"e{start}", rule.action, facts.objects, facts.selection, facts.targets, facts.affected, facts.zone,
             facts.controller, duration, facts.symmetry, _scope(facts.affected), tuple(tags), (rule.role,),
@@ -323,7 +350,12 @@ def _classify_clause(
         )
         return effect, groups["subject"], False
     # An unsupported positive-looking imperative gets an explicit coverage warning.
-    return None, linked_subject, bool(_ACTION_CANDIDATE.search(operative))
+    excluded = (
+        "you control" in operative and "opponent" not in operative
+        or _EXILE_ACCESS.search(operative) is not None
+        or operative.startswith(("you sacrifice ", "you discard "))
+    )
+    return None, linked_subject, not excluded and bool(_ACTION_CANDIDATE.search(operative))
 
 
 _SIDE_EFFECT = re.compile(r"^(?:its controller|that player|each player|that permanent's controller) (?:gains?|loses?|draws?|creates?)\b")
@@ -359,11 +391,11 @@ def extract_interaction_effects(
             clause = _TARGET.sub("each", clause)
         if effects and _SIDE_EFFECT.match(clause):
             previous = effects[-1]
-            effects[-1] = replace(previous, restrictions=previous.restrictions + (clause,))
+            effects[-1] = _attach_continuation(previous, parsed, end, restrictions=previous.restrictions + (clause,))
             continue
         if effects and _LINKED_EXCEPTION.match(clause):
             previous = effects[-1]
-            effects[-1] = replace(previous, exceptions=previous.exceptions + (clause,))
+            effects[-1] = _attach_continuation(previous, parsed, end, exceptions=previous.exceptions + (clause,))
             continue
         if _BLINK_RETURN.search(normalized) and clause.startswith(("exile ", "return ")):
             continue
@@ -374,3 +406,10 @@ def extract_interaction_effects(
         elif unsupported and not _SELF_REFERENCE.fullmatch(clause.split(" ", 1)[-1]):
             warnings.append(f"Unresolved interaction clause at {start}: {evidence[0]}")
     return tuple(effects), tuple(warnings)
+
+
+def _attach_continuation(
+    effect: InteractionEffect, parsed: OracleParse, end: int, **facts: tuple[str, ...],
+) -> InteractionEffect:
+    evidence = replace(effect.evidence, end=end, oracle_span=parsed.oracle_text[effect.evidence.start:end])
+    return replace(effect, evidence=evidence, **facts)

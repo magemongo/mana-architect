@@ -95,7 +95,7 @@
     },
     "variant": {
       "type": "object",
-      "required": ["variant_id", "ability_id", "cost", "timing", "scope_type", "effects", "requirements", "additional_costs", "mode_ids", "face_index", "interaction_types", "spot_score", "mass_score"],
+      "required": ["variant_id", "ability_id", "cost", "timing", "scope_type", "effects", "requirements", "additional_costs", "mode_ids", "face_index", "base_mana_value", "activated", "interaction_types", "spot_score", "mass_score"],
       "properties": {
         "variant_id": {"type": "string"},
         "ability_id": {"type": "string"},
@@ -107,6 +107,8 @@
         "additional_costs": {"$ref": "#/$defs/strings"},
         "mode_ids": {"$ref": "#/$defs/strings"},
         "face_index": {"$ref": "#/$defs/nullable_count"},
+        "base_mana_value": {"type": ["number", "null"], "minimum": 0},
+        "activated": {"type": "boolean"},
         "interaction_types": {"type": "array", "uniqueItems": true, "items": {"enum": ["spot", "mass"]}},
         "spot_score": {"$ref": "#/$defs/score"},
         "mass_score": {"$ref": "#/$defs/score"}

@@ -9,6 +9,9 @@ from mana_architect.interaction_profile import (
     Confidence, InteractionEffect, InteractionProfile, InteractionVariant, ModeChoice, Scope, Timing,
 )
 from mana_architect.interaction_rules_catalog import mask_reminder_text
+from mana_architect.interaction_scoring import (
+    DEFAULT_INTERACTION_SCORING, InteractionScoringConfig, score_interaction_variant,
+)
 from mana_architect.models import Card
 from mana_architect.oracle_text import OracleParse, parse_oracle_text
 
@@ -22,7 +25,9 @@ _MODE_HEADER = re.compile(
 _MULTIPLE_MODE_RULE = re.compile(r"\b(?:choose the same mode|mode more than once|entwine|escalate|spree)\b", re.IGNORECASE)
 _ALTERNATE = re.compile(r"(?im)^\s*(?P<kind>overload|kicker)\s+(?P<cost>(?:\{[^{}]+\})+(?:,[^\n]+)?)")
 _UNSUPPORTED_COST = re.compile(r"(?im)^\s*(?:multikicker|cleave|bargain|pitch|evoke|entwine|escalate|spree)\b")
+_VARIABLE_CAST_COST = re.compile(r"(?im)^this spell costs?\s+(?:\{[^{}]+\})+\s+(?:less|more) to cast\b")
 _ADDITIONAL = re.compile(r"as an additional cost to cast [^,\n]+, (?P<cost>[^.\n]+)", re.IGNORECASE)
+_CAST_METADATA = re.compile(r"^(?:kicker|overload|as an additional cost|this spell costs?)\b", re.IGNORECASE)
 _KICKED = re.compile(r"\bif (?:this spell|it) (?:was|is) kicked\b", re.IGNORECASE)
 _NOT_KICKED = re.compile(r"\bif (?:this spell|it) (?:was|is)n't kicked\b", re.IGNORECASE)
 _SORCERY = re.compile(r"\b(?:only as a sorcery|only during your main phase)\b", re.IGNORECASE)
@@ -117,6 +122,13 @@ def _timing(source: _Source, face_text: str, oracle_keywords: tuple[str, ...]) -
     return Timing.STATIC if types else Timing.UNKNOWN
 
 
+def _spell_instruction(source: _Source) -> bool:
+    types = set((source.face.type_line or "").split("—", 1)[0].split())
+    return bool(types.intersection({"Instant", "Sorcery"}) and not source.trigger
+                and source.activation_cost is None and not source.text.startswith("•")
+                and not _MODE_HEADER.match(source.text))
+
+
 def _variant(
     variant_id: str, source: _Source, effects: tuple[InteractionEffect, ...],
     cost: str | None, timing: Timing, requirements: tuple[str, ...],
@@ -126,7 +138,8 @@ def _variant(
     scope = next(iter(scopes)) if len(scopes) == 1 else Scope.MODAL if scopes else Scope.UNKNOWN
     effects = tuple(replace(effect, additional_costs=additional, timing=timing) for effect in effects)
     return InteractionVariant(variant_id, source.ability_id, cost, timing, scope, effects,
-                              requirements, additional, modes, source.face.index)
+                              requirements, additional, modes, source.face.index,
+                              source.face.mana_value, source.activation_cost is not None)
 
 
 def _variant_id(source: _Source, execution: str) -> str:
@@ -180,6 +193,7 @@ def build_interaction_profile(
     card_id: str, parsed: OracleParse, *, type_line: str | None = None, mana_cost: str | None = None,
     mana_value: float | None = None, oracle_keywords: tuple[str, ...] = (),
     faces: tuple[InteractionFace, ...] = (), layout: str | None = None,
+    scoring: InteractionScoringConfig | None = DEFAULT_INTERACTION_SCORING,
 ) -> InteractionProfile:
     """Classify possible execution variants before deck construction."""
     metadata = _metadata(type_line, mana_cost, mana_value, parsed, faces)
@@ -206,6 +220,8 @@ def build_interaction_profile(
             requirements = ()
             if source.trigger:
                 requirements = ("trigger_condition",)
+            if _VARIABLE_CAST_COST.search(face_text) and source.activation_cost is None:
+                requirements += ("variable_cast_cost",)
             if layout == "transform" and face_index > 0:
                 requirements += ("transformed_face",)
             costs = additional
@@ -234,9 +250,16 @@ def build_interaction_profile(
             if source.text.startswith("•"):
                 warnings.append(f"Unresolved mode header at {source.offset}.")
                 continue
-            if re.match(r"^(?:kicker|overload|as an additional cost)\b", source.text, re.IGNORECASE):
+            if _CAST_METADATA.match(source.text):
                 continue
-            effects, notes = extract_interaction_effects(parsed, source.ability_id, source.text, source.offset)
+            instructions = [source]
+            if _spell_instruction(source):
+                while index < len(face_sources) and _spell_instruction(face_sources[index]):
+                    continuation = face_sources[index]
+                    if not _CAST_METADATA.match(continuation.text):
+                        instructions.append(continuation)
+                    index += 1
+            effects, notes = _read_effects(parsed, instructions)
             warnings.extend(notes)
             if not effects:
                 continue
@@ -245,9 +268,7 @@ def build_interaction_profile(
                 variants.append(_variant(_variant_id(source, "default"), source, default_effects,
                                          cost, timing, requirements, costs))
             if "overload" in alternate and source.activation_cost is None and not source.trigger:
-                overloaded, notes = extract_interaction_effects(
-                    parsed, source.ability_id, source.text, source.offset, overload=True,
-                )
+                overloaded, notes = _read_effects(parsed, instructions, overload=True)
                 if overloaded != effects:
                     variants.append(_variant(_variant_id(source, "overload"), source, overloaded,
                                              alternate["overload"], timing, requirements + ("overload",), costs))
@@ -264,5 +285,24 @@ def build_interaction_profile(
         warnings.append("One or more affected scopes could not be resolved.")
     confidence = (Confidence.HIGH if not warnings else
                   Confidence.MEDIUM if any(variant.effects for variant in variants) else Confidence.LOW)
+    if scoring is not None:
+        for index, variant in enumerate(variants):
+            spot, mass = score_interaction_variant(variant, scoring)
+            variants[index] = replace(variant, spot_score=spot, mass_score=mass)
     return InteractionProfile(card_id, parsed.parser_version, oracle_keywords, tuple(variants),
-                              tuple(choices), confidence, tuple(dict.fromkeys(warnings)))
+                              tuple(choices), confidence, tuple(dict.fromkeys(warnings)),
+                              scoring_version=scoring.version if scoring is not None else None)
+
+
+def _read_effects(
+    parsed: OracleParse, instructions: list[_Source], *, overload: bool = False,
+) -> tuple[tuple[InteractionEffect, ...], tuple[str, ...]]:
+    effects = []
+    warnings = []
+    for instruction in instructions:
+        found, notes = extract_interaction_effects(
+            parsed, instruction.ability_id, instruction.text, instruction.offset, overload=overload,
+        )
+        effects.extend(found)
+        warnings.extend(notes)
+    return tuple(effects), tuple(warnings)

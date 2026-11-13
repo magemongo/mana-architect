@@ -72,6 +72,23 @@ source offsets as the parser. Effects retain separate target and affected-object
 counts, mechanical tags, and spot or mass scope. Legal modal choices and supported
 alternate costs are represented as execution variants.
 
+The evaluators expose independent spot and mass scores and their 0–10
+components. Card-level `scores` report the best available variant for each
+scope. Within a variant, the strongest effect for each scope supplies its
+score, so overlapping effects and modal combinations do not accumulate points.
+Unknown weighted dimensions, such as the efficiency of an X cost, leave the
+total `null`. Pass `scoring=None` for classification only. The implementation
+guide documents the weights, and `config/interaction_profile.schema.json`
+defines the JSON output contract.
+
+Supported variants include distinct modal choices, overload, and common kicker
+conditions. The profile carries warnings for recognized but unsupported
+syntax or ambiguous scope, such as repeatable mode selection and complex
+alternate costs. The profile is available through the card-level Python API.
+Suggestions and stored catalog classifications continue to use their existing
+role rules. The registry covers the tested Oracle patterns, and the scores have
+yet to be calibrated against a full collection corpus.
+
 ## Downstream card-advantage and selection heuristics
 
 Deckbuilding role assignment currently adds a separate, reviewable heuristic
