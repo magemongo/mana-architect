@@ -1,0 +1,198 @@
+{
+  "schema_version": 1,
+  "version": "1.0.0",
+  "aliases": {},
+  "strategies": [
+    {
+      "id": "tokens",
+      "objective": "Build a board of tokens and multiply its output",
+      "preferences": [
+        {"id": "tokens_create_token", "capability": "create_token", "role": "generator", "weight": 0.75},
+        {"id": "tokens_multiply_token_creation", "capability": "multiply_token_creation", "role": "amplifier", "weight": 0.95},
+        {"id": "tokens_enter_payoff", "capability": "enter_payoff", "role": "payoff", "weight": 0.85, "types": ["token"]},
+        {"id": "tokens_token_count_payoff", "capability": "token_count_payoff", "role": "payoff", "weight": 0.9},
+        {"id": "tokens_combat_buff", "capability": "combat_buff", "role": "amplifier", "weight": 0.45, "types": ["creature"]}
+      ],
+      "interaction_rule_ids": ["token_multiplier_amplifies_creation", "token_etb_triggers_payoff"],
+      "exclusions": ["entry_without_creation"]
+    },
+    {
+      "id": "plus_one_counters",
+      "objective": "Grow threats with +1/+1 counters and turn their placement into value",
+      "preferences": [
+        {"id": "plus_one_counters_put_counters", "capability": "put_counters", "role": "generator", "weight": 0.85, "subtype": "+1/+1"},
+        {"id": "plus_one_counters_multiply_counter_placement", "capability": "multiply_counter_placement", "role": "amplifier", "weight": 0.95},
+        {"id": "plus_one_counters_double_existing_counters", "capability": "double_existing_counters", "role": "amplifier", "weight": 0.75},
+        {"id": "plus_one_counters_counter_payoff", "capability": "counter_payoff", "role": "payoff", "weight": 0.95},
+        {"id": "plus_one_counters_proliferate", "capability": "proliferate", "role": "amplifier", "weight": 0.65}
+      ],
+      "interaction_rule_ids": ["counter_multiplier_amplifies_placement", "counter_placement_triggers_payoff"],
+      "exclusions": ["unrelated_counter_types"]
+    },
+    {
+      "id": "combo",
+      "objective": "Assemble complementary pieces with repeatable mechanics",
+      "preferences": [
+        {"id": "combo_untap", "capability": "untap", "role": "enabler", "weight": 0.35},
+        {"id": "combo_recover_to_hand", "capability": "recover_to_hand", "role": "converter", "weight": 0.3},
+        {"id": "combo_reduce_spell_cost", "capability": "reduce_spell_cost", "role": "enabler", "weight": 0.4},
+        {"id": "combo_copy_spell", "capability": "copy_spell", "role": "amplifier", "weight": 0.4},
+        {"id": "combo_blink", "capability": "blink", "role": "enabler", "weight": 0.25}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["unvalidated_infinite_loops"]
+    },
+    {
+      "id": "artifacts",
+      "objective": "Use artifact permanents as resources for value",
+      "preferences": [
+        {"id": "artifacts_create_token", "capability": "create_token", "role": "generator", "weight": 0.75, "types": ["artifact"]},
+        {"id": "artifacts_enter_payoff", "capability": "enter_payoff", "role": "payoff", "weight": 0.95, "types": ["artifact"]},
+        {"id": "artifacts_sacrifice", "capability": "sacrifice", "role": "converter", "weight": 0.75, "types": ["artifact"]},
+        {"id": "artifacts_sacrifice_payoff", "capability": "sacrifice_payoff", "role": "payoff", "weight": 0.8, "types": ["artifact"]},
+        {"id": "artifacts_return_from_graveyard", "capability": "return_from_graveyard", "role": "converter", "weight": 0.8, "types": ["artifact"]},
+        {"id": "artifacts_artifact_count_payoff", "capability": "artifact_count_payoff", "role": "payoff", "weight": 0.95}
+      ],
+      "interaction_rule_ids": ["treasure_feeds_artifact_sacrifice", "artifact_etb_triggers_payoff"],
+      "exclusions": ["artifact_type_without_function"]
+    },
+    {
+      "id": "aggro",
+      "objective": "Increase early combat pressure with speed, evasion, and additional attacks",
+      "preferences": [
+        {"id": "aggro_grant_haste", "capability": "grant_haste", "role": "enabler", "weight": 0.75},
+        {"id": "aggro_grant_evasion", "capability": "grant_evasion", "role": "enabler", "weight": 0.6},
+        {"id": "aggro_extra_combat", "capability": "extra_combat", "role": "finisher", "weight": 0.95},
+        {"id": "aggro_combat_buff", "capability": "combat_buff", "role": "amplifier", "weight": 0.6},
+        {"id": "aggro_attack_payoff", "capability": "attack_payoff", "role": "payoff", "weight": 0.55}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_combat"]
+    },
+    {
+      "id": "reanimator",
+      "objective": "Put cards in the graveyard and reuse permanent cards from it",
+      "preferences": [
+        {"id": "reanimator_self_mill", "capability": "self_mill", "role": "enabler", "weight": 0.7},
+        {"id": "reanimator_discard", "capability": "discard", "role": "enabler", "weight": 0.45},
+        {"id": "reanimator_return_from_graveyard", "capability": "return_from_graveyard", "role": "converter", "weight": 1},
+        {"id": "reanimator_enter_payoff", "capability": "enter_payoff", "role": "payoff", "weight": 0.65, "reference": "self"},
+        {"id": "reanimator_death_payoff", "capability": "death_payoff", "role": "payoff", "weight": 0.45}
+      ],
+      "interaction_rule_ids": ["recursion_reuses_etb", "blink_retriggers_etb"],
+      "exclusions": ["return_to_hand_only"]
+    },
+    {
+      "id": "spellslinger",
+      "objective": "Convert casting and copying instants or sorceries into value",
+      "preferences": [
+        {"id": "spellslinger_copy_spell", "capability": "copy_spell", "role": "amplifier", "weight": 0.85},
+        {"id": "spellslinger_cast_payoff", "capability": "cast_payoff", "role": "payoff", "weight": 0.95, "types": ["instant", "sorcery"]},
+        {"id": "spellslinger_cast_or_copy_payoff", "capability": "cast_or_copy_payoff", "role": "payoff", "weight": 0.95},
+        {"id": "spellslinger_reduce_spell_cost", "capability": "reduce_spell_cost", "role": "enabler", "weight": 0.85, "types": ["instant", "sorcery"]},
+        {"id": "spellslinger_recover_to_hand", "capability": "recover_to_hand", "role": "converter", "weight": 0.65, "types": ["instant", "sorcery"]}
+      ],
+      "interaction_rule_ids": ["spell_copy_amplifies_spell_effect", "spell_copy_triggers_payoff", "casting_triggers_payoff"],
+      "exclusions": ["copy_is_not_cast"]
+    },
+    {
+      "id": "lifegain",
+      "objective": "Gain life and exploit qualifying life-gain events",
+      "preferences": [
+        {"id": "lifegain_gain_life", "capability": "gain_life", "role": "generator", "weight": 0.6},
+        {"id": "lifegain_lifegain_payoff", "capability": "lifegain_payoff", "role": "payoff", "weight": 1}
+      ],
+      "interaction_rule_ids": ["lifegain_triggers_payoff"],
+      "exclusions": ["opponent_life_gain"]
+    },
+    {
+      "id": "control",
+      "objective": "Manage threats with disruption and repeatable or broad answers",
+      "preferences": [
+        {"id": "control_counter_spell", "capability": "counter_spell", "role": "enabler", "weight": 0.35},
+        {"id": "control_remove_permanent", "capability": "remove_permanent", "role": "enabler", "weight": 0.35},
+        {"id": "control_restrict_actions", "capability": "restrict_actions", "role": "enabler", "weight": 0.85},
+        {"id": "control_draw", "capability": "draw", "role": "generator", "weight": 0.25}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["generic_single_answer_low_affinity"]
+    },
+    {
+      "id": "aristocrats",
+      "objective": "Convert sacrifices and deaths into repeatable value",
+      "preferences": [
+        {"id": "aristocrats_sacrifice", "capability": "sacrifice", "role": "enabler", "weight": 0.85},
+        {"id": "aristocrats_sacrifice_payoff", "capability": "sacrifice_payoff", "role": "payoff", "weight": 1},
+        {"id": "aristocrats_death_payoff", "capability": "death_payoff", "role": "payoff", "weight": 0.95},
+        {"id": "aristocrats_create_token_creature", "capability": "create_token", "role": "generator", "weight": 0.65, "types": ["creature"]},
+        {"id": "aristocrats_create_token_treasure", "capability": "create_token", "role": "generator", "weight": 0.5, "subtype": "treasure"},
+        {"id": "aristocrats_return_from_graveyard", "capability": "return_from_graveyard", "role": "converter", "weight": 0.5, "types": ["creature"]}
+      ],
+      "interaction_rule_ids": ["sacrifice_triggers_death_payoff", "sacrifice_triggers_payoff", "fodder_feeds_sacrifice_outlet", "treasure_feeds_artifact_sacrifice"],
+      "exclusions": ["discard_is_not_sacrifice", "exile_is_not_death"]
+    },
+    {
+      "id": "burn",
+      "objective": "Deal direct damage and increase the damage dealt",
+      "preferences": [
+        {"id": "burn_deal_noncombat_damage", "capability": "deal_noncombat_damage", "role": "generator", "weight": 0.8},
+        {"id": "burn_multiply_damage", "capability": "multiply_damage", "role": "amplifier", "weight": 0.95}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["combat_damage", "life_loss"]
+    },
+    {
+      "id": "ramp",
+      "objective": "Accelerate mana or land development beyond ordinary land drops",
+      "preferences": [
+        {"id": "ramp_add_mana", "capability": "add_mana", "role": "generator", "weight": 0.4},
+        {"id": "ramp_put_land", "capability": "put_land", "role": "generator", "weight": 0.75},
+        {"id": "ramp_extra_land_play", "capability": "extra_land_play", "role": "enabler", "weight": 0.65},
+        {"id": "ramp_create_token", "capability": "create_token", "role": "generator", "weight": 0.5, "subtype": "treasure"},
+        {"id": "ramp_reduce_spell_cost", "capability": "reduce_spell_cost", "role": "enabler", "weight": 0.55}
+      ],
+      "interaction_rule_ids": ["extra_land_play_enables_landfall"],
+      "exclusions": ["ordinary_land_drop", "mana_neutral_payment"]
+    },
+    {
+      "id": "lands_matter",
+      "objective": "Exploit land entry, land count, and movement between zones",
+      "preferences": [
+        {"id": "lands_matter_enter_payoff", "capability": "enter_payoff", "role": "payoff", "weight": 1, "types": ["land"]},
+        {"id": "lands_matter_extra_land_play", "capability": "extra_land_play", "role": "enabler", "weight": 0.8},
+        {"id": "lands_matter_put_land", "capability": "put_land", "role": "generator", "weight": 0.7},
+        {"id": "lands_matter_return_from_graveyard", "capability": "return_from_graveyard", "role": "converter", "weight": 0.9, "types": ["land"]},
+        {"id": "lands_matter_sacrifice", "capability": "sacrifice", "role": "enabler", "weight": 0.65, "types": ["land"]},
+        {"id": "lands_matter_land_count_payoff", "capability": "land_count_payoff", "role": "payoff", "weight": 0.95}
+      ],
+      "interaction_rule_ids": ["extra_land_play_enables_landfall", "land_entry_triggers_payoff"],
+      "exclusions": ["land_type_without_function"]
+    },
+    {
+      "id": "voltron",
+      "objective": "Build and protect one primary attacker",
+      "preferences": [
+        {"id": "voltron_equip", "capability": "equip", "role": "enabler", "weight": 0.75},
+        {"id": "voltron_attach_aura", "capability": "attach_aura", "role": "amplifier", "weight": 0.6},
+        {"id": "voltron_protect_creature", "capability": "protect_creature", "role": "enabler", "weight": 0.75},
+        {"id": "voltron_single_attacker_payoff", "capability": "single_attacker_payoff", "role": "payoff", "weight": 0.95}
+      ],
+      "interaction_rule_ids": ["equipment_enables_voltron"],
+      "exclusions": ["generic_removal", "isolated_evasion_keyword"]
+    },
+    {
+      "id": "midrange",
+      "objective": "Build incremental value with resilient threats and reusable effects",
+      "preferences": [
+        {"id": "midrange_blink", "capability": "blink", "role": "converter", "weight": 0.65},
+        {"id": "midrange_return_from_graveyard", "capability": "return_from_graveyard", "role": "converter", "weight": 0.55},
+        {"id": "midrange_enter_payoff", "capability": "enter_payoff", "role": "payoff", "weight": 0.65, "reference": "self"},
+        {"id": "midrange_recover_to_hand", "capability": "recover_to_hand", "role": "converter", "weight": 0.45},
+        {"id": "midrange_draw", "capability": "draw", "role": "generator", "weight": 0.3},
+        {"id": "midrange_remove_permanent", "capability": "remove_permanent", "role": "enabler", "weight": 0.25}
+      ],
+      "interaction_rule_ids": ["recursion_reuses_etb", "blink_retriggers_etb"],
+      "exclusions": ["ordinary_creature_type"]
+    }
+  ]
+}
