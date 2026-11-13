@@ -106,7 +106,7 @@ def classify_card_roles(
 
 
 def _has_card_advantage(text: str) -> bool:
-    for segment in re.split(r"\n\s*\n", text):
+    for segment in re.split(r"\n\s*\n", re.sub(r"\([^()]*\)", "", text)):
         if (
             _REPEATED_RESOURCE_PATTERN.search(segment)
             or _has_repeatable_activated_draw(segment)
@@ -147,7 +147,9 @@ def _has_repeatable_activated_draw(segment: str) -> bool:
     for ability in _ACTIVATED_ABILITY_PATTERN.finditer(segment):
         cost = ability.group("cost")
         effect = ability.group("effect")
-        if _CARD_CONSUMING_COST_PATTERN.search(cost):
+        if _CARD_CONSUMING_COST_PATTERN.search(cost) or re.search(
+            r"\bexile\b[^.]*\bfrom your hand\b", effect, re.IGNORECASE
+        ):
             continue
         draw_count = sum(
             _quantity_value(match.group("count").casefold())

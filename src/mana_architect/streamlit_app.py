@@ -1479,8 +1479,8 @@ def _render_collection_suggestions(session: Session) -> None:
         "strategy. Legality is checked for Commander; no commander is required."
     )
     st.caption(
-        "Choose Card Advantage to rank supported cards by net cards on "
-        "successful resolution. Other searches use strategy scores."
+        "Card Advantage uses net cards when measurable and includes classified "
+        "engines. Selected strategies add a ranking bonus."
     )
     catalog = load_strategy_catalog()
     color_options = _color_identity_options()
@@ -1503,7 +1503,7 @@ def _render_collection_suggestions(session: Session) -> None:
                 format_func=lambda value: strategy_names[value],
                 key="suggestion_strategy_ids",
                 placeholder="Choose strategies for synergy ranking",
-                help="Card Advantage searches use net cards and ignore these selections.",
+                help="Strategies add a bonus to Card Advantage results.",
             )
         )
         selected_role_id = st.selectbox(
@@ -1511,7 +1511,7 @@ def _render_collection_suggestions(session: Session) -> None:
             options=[None, *(item.id for item in catalog.roles)],
             format_func=lambda value: "No role filter" if value is None else role_names[value],
             key="suggestion_role_id",
-            help="Card Advantage uses supported standalone cast lines. Other roles filter by classification.",
+            help="Filter by role. Card Advantage also recognizes supported standalone cast lines.",
         )
         role_ids = (selected_role_id,) if selected_role_id is not None else ()
         search_clicked = st.form_submit_button(
@@ -1519,9 +1519,7 @@ def _render_collection_suggestions(session: Session) -> None:
             type="primary",
             key="search_collection_suggestions",
         )
-    strict_mode = selected_role_id == "card_advantage"
-    if strict_mode:
-        strategy_ids = ()
+    card_advantage_mode = selected_role_id == "card_advantage"
     active_query = (tuple(color_identity), strategy_ids, role_ids)
     if search_clicked:
         st.session_state["suggestion_query"] = active_query
@@ -1534,7 +1532,7 @@ def _render_collection_suggestions(session: Session) -> None:
     if saved_query != active_query:
         st.info("Choose the filters and click **Find suggestions**.")
         return
-    if not strategy_ids and not strict_mode:
+    if not strategy_ids and not card_advantage_mode:
         st.info("Choose a strategy or select the Card Advantage role.")
         return
 
@@ -1583,8 +1581,8 @@ def _render_collection_suggestions(session: Session) -> None:
         )
     if not batch.suggestions:
         st.info(
-            "No classified cards had a supported standalone line with positive net cards."
-            if strict_mode else "No classified cards matched these filters."
+            "No card-advantage cards matched these filters."
+            if card_advantage_mode else "No classified cards matched these filters."
         )
         return
 
@@ -1614,10 +1612,12 @@ def _render_collection_suggestions(session: Session) -> None:
                 heading += f" &nbsp; {cost}"
             with st.container(key=row_key):
                 st.markdown(heading)
-                ranking_label = (
-                    f"Net cards {item.strict_card_advantage:+d}"
-                    if item.strict_card_advantage is not None else f"Score {item.score:.1f}"
-                )
+                ranking_label = f"Score {item.score:.3f}" if card_advantage_mode else f"Score {item.score:.1f}"
+                if card_advantage_mode:
+                    if item.strict_card_advantage is None:
+                        ranking_label += " · Card advantage from classification"
+                    else:
+                        ranking_label += f" · Net cards {item.strict_card_advantage:+d}"
                 st.caption(
                     f"{ranking_label} · {item.type_line or 'Unknown type'} · "
                     f"Owned: {item.available_quantity}"

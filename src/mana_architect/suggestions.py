@@ -105,14 +105,12 @@ def suggest_collection_cards_by_identity(
     prioritized_roles: tuple[str, ...] = (),
     limit: int = 50,
 ) -> IdentityCollectionSuggestionBatch:
-    """Rank by strategy evidence, or by strict stock for the Card Advantage role."""
-    strict_mode = prioritized_roles == ("card_advantage",)
-    if strict_mode:
-        strategy_ids = ()
+    """Rank by strategy evidence, with a card-advantage base for that role."""
+    card_advantage_mode = prioritized_roles == ("card_advantage",)
     valid_colors = {"W", "U", "B", "R", "G"}
     if len(set(color_identity)) != len(color_identity) or not set(color_identity) <= valid_colors:
         raise ValueError("color_identity must contain unique Magic colors.")
-    if not strict_mode and (not strategy_ids or len(set(strategy_ids)) != len(strategy_ids)):
+    if (not strategy_ids and not card_advantage_mode) or len(set(strategy_ids)) != len(strategy_ids):
         raise ValueError("Select one or more unique strategies.")
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 50:
         raise ValueError("limit must be an integer between 1 and 50.")
@@ -176,7 +174,8 @@ def suggest_collection_cards_by_identity(
             for target_type, target_id in manual_inclusions
             if target_type == "role"
         }
-        if strict_mode:
+        net_cards = None
+        if card_advantage_mode:
             if any(
                 item.target_type == "role" and item.target_id == "card_advantage"
                 and not item.included
@@ -187,25 +186,13 @@ def suggest_collection_cards_by_identity(
                 card.oracle_text, catalog.oracle_lexicon, catalog.oracle_mechanical_patterns
             )
             profile = compile_profile(card.oracle_id, card.type_line, card.mana_cost, parsed)
-            net_cards = max((evaluate_cast(line).self_delta for line in profile.lines), default=0)
-            if net_cards > 0:
-                suggestions.append(IdentityCollectionSuggestion(
-                    oracle_id=card.oracle_id,
-                    name=card.name,
-                    type_line=card.type_line,
-                    mana_cost=card.mana_cost,
-                    oracle_text=card.oracle_text,
-                    image_uri=card.image_uri,
-                    available_quantity=quantity,
-                    score=float(net_cards),
-                    strategy_scores=MappingProxyType({}),
-                    matching_strategy_ids=(),
-                    role_ids=tuple(sorted(found_roles | {"card_advantage"})),
-                    classification=enriched,
-                    overrides=overrides,
-                    strict_card_advantage=net_cards,
-                ))
-            continue
+            net_cards = max((evaluate_cast(line).self_delta for line in profile.lines), default=None)
+            if net_cards is None and "card_advantage" not in found_roles:
+                continue
+            if net_cards is not None and net_cards <= 0:
+                continue
+            found_roles.add("card_advantage")
+
         strategy_scores: dict[str, float] = {}
         for strategy_id in strategy_ids:
             weights = {
@@ -249,9 +236,10 @@ def suggest_collection_cards_by_identity(
             continue
         if not prioritized_roles and best_strategy_score <= 0:
             continue
-        # Roles are hard inclusion filters; strategy compatibility ranks the
-        # cards that pass that filter instead of adding a constant role bonus.
         combined_score = best_strategy_score
+        if card_advantage_mode:
+            # One point for classification evidence when no exact line is available.
+            combined_score = (net_cards or 1) + best_strategy_score / 100
         suggestions.append(
             IdentityCollectionSuggestion(
                 oracle_id=card.oracle_id,
@@ -261,7 +249,8 @@ def suggest_collection_cards_by_identity(
                 oracle_text=card.oracle_text,
                 image_uri=card.image_uri,
                 available_quantity=quantity,
-                score=round(combined_score, 1),
+                score=round(combined_score, 3),
+                strict_card_advantage=net_cards,
                 strategy_scores=MappingProxyType(strategy_scores),
                 matching_strategy_ids=matched_strategy_ids,
                 role_ids=tuple(sorted(found_roles)),
@@ -273,6 +262,7 @@ def suggest_collection_cards_by_identity(
         key=lambda item: (
             -item.score,
             -max(item.strategy_scores.values(), default=0.0),
+            item.strict_card_advantage is None,
             item.name.casefold(),
             item.oracle_id,
         )

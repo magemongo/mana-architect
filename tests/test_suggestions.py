@@ -342,6 +342,13 @@ def test_strict_card_advantage_suggestions_rank_without_strategy(database, catal
         ("engine", "Conditional Engine", "Enchantment",
          "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.",
          "G", "legal"),
+        ("token-engine", "Token Engine", "Artifact",
+         "{T}: Draw a card. Activate only if you created a token this turn.\n"
+         "{8}, {T}: Create a token.", "G", "legal"),
+        ("exile-filter", "Exile Filter", "Artifact",
+         "{T}: Draw a card, then exile a card from your hand.", "G", "legal"),
+        ("reminder-draw", "Reminder Draw", "Instant",
+         "Target creature gains flying. (Whenever a creature attacks, draw a card.)", "G", "legal"),
         ("banned-draw", "Banned Draw", "Sorcery", "Draw five cards.", "G", "banned"),
         ("red-draw", "Red Draw", "Sorcery", "Draw five cards.", "R", "legal"),
         ("unowned-draw", "Unowned Draw", "Sorcery", "Draw five cards.", "G", "legal"),
@@ -360,8 +367,19 @@ def test_strict_card_advantage_suggestions_rank_without_strategy(database, catal
             result = suggest_collection_cards_by_identity(
                 session, ("G",), strategies, catalog, prioritized_roles=("card_advantage",)
             )
-            assert result.strategy_ids == ()
-            assert [(item.name, item.strict_card_advantage) for item in result.suggestions] == [
-                ("Harmonize", 2), ("Divination", 1)
-            ]
-            assert all(not item.strategy_scores for item in result.suggestions)
+            assert result.strategy_ids == strategies
+            ranked = {item.name: item for item in result.suggestions}
+            assert set(ranked) == {"Harmonize", "Divination", "Conditional Engine", "Token Engine"}
+            assert ranked["Harmonize"].strict_card_advantage == 2
+            assert ranked["Divination"].score == 1
+            assert ranked["Conditional Engine"].strict_card_advantage is None
+            assert ranked["Conditional Engine"].score == 1
+            token_engine = ranked["Token Engine"]
+            assert token_engine.strict_card_advantage is None
+            if strategies:
+                assert token_engine.score > ranked["Divination"].score
+                assert token_engine.strategy_scores["tokens"] > 0
+                assert result.suggestions.index(token_engine) < result.suggestions.index(ranked["Divination"])
+            else:
+                assert token_engine.score == 1
+                assert not token_engine.strategy_scores

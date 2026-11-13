@@ -23,10 +23,11 @@ tracks physical cards across exile and return, and models token losses
 separately. Automatic interaction discovery and deck ranking remain pending.
 
 In Suggestions, selecting the Card Advantage role ranks owned, color-compatible,
-Commander-legal cards with current classifications by the highest positive
-strict net gain among supported standalone cast lines on successful resolution.
-The search uses no strategy or synergy inputs and respects manual role
-exclusions. Conditional lines and unsupported effects receive no ranking.
+Commander-legal cards with current classifications. The base is the highest
+positive strict net gain from supported standalone casts, or one ranking point
+for an included role classification when no line is supported. The optional
+strategy bonus is the best selected strategy score divided by 100.
+Classification-based points indicate unmeasured net gain.
 
 ## 1. Scope and integration
 
