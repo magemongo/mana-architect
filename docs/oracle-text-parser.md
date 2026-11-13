@@ -48,6 +48,16 @@ time. New classification runs store the parser version, ability segmentation,
 feature spans, and mechanics as JSON. Evidence rows also store source offsets.
 Older runs remain readable with `oracle_parse=None`.
 
+## Strategy capability extraction
+
+`extract_mechanical_capabilities(parsed, name=..., type_line=...)` interprets
+source-linked ability lines as typed events, costs, triggers, and replacement
+effects. It reuses the mana resource extractor for land and mana development.
+The same Treasure creation event carries both the token kind and artifact
+type. Evidence offsets refer to the original Oracle text. Unrecognized
+clauses and unsupported modal choices surface as unknowns. See the
+[Strategy Synergy Engine guide](./strategy_synergy_engine_implementation_guide.md).
+
 ## Mana resource extraction
 
 The first phase of the [Ramp Evaluation Engine](./ramp_evaluation_engine_implementation_guide.md)

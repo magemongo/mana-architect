@@ -12,6 +12,8 @@
   heuristics.
 - [Synergy scoring](./synergy-scoring.md) — formula, filters, integration, and
   limitations.
+- [Strategy Synergy Engine implementation guide](./strategy_synergy_engine_implementation_guide.md)
+  — typed capabilities, commander interactions, and candidate scoring.
 - [Catalog persistence](./classification-storage.md) — schema, versions,
   transactions, and reclassification guidance.
 - [Oracle text parser](./oracle-text-parser.md) — parser foundation, current
