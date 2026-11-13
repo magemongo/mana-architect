@@ -83,6 +83,24 @@ INTERACTION_RULES = (
                    "directly_triggers", "enter", "The created token enters and satisfies the observed token or creature entry."),
 )
 
+_REQUIRED_PAYOFF_TYPES = {
+    "artifact_etb_triggers_payoff": "artifact",
+    "extra_land_play_enables_landfall": "land",
+    "land_entry_triggers_payoff": "land",
+}
+
+
+def rule_applies_to_capability(rule: MechanicalRule, capability: MechanicalCapability) -> bool:
+    if capability.id == rule.target:
+        required_type = _REQUIRED_PAYOFF_TYPES.get(rule.id)
+        if required_type and required_type not in capability.object.types:
+            return False
+        if rule.id == "token_etb_triggers_payoff":
+            return capability.object.kind == "token" or "creature" in capability.object.types
+    if capability.id == rule.source and rule.object_type == "treasure":
+        return "treasure" in capability.object.subtypes
+    return capability.id in {rule.source, rule.target}
+
 
 @dataclass(frozen=True)
 class RuleMatch:
@@ -136,13 +154,7 @@ def validate_interaction(
     """Check the event and object contracts for a pair of explicit capabilities."""
     if (source.id, target.id) != (rule.source, rule.target):
         return None
-    if rule.id == "artifact_etb_triggers_payoff" and "artifact" not in target.object.types:
-        return None
-    if rule.id in {"extra_land_play_enables_landfall", "land_entry_triggers_payoff"} and "land" not in target.object.types:
-        return None
-    if rule.id == "token_etb_triggers_payoff" and not (
-        target.object.kind == "token" or "creature" in target.object.types
-    ):
+    if not rule_applies_to_capability(rule, source) or not rule_applies_to_capability(rule, target):
         return None
 
     dependencies = set(filter(None, (rule.dependency,)))
