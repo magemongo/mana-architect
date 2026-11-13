@@ -6,15 +6,15 @@ import re
 
 from mana_architect.interaction_profile import InteractionEffect, InteractionScore, InteractionVariant, Timing
 
-INTERACTION_SCORING_VERSION = "interaction-scoring-v1"
+INTERACTION_SCORING_VERSION = "interaction-scoring-v2"
 
 _SPOT_WEIGHTS = (
-    ("versatility", .20), ("efficiency", .20), ("speed", .20),
-    ("reliability", .20), ("answer_quality", .15), ("duration", .05),
+    ("versatility", .15), ("efficiency", .15), ("speed", .10),
+    ("reliability", .30), ("answer_quality", .25), ("duration", .05),
 )
 _MASS_WEIGHTS = (
-    ("coverage", .20), ("asymmetry", .20), ("scalability", .15), ("efficiency", .15),
-    ("speed", .10), ("reliability", .10), ("answer_quality", .10),
+    ("coverage", .20), ("asymmetry", .10), ("scalability", .10), ("efficiency", .15),
+    ("speed", .10), ("reliability", .15), ("answer_quality", .20),
 )
 
 
@@ -48,9 +48,11 @@ _MANA_SYMBOL = re.compile(r"\{([^{}]+)\}")
 _NONMANA_COST = re.compile(r"^(?:sacrifice|discard|exile|return|remove|tap|reveal|pay \d+ life)\b", re.IGNORECASE)
 _TARGET_RESTRICTION = re.compile(
     r"^(?:with|without|nonland|nonartifact|noncreature|tapped|untapped|attacking|blocking|"
-    r"nonblack|monocolored|legendary|nontoken|other)\b|^\w+ spell$",
+    r"nonblack|colorless|monocolored|legendary|nontoken|other|attached to)\b|^\w+ spell$",
 )
 _COMPENSATION = re.compile(r"^(?:its controller|that player|each player|that permanent's controller)\b")
+_DAMAGE_LIMIT = re.compile(r"^(\d+) damage$")
+_TOUGHNESS_LIMIT = re.compile(r"^[+−-][\dx]+/[−-](\d+)$")
 
 
 def _payment(cost: str) -> tuple[float, int] | None:
@@ -88,6 +90,9 @@ def _efficiency(variant: InteractionVariant, kind: str) -> float | None:
     if payment is None:
         return None
     mana, resources = payment
+    if variant.activated and variant.base_mana_value is not None:
+        # Attribute part of the setup investment to the first activation.
+        mana += .5 * variant.base_mana_value
     for cost in variant.additional_costs:
         if variant.activated and cost == variant.cost:
             continue
@@ -110,6 +115,15 @@ def _duration(duration: str) -> float | None:
     return 4.0
 
 
+def _lethality_limit(effect: InteractionEffect) -> int | None:
+    pattern = {"deal_damage": _DAMAGE_LIMIT, "reduce_stats": _TOUGHNESS_LIMIT}.get(effect.action)
+    if pattern is not None:
+        for restriction in effect.restrictions:
+            if match := pattern.fullmatch(restriction):
+                return int(match[1])
+    return None
+
+
 def _dimensions(effect: InteractionEffect, variant: InteractionVariant, kind: str) -> dict[str, float | None]:
     object_types = set(effect.object_types) - {"unknown", "damage_event", "player"}
     width = None if effect.object_types == ("unknown",) else min(10, 5.5 + 1.5 * max(0, len(object_types) - 1))
@@ -121,11 +135,19 @@ def _dimensions(effect: InteractionEffect, variant: InteractionVariant, kind: st
         width = max(0, width - filters - .75 * excluded)
     # A number or duration by itself is an Oracle fact. These deductions only
     # describe intrinsic hurdles, without estimating which targets exist.
-    reliability = max(0, 10 - 1.5 * len(effect.conditions) - .5 * filters
+    condition_penalty = sum(2.5 if item.startswith(("if ", "unless ")) else 1.5 for item in effect.conditions)
+    reliability = max(0, 10 - condition_penalty - .5 * filters
                       - float("affected_player_chooses" in effect.choices)
                       - float(effect.wipe_potential == "potential")
                       - float(variant.timing is Timing.TRIGGERED))
     quality = _QUALITY.get(effect.mechanical_tags[0])
+    if effect.action in {"deal_damage", "reduce_stats"}:
+        limit = _lethality_limit(effect)
+        reliability = max(0, reliability - (3 if limit is None else max(1, 7 - limit)))
+        if limit is not None:
+            quality = min(quality or 0, 2 + limit)
+    elif effect.action in {"delay_spell", "tax"}:
+        quality = 4.0
     if quality is not None and any(_COMPENSATION.match(item) for item in effect.restrictions):
         quality = max(0, quality - 1)
     dimensions = {

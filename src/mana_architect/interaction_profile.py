@@ -92,6 +92,8 @@ class InteractionEffect:
 
     @property
     def interaction_type(self) -> str | None:
+        if self.action == "tax" and any(item.startswith("cast from ") for item in self.restrictions):
+            return None
         if self.scope_type in {Scope.SINGLE, Scope.MULTI_TARGET}:
             return "spot"
         if self.scope_type is Scope.MASS:

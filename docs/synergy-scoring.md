@@ -72,12 +72,33 @@ manual role exclusions take precedence. The current evaluator covers direct
 mana production, land development, and mana tokens.
 
 Spot Interaction and Mass Interaction use the best available variant's score
-for the selected scope, plus the same optional strategy bonus. A card that can
+for the selected scope. A selected strategy adds its score divided by 20,
+for up to five ranking points. A card that can
 perform both roles may rank differently in each search. The result shows the
 mechanism, variant cost, and Oracle evidence. Engine matches with unresolved
 scores and manual role inclusions use a one-point ranking fallback. Manual
 role exclusions take precedence. Automatic interaction eligibility comes from
-the engine's affected scope.
+the engine's affected scope. Removing attachments from one chosen permanent
+qualifies as spot interaction. Casting taxes limited by the spell's origin
+retain their interaction evidence and do not qualify for either Suggestions role.
+
+Spot scoring gives reliability and answer quality 55% of the weight combined.
+Fixed damage and toughness reduction score lower when the amount limits which
+threats they can remove. Activated effects count half the source's known mana
+value toward setup. Mass scoring gives reliability and answer quality 35% of
+the weight combined. These weights are heuristic.
+
+| Dimension | Spot | Mass |
+| --- | ---: | ---: |
+| Versatility | 15% | |
+| Coverage | | 20% |
+| Asymmetry | | 10% |
+| Scalability | | 10% |
+| Efficiency | 15% | 15% |
+| Speed | 10% | 10% |
+| Reliability | 30% | 15% |
+| Answer quality | 25% | 20% |
+| Duration | 5% | |
 
 Results include score, matched strategies, detected roles,
 evidence, and remaining quantity. Only classifications whose fingerprint still

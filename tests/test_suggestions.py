@@ -520,7 +520,7 @@ def test_interaction_suggestions_use_independent_scopes_and_optional_strategy_bo
     assert [item.oracle_id for item in spot.suggestions] == ["counter", "token-counter", "manual", "variable-cost"]
     assert [item.oracle_id for item in with_strategy.suggestions[:2]] == ["token-counter", "counter"]
     token_counter = with_strategy.suggestions[0]
-    assert token_counter.score == round(spot.suggestions[1].score + token_counter.strategy_scores["tokens"] / 100, 3)
+    assert token_counter.score == round(spot.suggestions[1].score + token_counter.strategy_scores["tokens"] / 20, 3)
     assert spot.suggestions[2].score == spot.suggestions[3].score == 1.0
     assert spot.suggestions[2].interaction_profile.best_variant("spot") is None
     assert spot.suggestions[3].interaction_profile.best_variant("spot").spot_score.total is None

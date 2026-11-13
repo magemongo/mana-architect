@@ -36,6 +36,7 @@ from mana_architect.validation import deck_name_copy_limit
 
 INTERACTION_SUGGESTION_ROLES = frozenset({"spot_interaction", "mass_interaction"})
 STANDALONE_SUGGESTION_ROLES = INTERACTION_SUGGESTION_ROLES | {"card_advantage", "ramp"}
+_MAX_INTERACTION_STRATEGY_BONUS = 5.0
 
 
 @dataclass(frozen=True)
@@ -288,7 +289,7 @@ def suggest_collection_cards_by_identity(
             combined_score = (ramp_line.score if ramp_line else 1.0) + best_strategy_score / 100
         elif interaction_mode:
             base_score = interaction_score if interaction_score is not None else 1.0
-            combined_score = base_score + best_strategy_score / 100
+            combined_score = base_score + _MAX_INTERACTION_STRATEGY_BONUS * best_strategy_score / 100
         suggestions.append(
             IdentityCollectionSuggestion(
                 oracle_id=card.oracle_id,

@@ -19,8 +19,8 @@ _QUANTITY = re.compile(
 )
 _TARGET = re.compile(r"\btarget\b")
 _OBJECTS = {
-    "creature": r"\bcreatures?\b", "artifact": r"\b(?:non)?artifacts?\b",
-    "enchantment": r"\benchantments?\b", "land": r"\blands?\b",
+    "creature": r"\bcreatures?\b", "artifact": r"\b(?:(?:non)?artifacts?|equipment)\b",
+    "enchantment": r"\b(?:enchantments?|auras?)\b", "land": r"\blands?\b",
     "planeswalker": r"\bplaneswalkers?\b", "battle": r"\bbattles?\b",
     "permanent": r"\b(?:nonland |noncreature )?permanents?\b", "token": r"\btokens?\b",
     "spell": r"\bspells?\b", "activated_ability": r"\bactivated(?: or triggered| and triggered)? abilit(?:y|ies)\b",
@@ -42,7 +42,7 @@ _SPELL_FILTER = re.compile(r"^(?:up to )?(?:(?:\w+ )?target )?(?P<filter>[^ ]+) 
 _CONTROLLER = re.compile(r"\b(?:you (?:don't control|control|own)|"
                           r"(?:an|your|that) opponent controls?|"
                           r"(?:your|(?:an|one) opponent's) graveyards?)\b")
-_MODIFIERS = re.compile(r"\b(?:nonland|noncreature|nonartifact|nonblack|monocolored|"
+_MODIFIERS = re.compile(r"\b(?:nonland|noncreature|nonartifact|nonblack|colorless|monocolored|"
                         r"tapped|untapped|attacking|blocking|legendary|nontoken|other)\b")
 _ACTION_CANDIDATE = re.compile(
     r"^(?:destroy|exile|return|counter|tap|prevent|shuffle|regenerate|fight|gain control of)\b"
@@ -57,6 +57,8 @@ _COMBAT_SCOPE = re.compile(r"^(?:all |each )?combat damage\b")
 _NEXT_DAMAGE = re.compile(r"^(?:the )?next \d+ damage\b")
 _SPELL_OR_ABILITY = re.compile(r"\bspell or (?:an? |target )?(?:(?:activated|triggered)(?: or triggered)? )?ability\b")
 _GRAVEYARD_OBJECT = re.compile(r"\b(?:cards?|tokens?|graveyards?)\b")
+_ATTACHMENT_ANCHOR = re.compile(r"\battached to (?P<anchor>target .+|that .+|it)$")
+_NARROW_CAST_TAX = re.compile(r"\bcast from\b")
 
 
 def _quantity(phrase: str) -> Quantity:
@@ -106,7 +108,7 @@ def _scope(quantity: Quantity) -> Scope:
 
 
 def _objects(phrase: str) -> tuple[str, ...]:
-    subject = re.split(r"\b(?:you (?:don't )?control|an opponent controls?|with|from|except|"
+    subject = re.split(r"\b(?:you (?:don't )?control|an opponent controls?|with|from|except|attached to|"
                        r"unless|that (?:was|were|is|are)|whose)\b", phrase, maxsplit=1)[0]
     if "any target" in subject:
         return _DAMAGE_TARGETS
@@ -134,6 +136,7 @@ class _Facts:
     affected: Quantity
     selection: Selection
     wipe: str | None = None
+    scope_override: Scope | None = None
 
 
 def _facts(
@@ -150,6 +153,7 @@ def _facts(
     objects = _objects(subject)
     zone = "battlefield"
     wipe = None
+    scope_override = None
     controller, symmetry = _controller(" ".join((subject, actor, source_zone, recipient)))
 
     if mechanic == "graveyard_hate":
@@ -202,15 +206,25 @@ def _facts(
             return None
         if "target" in recipient:
             selection_phrase = scope_phrase = recipient.removeprefix(" to ").strip()
-        elif recipient.startswith(" to you"):
+        elif re.match(r" to you\b(?! or )", recipient):
             scope_phrase = "a player"
             controller, symmetry = "you_control", "self_only"
-        elif _COMBAT_SCOPE.match(subject) and not subject.startswith("the next "):
-            scope_phrase = "all damage"
+        elif re.match(r" to (?:it|that creature|that permanent)\b", recipient):
+            scope_phrase = "a permanent"
+        elif _COMBAT_SCOPE.match(subject):
+            if recipient.startswith(" to "):
+                beneficiaries = recipient.removeprefix(" to ")
+                scope_phrase = beneficiaries if beneficiaries.startswith(("all ", "each ")) else ""
+            else:
+                scope_phrase = "all damage"
         elif _NEXT_DAMAGE.match(subject) and recipient.startswith(" to "):
             scope_phrase = recipient.removeprefix(" to ")
     elif mechanic == "rule_restriction":
         zone = "stack" if "cast" in clause else "rules"
+        if rule.action == "delay_spell":
+            if not re.search(r"exile target spell\. it becomes plotted\b", context):
+                return None
+            zone = "stack"
         if subject in {"players", "opponents"}:
             scope_phrase = "all " + subject
         if subject == "opponents":
@@ -230,6 +244,11 @@ def _facts(
         if not (_BATTLEFIELD.intersection(objects) or "player" in objects):
             return None
     else:
+        attachment = _ATTACHMENT_ANCHOR.search(subject) if mechanic in _REMOVAL else None
+        if attachment:
+            selection_phrase = attachment["anchor"]
+            scope_override = Scope.SINGLE
+            controller, symmetry = _controller(subject[:attachment.start()])
         if controller == "you_control" or _ZONE_MOVES.search(subject):
             return None
         if mechanic in {"bounce", "tuck"} and "card" in objects:
@@ -262,12 +281,12 @@ def _facts(
         target_count = Quantity("fixed", 1, 1)
     if affected.kind in {"all", "each"} and symmetry == "unknown":
         symmetry = "selective" if selection == Selection.TARGET else "symmetric"
-    if affected.kind in {"all", "each"} and zone == "battlefield":
+    if affected.kind in {"all", "each"} and zone == "battlefield" and scope_override is None:
         if mechanic in {"destroy_removal", "exile_removal", "bounce", "tuck"}:
             wipe = "direct"
         elif mechanic == "damage_removal" or mechanic == "stat_reduction" and re.search(r"/[−-]", groups["stats"] or ""):
             wipe = "potential"
-    return _Facts(objects or ("unknown",), zone, controller, symmetry, target_count, affected, selection, wipe)
+    return _Facts(objects or ("unknown",), zone, controller, symmetry, target_count, affected, selection, wipe, scope_override)
 
 
 def _classify_clause(
@@ -309,6 +328,8 @@ def _classify_clause(
         duration = duration_match.group() if duration_match else "indefinite"
         if not duration_match and rule.role == "suppression" and rule.action != "tap":
             duration = "while_source_remains"
+        if rule.action == "delay_spell":
+            duration = "until_recast"
         if not duration_match and rule.action == "tap":
             duration = "until_untapped"
         if not duration_match and rule.action == "phase_out":
@@ -331,6 +352,11 @@ def _classify_clause(
             spell_filter = _SPELL_FILTER.match(raw_subject)
             if spell_filter and spell_filter["filter"] not in {"target", "all", "each", "a", "one"}:
                 restrictions = tuple(dict.fromkeys((*restrictions, f"{spell_filter['filter']} spell")))
+        attachment = _ATTACHMENT_ANCHOR.search(raw_subject)
+        if attachment:
+            restrictions += (attachment.group(),)
+        if rule.action == "tax" and (cast_filter := _NARROW_CAST_TAX.search(raw_subject)):
+            restrictions += (raw_subject[cast_filter.start():],)
         if mechanic in {"forced_sacrifice", "discard_disruption"} and facts.affected.kind != "all":
             if "at random" in clause:
                 choices = ("random",)
@@ -344,7 +370,7 @@ def _classify_clause(
         evidence = InteractionEvidence(text, start, end, rule_ids, ability_id)
         effect = InteractionEffect(
             f"e{start}", rule.action, facts.objects, facts.selection, facts.targets, facts.affected, facts.zone,
-            facts.controller, duration, facts.symmetry, _scope(facts.affected), tuple(tags), (rule.role,),
+            facts.controller, duration, facts.symmetry, facts.scope_override or _scope(facts.affected), tuple(tags), (rule.role,),
             evidence, conditions=conditions, exceptions=exceptions, restrictions=restrictions,
             choices=choices, wipe_potential=facts.wipe,
         )
@@ -373,9 +399,10 @@ def extract_interaction_effects(
     linked_subject = None
     # Normalize straight and typographic punctuation without changing offsets.
     normalized = text.translate(str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ’", "abcdefghijklmnopqrstuvwxyz'"))
+    condition_prefix = re.compile(r"\s*(?:then )?(?:when(?:ever)?|at|if|for each)\b[^,.;]*$")
     boundaries = [(part.start(), part.end()) for part in CLAUSE_BREAK.finditer(normalized)
                   if part.group().strip() in {".", ";", "!", "?"}
-                  or not re.match(r"\s*(?:when(?:ever)?|at|if|for each)\b[^,.;]*$", normalized[:part.start()])]
+                  or not condition_prefix.fullmatch(re.split(r"[.;!?]", normalized[:part.start()])[-1])]
     for boundary, next_cursor in (*boundaries, (len(normalized), len(normalized))):
         raw = normalized[cursor:boundary]
         start = offset + cursor + len(raw) - len(raw.lstrip())

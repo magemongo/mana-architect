@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 import re
 
-INTERACTION_RULES_VERSION = "interaction-v1"
+INTERACTION_RULES_VERSION = "interaction-v2"
 
 # Oracle groups the object, qualifiers and scope in one phrase. The classifier
 # resolves those separately so a targeted player can have a whole zone affected.
@@ -47,6 +47,8 @@ INTERACTION_RULES = (
           r"if (?P<subject>.+?) would be put into (?P<zone>.+?\bgraveyard)(?: .+?)?, "
           r"exile (?:it|that card) instead\b"),
     _rule("DESTROY_001", "destroy", "destroy_removal", "threat_answer", r"destroy (?P<subject>.+)"),
+    _rule("PLOT_SPELL_001", "delay_spell", "rule_restriction", "suppression",
+          r"exile (?P<subject>target spell)\b"),
     _rule("EXILE_001", "exile", "exile_removal", "threat_answer", r"exile (?P<subject>.+)"),
     _rule("BOUNCE_001", "return_to_hand", "bounce", "threat_answer",
           rf"return {_SUBJECT} to (?:(?:their|its) owners?'s?|that player's|your) hands?\b"),
@@ -91,7 +93,7 @@ INTERACTION_RULES = (
 # Only imperative actions in these contexts are extraction candidates. For
 # example, a trigger about an opponent exiling a card is not an exile effect.
 CLAUSE_PREFIX = re.compile(
-    r"^(?:(?P<condition>(?:when(?:ever)?|at|if|for each)\b.+?),\s+)?"
+    r"^(?:then )?(?:(?P<condition>(?:when(?:ever)?|at|if|for each)\b.+?),\s+)?"
     r"(?:(?:then|instead) )?(?:(?:you )?(?P<optional>may) )?(?:you )?",
     re.IGNORECASE,
 )

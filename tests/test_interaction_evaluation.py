@@ -193,7 +193,7 @@ def test_independent_scores_and_best_available_variant():
     oracle = "Return target nonland permanent you don't control to its owner's hand.\nOverload {6}{U}"
     profile = _instant(oracle, "{1}{U}")
     normal, overloaded = profile.variants
-    assert normal.spot_score.total == pytest.approx(8.35)
+    assert normal.spot_score.total == pytest.approx(8.0)
     assert normal.mass_score.total is None
     assert overloaded.spot_score.total is None
     assert overloaded.mass_score.total is not None
@@ -312,3 +312,45 @@ def test_spell_paragraphs_share_a_variant_and_independent_activations_do_not():
     parsed = parse_oracle_text("{U}: Counter target spell.\n{W}: Destroy all creatures.")
     activations = build_interaction_profile("test", parsed, type_line="Artifact")
     assert [variant.interaction_types for variant in activations.variants] == [("spot",), ("mass",)]
+
+
+def test_attachment_removal_is_scoped_to_its_anchor():
+    profile = _instant("Destroy all Auras and Equipment attached to target creature.")
+    effect, = profile.best_variant("spot").effects
+    assert effect.object_types == ("artifact", "enchantment")
+    assert effect.target_count == Quantity("fixed", 1, 1)
+    assert effect.affected_object_count.kind == "all"
+    assert not profile.mass_interaction
+    assert "board_wipe" not in effect.mechanical_tags
+
+
+def test_narrow_casting_tax_does_not_turn_spell_delay_into_mass_interaction():
+    profile = build_interaction_profile("aven", parse_oracle_text(
+        "Flash\nWhen this creature enters, exile target spell. It becomes plotted.\n"
+        "Spells your opponents cast from graveyards or from exile cost {2} more to cast."
+    ), type_line="Creature", mana_cost="{1}{W}{W}")
+    delay, tax = (effect for variant in profile.variants for effect in variant.effects)
+    assert delay.action == "delay_spell"
+    assert tax.action == "tax"
+    assert profile.strategy_tags == ("spot_interaction",)
+    assert _instant("Noncreature spells cost {1} more to cast.").mass_interaction
+
+
+def test_linked_damage_prevention_stays_spot_and_global_fog_stays_mass():
+    single = _instant("Put a +1/+1 counter on target creature. "
+                      "Prevent all combat damage that would be dealt to it this turn.")
+    assert single.strategy_tags == ("spot_interaction",)
+    assert "fog" not in single.mechanical_tags
+    assert _instant("Prevent all combat damage that would be dealt this turn.").mass_interaction
+
+
+def test_ping_and_conditional_destruction_rank_below_reliable_removal():
+    ping = build_interaction_profile("triskelion", parse_oracle_text(
+        "Remove a +1/+1 counter from this creature: It deals 1 damage to any target."
+    ), type_line="Artifact Creature", mana_cost="{6}", mana_value=6)
+    conditional = _instant("Target creature gets -1/-1 until end of turn. "
+                           "Then if it's a Cyclops, destroy it.", "{B}")
+    direct = _instant("Destroy target creature or planeswalker.", "{1}{B}")
+    assert ping.spot_interaction and conditional.spot_interaction
+    assert conditional.best_variant("spot").effects[-1].conditions == ("if it's a cyclops",)
+    assert ping.scores["spot"] < conditional.scores["spot"] < direct.scores["spot"]
