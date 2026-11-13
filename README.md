@@ -66,7 +66,9 @@ before persisting changes to the collection.
 
 The deterministic scorer evaluates synergy for an explicitly selected
 strategy. Suggestions shows scores, match reasons, detected roles, and
-available quantities. Catalog-guided generation also uses the score alongside
+available quantities. Choose Ramp or Card Advantage to search without a
+strategy, or select strategies to add a bonus to those role scores.
+Catalog-guided generation also uses the score alongside
 role and curve balance. Missing or stale classifications are not recalculated
 automatically; explicitly reclassify the collection on **Suggestions**. Cards
 without current classifications are reported and excluded from guided mode.

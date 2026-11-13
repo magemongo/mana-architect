@@ -78,6 +78,12 @@ matches card data and the current rules are scored. The page offers an explicit
 action to reclassify only cards in the collection; opening the app does not
 trigger reclassification.
 
+The Ramp weights are initial heuristics and are not calibrated. The evaluator
+uses the strongest supported event, so multiple abilities are not summed.
+Its text patterns have limited coverage of conditional costs and activation
+restrictions. Cost reductions, untaps, and multipliers are not yet evaluated.
+A zero strategy score contributes no bonus, even when a strategy was selected.
+
 Commander affinities can be edited on this page and are persisted with a manual
 source. Strategy, tag, and role overrides are linked to a card's Oracle ID,
 require a reason, and remain separate from automatic evidence. Contradictory

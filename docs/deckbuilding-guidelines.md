@@ -63,8 +63,10 @@ repeatable engine, while a trigger that can generate Clues repeatedly may be
 advantageous over time. These checks are deterministic heuristics, not a full
 simulation of rules, costs, or game-state repetition.
 
-On **Suggestions**, select one or more strategies and optionally one core role.
-Without a role filter, matching strategy evidence determines which cards are
-shown. With a role selected, cards outside that role are excluded, and the
-selected strategies rank the remaining cards by synergy. `card_selection` is a
-tag and is not selectable as a core role.
+On **Suggestions**, choose a color identity and select strategies, a core role,
+or both. Ramp and Card Advantage can be searched without a strategy. They use
+their role evaluators for ranking and add a bonus for matching strategy
+evidence. The interaction roles require a strategy and use its score for
+ranking. `card_selection` is a tag and is not selectable as a core role.
+Cards with stale classifications are reported until the collection is
+explicitly reclassified on the Suggestions page.
