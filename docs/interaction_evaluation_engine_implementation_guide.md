@@ -5,6 +5,10 @@
 **Status:** Implementation specification (v1)  
 **Language:** English
 
+This guide specifies the intended architecture and includes illustrative
+weights. The implemented Suggestions behavior and current weights are described
+in [Synergy scoring](./synergy-scoring.md#collection-integration).
+
 ## 1. Purpose and boundaries
 
 Implement a deterministic, explainable classifier that identifies **spot interaction** and **mass interaction** in individual cards using structured Oracle text analysis. The module runs **before deck construction**. It must not require an existing deck, assume an opponent's board state, or simulate metagame threats. Those capabilities belong to a future `deck_refinement_engine`.

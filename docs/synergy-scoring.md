@@ -73,8 +73,8 @@ mana production, land development, and mana tokens.
 
 Spot Interaction and Mass Interaction use the best available variant's score
 for the selected scope. A selected strategy adds its score divided by 20,
-for up to five ranking points. A card that can
-perform both roles may rank differently in each search. The result shows the
+for up to five ranking points. A card that can perform both roles may rank
+differently in each search. The result shows the
 mechanism, variant cost, and Oracle evidence. Engine matches with unresolved
 scores and manual role inclusions use a one-point ranking fallback. Manual
 role exclusions take precedence. Automatic interaction eligibility comes from

@@ -77,9 +77,10 @@ components. Card-level `scores` report the best available variant for each
 scope. Within a variant, the strongest effect for each scope supplies its
 score, so overlapping effects and modal combinations do not accumulate points.
 Unknown weighted dimensions, such as the efficiency of an X cost, leave the
-total `null`. Pass `scoring=None` for classification only. The implementation
-guide documents the weights, and `config/interaction_profile.schema.json`
-defines the JSON output contract.
+total `null`. Pass `scoring=None` for classification only. The current
+[scoring reference](./synergy-scoring.md#collection-integration) documents the
+weights, and `config/interaction_profile.schema.json` defines the JSON output
+contract. The implementation guide contains illustrative formulas.
 
 Supported variants include distinct modal choices, overload, and common kicker
 conditions. The profile carries warnings for recognized but unsupported
@@ -89,6 +90,12 @@ and supplies the base scores and evidence for Spot Interaction and Mass
 Interaction on [Suggestions](./synergy-scoring.md#collection-integration).
 The registry covers the tested Oracle patterns, and the scores have yet to be
 calibrated against a full collection corpus.
+
+Interaction profiles are built from current card metadata and the saved Oracle
+parse when Suggestions runs. Changes to the interaction rule catalog or scoring
+weights apply on the next search. Saved classifications still need to be current
+for a card to enter Suggestions. Cards with stale classifications are reported
+and can be explicitly reclassified from that page.
 
 ## Downstream card-advantage and selection heuristics
 

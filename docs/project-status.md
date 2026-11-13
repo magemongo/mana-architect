@@ -51,7 +51,7 @@ their administration in the UI. That work is in progress:
 | Later | Optional natural-language interface using an LLM | Idea from the initial document; not implemented |
 | In progress | Card Advantage module | Strict stock evaluator for fixed draw casts and self-enters draw, including evoke. Conditional engines, interactions, and ranking integration remain pending. |
 | In progress | [Ramp Evaluation Engine](./ramp_evaluation_engine_implementation_guide.md) | Suggestions ranks supported mana production, land development, and mana tokens with an optional strategy bonus. Broader mechanics, calibration, and persisted profiles remain pending. |
-| Implemented | [Interaction Evaluation Engine](./interaction_evaluation_engine_implementation_guide.md) | The card-level Python API and Suggestions expose source evidence, execution variants, and independent spot and mass interaction scores. |
+| In progress | [Interaction Evaluation Engine](./interaction_evaluation_engine_implementation_guide.md) | The card-level API and Suggestions expose independent scores, source evidence, and execution variants. Pattern coverage and score calibration remain in progress. |
 
 Items marked Later are not approved or scheduled. Current work should preserve
 catalog versioning and classification provenance.
