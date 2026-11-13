@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mana Architect interaction profile (v1)",
+  "type": "object",
+  "required": ["card_id", "interaction_profile"],
+  "additionalProperties": false,
+  "properties": {
+    "card_id": {"type": "string", "minLength": 1},
+    "interaction_profile": {
+      "type": "object",
+      "required": ["is_interaction", "spot_interaction", "mass_interaction", "strategy_tags", "mechanical_tags", "roles", "oracle_keywords", "variants", "mode_choices", "scores", "classification_confidence", "warnings", "oracle_parser_version", "rules_version", "scoring_version"],
+      "additionalProperties": false,
+      "properties": {
+        "is_interaction": {"type": "boolean"},
+        "spot_interaction": {"type": "boolean"},
+        "mass_interaction": {"type": "boolean"},
+        "strategy_tags": {"type": "array", "uniqueItems": true, "items": {"enum": ["spot_interaction", "mass_interaction"]}},
+        "mechanical_tags": {"$ref": "#/$defs/strings"},
+        "roles": {"$ref": "#/$defs/strings"},
+        "oracle_keywords": {"$ref": "#/$defs/strings"},
+        "variants": {"type": "array", "items": {"$ref": "#/$defs/variant"}},
+        "mode_choices": {"type": "array", "items": {"$ref": "#/$defs/mode_choice"}},
+        "scores": {
+          "type": "object",
+          "required": ["spot", "mass"],
+          "additionalProperties": {"$ref": "#/$defs/score_value"}
+        },
+        "classification_confidence": {"enum": ["high", "medium", "low"]},
+        "warnings": {"$ref": "#/$defs/strings"},
+        "oracle_parser_version": {"type": "string"},
+        "rules_version": {"type": "string"},
+        "scoring_version": {"type": ["string", "null"]}
+      }
+    }
+  },
+  "$defs": {
+    "strings": {"type": "array", "items": {"type": "string"}},
+    "nullable_count": {"type": ["integer", "null"], "minimum": 0},
+    "scope": {"enum": ["single", "multi_target", "mass", "variable", "modal", "unknown"]},
+    "timing": {"enum": ["instant", "sorcery", "triggered", "static", "unknown"]},
+    "score_value": {"type": ["number", "null"], "minimum": 0, "maximum": 10},
+    "score": {
+      "type": "object",
+      "required": ["total", "components"],
+      "properties": {
+        "total": {"$ref": "#/$defs/score_value"},
+        "components": {"type": "object", "additionalProperties": {"$ref": "#/$defs/score_value"}}
+      }
+    },
+    "quantity": {
+      "type": "object",
+      "required": ["kind", "min", "max"],
+      "properties": {
+        "kind": {"enum": ["fixed", "up_to", "all", "each", "variable", "unknown"]},
+        "min": {"$ref": "#/$defs/nullable_count"},
+        "max": {"$ref": "#/$defs/nullable_count"}
+      }
+    },
+    "effect": {
+      "type": "object",
+      "required": ["effect_id", "action", "object_types", "selection", "target_count", "affected_object_count", "affected_zone", "controller_filter", "duration", "symmetry", "scope_type", "mechanical_tags", "roles", "evidence", "conditions", "additional_costs", "exceptions", "restrictions", "choices", "wipe_potential", "timing"],
+      "properties": {
+        "effect_id": {"type": "string"},
+        "action": {"type": "string"},
+        "object_types": {"$ref": "#/$defs/strings", "minItems": 1},
+        "selection": {"enum": ["target", "chosen", "all", "each", "non_targeted", "unknown"]},
+        "target_count": {"$ref": "#/$defs/quantity"},
+        "affected_object_count": {"$ref": "#/$defs/quantity"},
+        "affected_zone": {"type": "string"},
+        "controller_filter": {"type": "string"},
+        "duration": {"type": "string"},
+        "symmetry": {"type": "string"},
+        "scope_type": {"$ref": "#/$defs/scope"},
+        "mechanical_tags": {"$ref": "#/$defs/strings", "minItems": 1},
+        "roles": {"$ref": "#/$defs/strings", "minItems": 1},
+        "evidence": {
+          "type": "object",
+          "required": ["oracle_span", "start", "end", "rule_ids", "ability_id"],
+          "properties": {
+            "oracle_span": {"type": "string", "minLength": 1},
+            "start": {"type": "integer", "minimum": 0},
+            "end": {"type": "integer", "minimum": 1},
+            "rule_ids": {"$ref": "#/$defs/strings", "minItems": 1},
+            "ability_id": {"type": "string"}
+          }
+        },
+        "conditions": {"$ref": "#/$defs/strings"},
+        "additional_costs": {"$ref": "#/$defs/strings"},
+        "exceptions": {"$ref": "#/$defs/strings"},
+        "restrictions": {"$ref": "#/$defs/strings"},
+        "choices": {"$ref": "#/$defs/strings"},
+        "wipe_potential": {"enum": ["direct", "potential", null]},
+        "timing": {"$ref": "#/$defs/timing"}
+      }
+    },
+    "variant": {
+      "type": "object",
+      "required": ["variant_id", "ability_id", "cost", "timing", "scope_type", "effects", "requirements", "additional_costs", "mode_ids", "face_index", "interaction_types", "spot_score", "mass_score"],
+      "properties": {
+        "variant_id": {"type": "string"},
+        "ability_id": {"type": "string"},
+        "cost": {"type": ["string", "null"]},
+        "timing": {"$ref": "#/$defs/timing"},
+        "scope_type": {"$ref": "#/$defs/scope"},
+        "effects": {"type": "array", "items": {"$ref": "#/$defs/effect"}},
+        "requirements": {"$ref": "#/$defs/strings"},
+        "additional_costs": {"$ref": "#/$defs/strings"},
+        "mode_ids": {"$ref": "#/$defs/strings"},
+        "face_index": {"$ref": "#/$defs/nullable_count"},
+        "interaction_types": {"type": "array", "uniqueItems": true, "items": {"enum": ["spot", "mass"]}},
+        "spot_score": {"$ref": "#/$defs/score"},
+        "mass_score": {"$ref": "#/$defs/score"}
+      }
+    },
+    "mode_choice": {
+      "type": "object",
+      "required": ["ability_id", "minimum", "maximum", "modes", "face_index"],
+      "properties": {
+        "ability_id": {"type": "string"},
+        "minimum": {"type": "integer", "minimum": 0},
+        "maximum": {"type": "integer", "minimum": 0},
+        "modes": {"type": "array", "items": {"type": "array", "items": {"type": "string"}, "minItems": 2, "maxItems": 2}},
+        "face_index": {"$ref": "#/$defs/nullable_count"}
+      }
+    }
+  }
+}

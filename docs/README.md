@@ -20,6 +20,8 @@
   — accounting model, module design, fixtures, and delivery phases.
 - [Ramp Evaluation implementation guide](./ramp_evaluation_engine_implementation_guide.md)
   — mana resource events, classification, scoring, and integration phases.
+- [Interaction Evaluation implementation guide](./interaction_evaluation_engine_implementation_guide.md)
+  — spot and mass interaction, execution variants, evidence, and scoring.
 - [Catalog-guided deck generation](./catalog-guided-deck-generation.md) — scope,
   acceptance criteria, and implementation record.
 
