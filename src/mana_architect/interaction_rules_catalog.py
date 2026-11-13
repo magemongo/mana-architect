@@ -10,7 +10,7 @@ INTERACTION_RULES_VERSION = "interaction-v1"
 _SUBJECT = r"(?P<subject>.+?)"
 _ACTIONS = r"(?:destroy|exile|return|counter|tap|prevent|shuffle|put|regenerate)"
 CLAUSE_BREAK = re.compile(
-    rf"[.;!?](?:\s+|$)|,? (?:and |then )?(?={_ACTIONS} )"
+    rf"[.;!?](?:\s+|$)|(?:,? (?:and then|and|then) |, )(?={_ACTIONS} )"
     r"|(?:,? and |,? then )(?=(?:(?:you|it|they|its controller|that player) )?"
     r"(?:gains?|loses?|draws?|creates?) \d)",
     re.IGNORECASE,
@@ -33,22 +33,24 @@ def _rule(rule_id: str, action: str, mechanism: str, role: str, pattern: str) ->
 INTERACTION_RULES = (
     _rule("GY_EXILE_001", "exile", "graveyard_hate", "disruption",
           rf"exile {_SUBJECT} (?:from|in) (?P<zone>.+\bgraveyards?)(?: |$)"),
+    _rule("GY_EXILE_ZONE_001", "exile", "graveyard_hate", "disruption",
+          r"exile (?P<subject>all graveyards|target player's graveyard|each opponent's graveyard)\b"),
     _rule("GY_SHUFFLE_001", "shuffle", "graveyard_hate", "disruption",
           r"(?:shuffle|(?P<actor>.+?) shuffles?) (?P<subject>.+?) (?:from|in) "
           r"(?P<zone>.+?\bgraveyards?) into "),
     _rule("GY_RESTRICT_001", "restrict", "graveyard_hate", "suppression",
-          rf"{_SUBJECT} in graveyards? (?:can't be|cannot be) (?P<restriction>targeted|cast|returned)\b"),
+          rf"{_SUBJECT} in graveyards? (?:can't be|cannot be) (?P<restriction>targeted|cast|returned|the targets? of)\b"),
     _rule("GY_REPLACE_001", "exile", "graveyard_hate", "suppression",
-          r"if (?P<subject>.+?) would be put into (?P<zone>.+?\bgraveyard) .+?, "
+          r"if (?P<subject>.+?) would be put into (?P<zone>.+?\bgraveyard)(?: .+?)?, "
           r"exile (?:it|that card) instead\b"),
     _rule("DESTROY_001", "destroy", "destroy_removal", "threat_answer", r"destroy (?P<subject>.+)"),
     _rule("EXILE_001", "exile", "exile_removal", "threat_answer", r"exile (?P<subject>.+)"),
     _rule("BOUNCE_001", "return_to_hand", "bounce", "threat_answer",
-          rf"return {_SUBJECT} to (?:their|its|that player's|your|(?:its |their )?owners?['’]?) (?:owners?['’] )?hands?\b"),
+          rf"return {_SUBJECT} to (?:(?:their|its) owners?'s?|that player's|your) hands?\b"),
     _rule("TUCK_001", "tuck", "tuck", "threat_answer",
           rf"(?:put|return|shuffle) {_SUBJECT} (?:on |onto |into |on top of |on the bottom of |"
           r"(?:into|on) (?:the )?(?:top|bottom) of )(?:its |their |target |that player's |your )?"
-          r"(?:owners?['’] )?librar(?:y|ies)\b"),
+          r"(?:owners?'s? )?librar(?:y|ies)\b"),
     _rule("ABILITY_COUNTER_001", "counter_ability", "ability_counter", "disruption",
           rf"counter (?P<subject>.+?\b(?:activated|triggered) abilit(?:y|ies))\b"),
     _rule("SPELL_COUNTER_001", "counter_spell", "counterspell", "disruption",
@@ -95,4 +97,7 @@ _PARENTHESES_OR_QUOTE = re.compile(r'\([^()]*\)|"[^"\n]*"|“[^”\n]*”')
 
 
 def mask_reminder_text(text: str) -> str:
-    return _PARENTHESES_OR_QUOTE.sub(lambda match: " " * len(match.group()), text)
+    def mask(match: re.Match[str]) -> str:
+        return re.sub(r"[^\r\n]", " ", match.group())
+
+    return _PARENTHESES_OR_QUOTE.sub(mask, text)

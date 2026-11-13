@@ -61,6 +61,17 @@ The versioned extraction patterns live in `ramp_rules_catalog.py`.
 The Suggestions evaluator consumes these events for the Ramp role. Its
 [scoring and coverage](./synergy-scoring.md) describe the current integration.
 
+## Interaction evaluation
+
+The [Interaction Evaluation Engine](./interaction_evaluation_engine_implementation_guide.md)
+uses the parsed ability spans and original Oracle text to build a card-local
+profile. `classify_card_interaction(card, parsed)` accepts a collection card and
+can reuse its existing `OracleParse`. `build_interaction_profile(card_id, parsed,
+...)` accepts metadata directly. Interaction evidence uses the same absolute
+source offsets as the parser. Effects retain separate target and affected-object
+counts, mechanical tags, and spot or mass scope. Legal modal choices and supported
+alternate costs are represented as execution variants.
+
 ## Downstream card-advantage and selection heuristics
 
 Deckbuilding role assignment currently adds a separate, reviewable heuristic

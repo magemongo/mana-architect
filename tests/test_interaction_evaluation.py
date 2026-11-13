@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
+from mana_architect.interaction_evaluation_engine import build_interaction_profile, classify_card_interaction
 from mana_architect.interaction_profile import (
     InteractionEvidence,
     InteractionProfile,
@@ -11,6 +12,8 @@ from mana_architect.interaction_profile import (
     Quantity,
 )
 from mana_architect.interaction_rules_catalog import INTERACTION_RULES, mask_reminder_text
+from mana_architect.models import Card
+from mana_architect.oracle_text import parse_oracle_text
 
 
 @pytest.fixture(scope="module")
@@ -49,3 +52,129 @@ def test_profile_default_json_and_invariants(profile_schema):
         InteractionEvidence("Destroy it.", 0, 1, ("DESTROY_001",), "a1")
     with pytest.raises(ValueError):
         InteractionScore(11)
+
+
+@pytest.mark.parametrize(("name", "oracle", "tags", "mechanics"), [
+    ("Swords to Plowshares", "Exile target creature. Its controller gains life equal to its power.",
+     ("spot_interaction",), {"exile_removal"}),
+    ("Counterspell", "Counter target spell.", ("spot_interaction",), {"counterspell"}),
+    ("Stifle", "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+     ("spot_interaction",), {"ability_counter"}),
+    ("Tamiyo's Safekeeping", "Target permanent you control gains hexproof and indestructible until end of turn. You gain 2 life.",
+     ("spot_interaction",), {"protection"}),
+    ("Wrath of God", "Destroy all creatures. They can't be regenerated.",
+     ("mass_interaction",), {"destroy_removal", "board_wipe"}),
+    ("Tormod's Crypt", "{T}, Sacrifice this artifact: Exile target player's graveyard.",
+     ("mass_interaction",), {"graveyard_hate"}),
+    ("Fog", "Prevent all combat damage that would be dealt this turn.",
+     ("mass_interaction",), {"damage_prevention", "fog"}),
+    ("Heroic Intervention", "Permanents you control gain hexproof and indestructible until end of turn.",
+     ("mass_interaction",), {"protection"}),
+    ("Cyclonic Rift", "Return target nonland permanent you don't control to its owner's hand.\nOverload {6}{U}",
+     ("spot_interaction", "mass_interaction"), {"bounce", "board_wipe"}),
+    ("Duress", "Target opponent reveals their hand. You choose a noncreature, nonland card from it. That player discards that card.",
+     ("spot_interaction",), {"discard_disruption"}),
+    ("Cremate", "Exile target card from a graveyard.\nDraw a card.", ("spot_interaction",), {"graveyard_hate"}),
+    ("Distributed edict", "Each opponent sacrifices a creature.", ("mass_interaction",), {"forced_sacrifice"}),
+    ("Lightning Bolt", "Lightning Bolt deals 3 damage to any target.", ("spot_interaction",), {"damage_removal"}),
+    ("Blasphemous Act", "Blasphemous Act deals 13 damage to each creature.",
+     ("mass_interaction",), {"damage_removal", "board_wipe"}),
+    ("Languish", "All creatures get -4/-4 until end of turn.", ("mass_interaction",), {"stat_reduction", "board_wipe"}),
+    ("Ground Seal", "Cards in graveyards can't be the targets of spells or abilities.",
+     ("mass_interaction",), {"graveyard_hate"}),
+    ("Divination", "Draw two cards.", (), set()),
+    ("Cultivate", "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.", (), set()),
+    ("Ephemerate", "Exile target creature you control, then return it to the battlefield under its owner's control.", (), set()),
+    ("Basic land", "{T}: Add {W}.", (), set()),
+    ("Token reminder", 'Create a token with “Sacrifice this token: Destroy all creatures.”', (), set()),
+    ("Counters", "Put a +1/+1 counter on target creature.", (), set()),
+    ("Impulse draw", "Exile the top card of your library. You may play it this turn.", (), set()),
+    ("Own bounce", "Return target creature you control to its owner's hand.", (), set()),
+    ("Trigger guard", "Whenever you counter a spell, draw a card.", (), set()),
+])
+def test_regression_matrix(name, oracle, tags, mechanics, profile_schema):
+    parsed = parse_oracle_text(oracle)
+    profile = build_interaction_profile(name, parsed, type_line="Instant", mana_cost="{1}{U}")
+    assert profile.strategy_tags == tags
+    assert set(profile.mechanical_tags) == mechanics
+    profile_schema.validate(json.loads(json.dumps(profile.to_json())))
+    for variant in profile.variants:
+        for effect in variant.effects:
+            evidence = effect.evidence
+            assert evidence.oracle_span == oracle[evidence.start:evidence.end]
+            assert evidence.rule_ids
+
+
+def test_targeted_graveyard_and_bounded_targets_count_differently():
+    oracle = "Exile all cards from target player’s graveyard. Counter up to two target spells."
+    profile = build_interaction_profile("test", parse_oracle_text(oracle))
+    graveyard, spells = profile.variants[0].effects
+    assert graveyard.target_count == Quantity("fixed", 1, 1)
+    assert graveyard.affected_object_count == Quantity("all", 0)
+    assert graveyard.object_types == ("card",)
+    assert graveyard.symmetry == "selective"
+    assert spells.target_count == Quantity("up_to", 0, 2)
+    assert spells.affected_object_count == spells.target_count
+    assert spells.scope_type == "multi_target"
+
+
+def test_modal_combinations_and_shared_evidence():
+    options = "\n• Destroy all artifacts.\n• Destroy all enchantments.\n• Destroy all creatures.\n• Draw a card."
+    choose_two = build_interaction_profile("command", parse_oracle_text("Choose two —" + options))
+    assert len(choose_two.variants) == 6
+    assert all(len(item.mode_ids) == 2 for item in choose_two.variants)
+    assert len(choose_two.mode_choices[0].modes) == 4
+    assert len({e.effect_id for v in choose_two.variants for e in v.effects}) == 3
+    farewell = "Choose one or more —\n• Exile all artifacts.\n• Exile all enchantments.\n• Exile all creatures.\n• Exile all graveyards."
+    profile = build_interaction_profile("farewell", parse_oracle_text(farewell))
+    assert len(profile.variants) == 15
+    assert {"graveyard_hate", "exile_removal"} <= set(profile.mechanical_tags)
+
+
+def test_activation_cost_condition_restriction_and_duration():
+    oracle = "Sacrifice a creature: Destroy target nonblack creature. Activate only as a sorcery.\nCounter target spell unless its controller pays {3}."
+    profile = build_interaction_profile("test", parse_oracle_text(oracle), type_line="Artifact")
+    destroy, counter = profile.variants
+    assert destroy.cost == "Sacrifice a creature"
+    assert destroy.additional_costs == ("Sacrifice a creature",)
+    assert destroy.timing == "sorcery"
+    assert destroy.effects[0].restrictions == ("nonblack",)
+    assert counter.effects[0].conditions == ("unless its controller pays {3}",)
+
+
+def test_variable_scope_stays_unresolved_and_warns_on_unrecognized_clause():
+    oracle = "Exile up to X target creatures. Destroy it all somehow."
+    profile = build_interaction_profile("test", parse_oracle_text(oracle))
+    effect, = profile.variants[0].effects
+    assert effect.scope_type == "variable"
+    assert effect.target_count == Quantity("variable", 0)
+    assert not profile.spot_interaction and not profile.mass_interaction
+    assert profile.is_interaction
+    assert profile.warnings
+
+
+def test_collection_card_uses_existing_parse_and_joined_face_metadata():
+    oracle = "Counter target spell. // Destroy all creatures."
+    card = Card(oracle_id="test", name="Test", type_line="Instant // Sorcery", mana_cost="{U} // {4}",
+                cmc=5, oracle_text=oracle, keywords=["test_keyword"])
+    parsed = parse_oracle_text(oracle)
+    profile = classify_card_interaction(card, parsed)
+    assert profile == classify_card_interaction(card, parsed)
+    assert profile.oracle_keywords == ("test_keyword",)
+    spot, mass = profile.variants
+    assert (spot.cost, spot.face_index, spot.timing) == ("{U}", 0, "instant")
+    assert (mass.cost, mass.face_index, mass.timing) == ("{4}", 1, "sorcery")
+    assert mass.effects[0].evidence.start == oracle.index("Destroy")
+
+
+def test_overload_changes_selection_and_cost_without_duplicate_effect():
+    oracle = "Return target nonland permanent you don’t control to its owner’s hand.\nOverload {6}{U}"
+    profile = build_interaction_profile("rift", parse_oracle_text(oracle), type_line="Instant", mana_cost="{1}{U}")
+    normal, overload = profile.variants
+    assert normal.cost == "{1}{U}"
+    assert overload.cost == "{6}{U}"
+    assert normal.interaction_types == ("spot",)
+    assert overload.interaction_types == ("mass",)
+    assert normal.effects[0].effect_id == overload.effects[0].effect_id
+    assert normal.effects[0].target_count.max == 1
+    assert overload.effects[0].target_count.max == 0
