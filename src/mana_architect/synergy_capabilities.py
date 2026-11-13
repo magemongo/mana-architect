@@ -24,7 +24,8 @@ CAPABILITY_IDS = frozenset({
     "remove_permanent", "restrict_actions", "combat_buff", "extra_combat",
     "grant_haste", "grant_evasion", "equip", "attach_aura", "single_attacker_payoff",
     "attack_payoff", "artifact_count_payoff", "land_count_payoff",
-    "token_count_payoff", "protect_creature", "resolve_spell",
+    "token_count_payoff", "protect_creature", "resolve_spell", "grant_lifelink",
+    "populate", "additional_draw",
 })
 
 _FLAGS = re.IGNORECASE
@@ -201,7 +202,8 @@ def _match_action(text: str) -> tuple[str, str, MechanicalObject, dict] | None:
         controller = _controller(tail, "you")
         if "owner's control" in tail:
             controller = owner
-        return ("return_from_graveyard" if battlefield else "recover_to_hand"), "return", _object(match["object"]), dict(
+        obj = _object(match["object"])
+        return ("return_from_graveyard" if battlefield else "recover_to_hand"), "return", obj, dict(
             event="zone_change", controller=controller, owner=owner, source_zone="graveyard",
             destination_zone="battlefield" if battlefield else "hand", quantity=_quantity("one"),
             conditions=(tail,) if tail and tail not in {"under your control", "under its owner's control", "tapped"} else (),
@@ -222,9 +224,11 @@ def _match_action(text: str) -> tuple[str, str, MechanicalObject, dict] | None:
         if match is not None:
             fields = match.groupdict()
             object_text = fields.get("object") or ""
-            obj = _object(object_text) if object_text else MechanicalObject("unknown")
+            obj = _object(object_text) if object_text else MechanicalObject({
+                "draw": "card", "discard": "card", "self_mill": "card",
+            }.get(capability_id, "unknown"))
             return capability_id, action, obj, dict(
-                controller=_controller(object_text, "you" if obj.reference == "self" else "unknown"),
+                controller=_controller(object_text, "you" if obj.reference == "self" or obj.kind == "card" else "unknown"),
                 quantity=_quantity(fields.get("count")),
                 costs=(fields["cost"],) if fields.get("cost") else (),
             )
@@ -238,10 +242,17 @@ _SIMPLE_EFFECTS = tuple(
         ("self_mill", "mill", rf"(?:you )?mill (?P<count>{_NUMBER}) cards?"),
         ("discard", "discard", rf"(?:you )?discard (?P<count>{_NUMBER}) cards?"),
         ("proliferate", "proliferate", r"proliferate"),
+        ("populate", "populate", r"populate"),
+        ("grant_lifelink", "grant", r"(?P<object>target creature.*|creatures you control|@self) gains? lifelink(?: .+)?"),
+        ("additional_draw", "draw", rf"you draw (?P<count>{_NUMBER}) additional cards?"),
+        ("artifact_count_payoff", "scale", r".+ (?:for each|equal to the number of) artifacts you control"),
+        ("land_count_payoff", "scale", r".+ (?:for each|equal to the number of) lands you control"),
+        ("token_count_payoff", "scale", r".+ (?:for each|equal to the number of) (?:creature )?tokens you control"),
         ("double_existing_counters", "double", r"double the number of (?:\+1/\+1 )?counters on (?P<object>.+)"),
         ("untap", "untap", r"untap (?P<object>target .+|all .+|this .+)"),
         ("counter_spell", "counter", r"counter (?P<object>target .+spell)"),
-        ("remove_permanent", "remove", r"(?:destroy|exile|return) (?P<object>(?:target|all|each) .+?)(?: to (?:its owner's hand|their owners' hands))?"),
+        ("remove_permanent", "remove", r"(?:destroy|exile) (?P<object>(?:target|all|each) (?:nonland )?(?:artifact|creature|enchantment|land|permanent|planeswalker)s?(?: (?:an opponent|you) controls?)?)"),
+        ("remove_permanent", "remove", r"return (?P<object>(?:target|all|each) .+?) to (?:its owner's hand|their owners' hands)"),
         ("restrict_actions", "restrict", r"(?P<object>players|opponents|your opponents) (?:can't|cannot) (?:cast|activate|attack|block).+"),
         ("reduce_spell_cost", "reduce", r"(?P<object>.+ spells?) you cast cost \{[^}]+\} less to cast"),
         ("deal_noncombat_damage", "deal", rf".+ deals? (?P<count>{_NUMBER}) damage to (?P<object>.+)"),
@@ -264,7 +275,7 @@ _OBSERVERS = tuple(
         ("lifegain_payoff", "life_gain", r"(?P<actor>you|a player|an opponent) gains? life"),
         ("cast_or_copy_payoff", "cast_or_copy", r"(?P<actor>you|a player|an opponent) casts? or copies? (?P<object>.+ spell)"),
         ("cast_payoff", "cast", r"(?P<actor>you|a player|an opponent) casts? (?P<object>.+ spell)"),
-        ("counter_payoff", "counter_placement", r"(?P<counter>\+1/\+1) counters? (?:is|are) put on (?P<object>.+)"),
+        ("counter_payoff", "counter_placement", r"(?:one or more )?(?P<counter>\+1/\+1) counters? (?:is|are) put on (?P<object>.+)"),
         ("single_attacker_payoff", "attack_alone", r"(?P<object>.+) attacks? alone"),
         ("attack_payoff", "attack", r"(?P<object>.+) attacks?"),
     )
@@ -299,6 +310,7 @@ def extract_mechanical_capabilities(
     names = tuple(part.casefold() for part in name.split(" // ") if part)
     face_types = tuple(type_line.casefold().split(" // "))
     face = 0
+    spell_faces = set()
     for ability in parsed.abilities:
         for line in re.finditer(r"[^\r\n]+", ability.text):
             start, end = ability.start + line.start(), ability.start + line.end()
@@ -323,6 +335,17 @@ def extract_mechanical_capabilities(
                 parsed, evidence, normalized, face_type, resource_events.get(start, ()),
             )
             capabilities.extend(extracted)
+            spell_type = re.match(r"^(?:kindred )?(instant|sorcery)\b", face_type)
+            if spell_type and extracted and face not in spell_faces and re.match(
+                r"^(?:draw|create|you |return|exile|destroy|counter|put|add|copy|@self)", normalized.strip(),
+            ):
+                spell_faces.add(face)
+                capabilities.append(MechanicalCapability(
+                    "resolve_spell", "resolve", "spell_resolution",
+                    MechanicalObject("spell", (spell_type[1],), reference="self"),
+                    evidence, source_zone="stack", controller="you",
+                    timing=f"{spell_type[1]}_speed", repeatability="single_use",
+                ))
             if incomplete:
                 unknowns.append(evidence)
     return MechanicalProfile(tuple(capabilities), tuple(unknowns), parsed.parser_version)
@@ -409,10 +432,13 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
         remainder_start = len(cost) + 1
         original_cost = evidence.oracle_span[:len(cost)].strip()
         costs = (original_cost,)
-        for part in re.split(r",\s*|\band\s+", cost.strip()):
-            if result := _match_action(" ".join(part.split())):
+        for part in re.finditer(r"(?:^|,\s*|\band\s+)([^,]+?)(?=,|$)", cost):
+            if result := _match_action(" ".join(part[1].split())):
                 capability_id, action, obj, fields = result
-                emit(capability_id, action, obj, **fields)
+                left = part.start(1) + len(part[1]) - len(part[1].lstrip())
+                span = _evidence(parsed, evidence.ability_id, evidence.start + left,
+                                 evidence.start + part.start(1) + len(part[1].rstrip()))
+                emit(capability_id, action, obj, span, **fields)
 
     remainder = text[remainder_start:]
     stripped = " ".join(remainder.split())

@@ -16,8 +16,9 @@ def test_treasure_is_one_typed_creation_event_and_reminder_text_is_ignored():
         'Draw a card and create two Treasure tokens. (They have "{T}, Sacrifice this token: Add {G}.")',
         type_line="Sorcery",
     )
-    draw, creation = profile.capabilities
+    draw, creation, spell = profile.capabilities
     assert draw.id == "draw"
+    assert spell.id == "resolve_spell"
     assert creation.id == "create_token"
     assert creation.object.types == ("artifact",)
     assert creation.object.subtypes == ("treasure",)
