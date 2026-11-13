@@ -23,6 +23,7 @@ from mana_architect.commanders import CommanderOption, resolve_commander
 from mana_architect.models import Card, CollectionPrinting
 from mana_architect.oracle_text import parse_oracle_text
 from mana_architect.overrides import ManualOverride, resolve_classification_overrides
+from mana_architect.ramp_evaluator import RampProfile, evaluate_ramp
 from mana_architect.synergy import (
     CardScoreInput,
     CardSynergyScore,
@@ -30,6 +31,8 @@ from mana_architect.synergy import (
     score_card_for_strategy,
 )
 from mana_architect.validation import deck_name_copy_limit
+
+STANDALONE_SUGGESTION_ROLES = frozenset({"card_advantage", "ramp"})
 
 
 @dataclass(frozen=True)
@@ -70,6 +73,7 @@ class IdentityCollectionSuggestion:
     classification: ClassificationResult
     overrides: tuple[ManualOverride, ...]
     strict_card_advantage: int | None = None
+    ramp_profile: RampProfile | None = None
 
 
 @dataclass(frozen=True)
@@ -105,13 +109,16 @@ def suggest_collection_cards_by_identity(
     prioritized_roles: tuple[str, ...] = (),
     limit: int = 50,
 ) -> IdentityCollectionSuggestionBatch:
-    """Rank by strategy evidence, with a card-advantage base for that role."""
+    """Rank by strategy evidence or a standalone role evaluation."""
     card_advantage_mode = prioritized_roles == ("card_advantage",)
+    ramp_mode = prioritized_roles == ("ramp",)
     valid_colors = {"W", "U", "B", "R", "G"}
     if len(set(color_identity)) != len(color_identity) or not set(color_identity) <= valid_colors:
         raise ValueError("color_identity must contain unique Magic colors.")
-    if (not strategy_ids and not card_advantage_mode) or len(set(strategy_ids)) != len(strategy_ids):
-        raise ValueError("Select one or more unique strategies.")
+    if len(set(strategy_ids)) != len(strategy_ids):
+        raise ValueError("Select unique strategies.")
+    if not strategy_ids and not (card_advantage_mode or ramp_mode):
+        raise ValueError("Choose a strategy or select Ramp or Card Advantage.")
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 50:
         raise ValueError("limit must be an integer between 1 and 50.")
     strategies = {item.id: item for item in catalog.strategies if item.active}
@@ -175,9 +182,12 @@ def suggest_collection_cards_by_identity(
             if target_type == "role"
         }
         net_cards = None
-        if card_advantage_mode:
+        ramp_profile = None
+        ramp_line = None
+        if card_advantage_mode or ramp_mode:
+            role_id = prioritized_roles[0]
             if any(
-                item.target_type == "role" and item.target_id == "card_advantage"
+                item.target_type == "role" and item.target_id == role_id
                 and not item.included
                 for item in decisions
             ):
@@ -185,13 +195,25 @@ def suggest_collection_cards_by_identity(
             parsed = classification.oracle_parse or parse_oracle_text(
                 card.oracle_text, catalog.oracle_lexicon, catalog.oracle_mechanical_patterns
             )
-            profile = compile_profile(card.oracle_id, card.type_line, card.mana_cost, parsed)
-            net_cards = max((evaluate_cast(line).self_delta for line in profile.lines), default=None)
-            if net_cards is None and "card_advantage" not in found_roles:
-                continue
-            if net_cards is not None and net_cards <= 0:
-                continue
-            found_roles.add("card_advantage")
+            if card_advantage_mode:
+                profile = compile_profile(card.oracle_id, card.type_line, card.mana_cost, parsed)
+                net_cards = max((evaluate_cast(line).self_delta for line in profile.lines), default=None)
+                if net_cards is None and role_id not in found_roles:
+                    continue
+                if net_cards is not None and net_cards <= 0:
+                    continue
+            else:
+                ramp_profile = evaluate_ramp(
+                    card.oracle_id, card.type_line, card.mana_cost, parsed,
+                    colorless_identity=not allowed_identity,
+                )
+                ramp_line = ramp_profile.best_line
+                if ramp_line is None and ("role", role_id) not in manual_inclusions and not any(
+                    item.target_type == "role" and item.target_id == role_id
+                    for item in classification.evidence
+                ):
+                    continue
+            found_roles.add(role_id)
 
         strategy_scores: dict[str, float] = {}
         for strategy_id in strategy_ids:
@@ -240,6 +262,8 @@ def suggest_collection_cards_by_identity(
         if card_advantage_mode:
             # One point for classification evidence when no exact line is available.
             combined_score = (net_cards or 1) + best_strategy_score / 100
+        elif ramp_mode:
+            combined_score = (ramp_line.score if ramp_line else 1.0) + best_strategy_score / 100
         suggestions.append(
             IdentityCollectionSuggestion(
                 oracle_id=card.oracle_id,
@@ -251,6 +275,7 @@ def suggest_collection_cards_by_identity(
                 available_quantity=quantity,
                 score=round(combined_score, 3),
                 strict_card_advantage=net_cards,
+                ramp_profile=ramp_profile,
                 strategy_scores=MappingProxyType(strategy_scores),
                 matching_strategy_ids=matched_strategy_ids,
                 role_ids=tuple(sorted(found_roles)),

@@ -54,13 +54,25 @@ excludes the commander, and applies legality, color identity, and classification
 filters before showing rankings. The page accepts one or more strategies and
 zero or one core role. Without a role, cards need evidence for at least one
 selected strategy. With a role selected, only cards in that role remain; the
-strongest selected-strategy score orders those cards, except for Card Advantage.
+strongest selected-strategy score orders those cards for interaction roles.
 Card Advantage uses the highest positive strict net gain on successful
 resolution as its base. When the evaluator lacks coverage, an included Card
 Advantage classification receives one ranking point. This is a ranking value
 with unmeasured net gain. Measured zero or negative lines and manual role
 exclusions are omitted. The best selected strategy score divided by 100 is
-added to the base. Strategy selection is optional. Results include score, matched strategies, detected roles,
+added to the base. Strategy selection is optional.
+
+Ramp can also be selected without a strategy. Its base is the best supported
+Oracle ability, scored on acceleration, persistence, speed, and reliability.
+A selected strategy adds the same bonus as in Card Advantage. The result shows
+the mechanism, its Oracle evidence, and exact net mana for simple fixed bursts
+such as Dark Ritual. Board-dependent quantities remain unknown. Basic lands
+and mana-neutral production are excluded by the evaluator. Explicit catalog
+role evidence and manual inclusions can supply a one-point fallback, and
+manual role exclusions take precedence. The current evaluator covers direct
+mana production, land development, and mana tokens.
+
+Results include score, matched strategies, detected roles,
 evidence, and remaining quantity. Only classifications whose fingerprint still
 matches card data and the current rules are scored. The page offers an explicit
 action to reclassify only cards in the collection; opening the app does not

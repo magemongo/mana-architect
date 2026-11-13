@@ -49,6 +49,7 @@ from mana_architect.models import (
 from mana_architect.oracle_text import PARSER_VERSION
 from mana_architect.suggestions import (
     IdentityCollectionSuggestion,
+    STANDALONE_SUGGESTION_ROLES,
     collection_oracle_ids,
     suggest_collection_cards_by_identity,
 )
@@ -1503,7 +1504,7 @@ def _render_collection_suggestions(session: Session) -> None:
                 format_func=lambda value: strategy_names[value],
                 key="suggestion_strategy_ids",
                 placeholder="Choose strategies for synergy ranking",
-                help="Strategies add a bonus to Card Advantage results.",
+                help="Strategies are optional for Ramp and Card Advantage and add a ranking bonus.",
             )
         )
         selected_role_id = st.selectbox(
@@ -1511,7 +1512,7 @@ def _render_collection_suggestions(session: Session) -> None:
             options=[None, *(item.id for item in catalog.roles)],
             format_func=lambda value: "No role filter" if value is None else role_names[value],
             key="suggestion_role_id",
-            help="Filter by role. Card Advantage also recognizes supported standalone cast lines.",
+            help="Filter by role or rank cards directly by Ramp or Card Advantage.",
         )
         role_ids = (selected_role_id,) if selected_role_id is not None else ()
         search_clicked = st.form_submit_button(
@@ -1520,6 +1521,7 @@ def _render_collection_suggestions(session: Session) -> None:
             key="search_collection_suggestions",
         )
     card_advantage_mode = selected_role_id == "card_advantage"
+    ramp_mode = selected_role_id == "ramp"
     active_query = (tuple(color_identity), strategy_ids, role_ids)
     if search_clicked:
         st.session_state["suggestion_query"] = active_query
@@ -1532,8 +1534,8 @@ def _render_collection_suggestions(session: Session) -> None:
     if saved_query != active_query:
         st.info("Choose the filters and click **Find suggestions**.")
         return
-    if not strategy_ids and not card_advantage_mode:
-        st.info("Choose a strategy or select the Card Advantage role.")
+    if not strategy_ids and selected_role_id not in STANDALONE_SUGGESTION_ROLES:
+        st.info("Choose a strategy or select Ramp or Card Advantage.")
         return
 
     if st.button(
@@ -1580,10 +1582,7 @@ def _render_collection_suggestions(session: Session) -> None:
             "**Reclassify collection cards** to refresh them locally."
         )
     if not batch.suggestions:
-        st.info(
-            "No card-advantage cards matched these filters."
-            if card_advantage_mode else "No classified cards matched these filters."
-        )
+        st.info("No cards matched these filters.")
         return
 
     visible_count = min(
@@ -1612,12 +1611,23 @@ def _render_collection_suggestions(session: Session) -> None:
                 heading += f" &nbsp; {cost}"
             with st.container(key=row_key):
                 st.markdown(heading)
-                ranking_label = f"Score {item.score:.3f}" if card_advantage_mode else f"Score {item.score:.1f}"
+                score_precision = 3 if card_advantage_mode or ramp_mode else 1
+                ranking_label = f"Score {item.score:.{score_precision}f}"
+                ramp_line = item.ramp_profile.best_line if item.ramp_profile else None
                 if card_advantage_mode:
                     if item.strict_card_advantage is None:
                         ranking_label += " · Card advantage from classification"
                     else:
                         ranking_label += f" · Net cards {item.strict_card_advantage:+d}"
+                if ramp_mode:
+                    if ramp_line is None:
+                        ranking_label += " · Ramp from classification"
+                    else:
+                        ranking_label += f" · {ramp_line.mechanism.capitalize()}"
+                        if ramp_line.net_immediate_mana is not None:
+                            ranking_label += f" · Net mana {ramp_line.net_immediate_mana:+d}"
+                        if ramp_line.conditional:
+                            ranking_label += " · Conditional"
                 st.caption(
                     f"{ranking_label} · {item.type_line or 'Unknown type'} · "
                     f"Owned: {item.available_quantity}"
@@ -1629,6 +1639,9 @@ def _render_collection_suggestions(session: Session) -> None:
                     summary_parts.append("Roles: " + ", ".join(role_labels))
                 st.caption(" · ".join(summary_parts) if summary_parts else "No matched tags or roles")
                 with st.expander("Classification details"):
+                    if ramp_line is not None:
+                        st.caption(f"Base ramp score {ramp_line.score:.3f}")
+                        st.text(ramp_line.event.evidence.oracle_span)
                     if item.strategy_scores:
                         st.markdown(
                             "**Strategy scores:** "

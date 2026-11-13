@@ -288,6 +288,16 @@ def test_suggestions_page_filters_by_identity_and_strategy_without_corrections(
         app.form_submit_button(key="search_collection_suggestions").click().run()
         assert not app.exception
         assert any("Net cards +2" in item.value for item in app.caption)
+
+        with Session(get_engine()) as session, session.begin():
+            card = session.get(Card, "ui-token-card")
+            card.oracle_text = "Add {G}{G}{G}."
+            reclassify_cards(session, catalog, DEFAULT_CATALOG_DIR, ("ui-token-card",))
+        app.selectbox(key="suggestion_role_id").select("ramp")
+        app.form_submit_button(key="search_collection_suggestions").click().run()
+        assert not app.exception
+        assert any("Net mana +2" in item.value for item in app.caption)
+        assert any(item.value == "Add {G}{G}{G}." for item in app.text)
     finally:
         app_engine = get_engine()
         app_engine.dispose()

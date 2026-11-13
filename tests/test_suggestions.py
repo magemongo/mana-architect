@@ -409,3 +409,65 @@ def test_counter_payoffs_rank_as_conditional_card_advantage(database, catalog):
     for item in result.suggestions:
         assert item.strict_card_advantage is None
         assert item.strategy_scores["plus_one_counters"] > 0
+
+
+def test_ramp_suggestions_use_the_profile_and_optional_strategy_bonus(database, catalog):
+    cards = (
+        ("sol-ring", "Artifact", "{1}", "{T}: Add {C}{C}.", (), "legal"),
+        ("dark-ritual", "Instant", "{B}", "Add {B}{B}{B}.", ("B",), "legal"),
+        ("neutral-ritual", "Instant", "{B}", "Add {B}.", ("B",), "legal"),
+        ("fixing", "Artifact", "{1}", "{1}, {T}: Add one mana of any color.", (), "legal"),
+        ("forest", "Basic Land — Forest", "", "{T}: Add {G}.", ("G",), "legal"),
+        ("exploration", "Enchantment", "{G}", "You may play an additional land on each of your turns.", ("G",), "legal"),
+        ("nature-lore", "Sorcery", "{1}{G}", "Search your library for a Forest card, put it onto the battlefield, then shuffle.", ("G",), "legal"),
+        ("treasure", "Instant", "{2}", "Create two Treasure tokens.", (), "legal"),
+        ("conditional", "Creature — Elf", "{1}{G}", "{T}: Add {G} for each Elf on the battlefield.", ("G",), "legal"),
+        ("banned", "Artifact", "{0}", "{T}: Add {C}{C}.", (), "banned"),
+        ("off-color", "Creature", "{R}", "{T}: Add {R}.", ("R",), "legal"),
+        ("unowned", "Artifact", "{0}", "{T}: Add {C}{C}.", (), "legal"),
+        ("unclassified", "Artifact", "{0}", "{T}: Add {C}{C}.", (), "legal"),
+        ("manual", "Enchantment", "{1}", "Spells you cast cost {1} less to cast.", (), "legal"),
+        ("excluded", "Artifact", "{0}", "{T}: Add {C}{C}.", (), "legal"),
+    )
+    with Session(database) as session, session.begin():
+        for oracle_id, type_line, cost, text, colors, legality in cards:
+            session.add(Card(
+                oracle_id=oracle_id, name=oracle_id, type_line=type_line, oracle_text=text,
+                mana_cost=cost, color_identity=list(colors), legalities={"commander": legality},
+            ))
+            if oracle_id != "unowned":
+                session.add(_printing(oracle_id, oracle_id, 1))
+        reclassify_cards(
+            session, catalog, DEFAULT_CATALOG_DIR,
+            tuple(card[0] for card in cards if card[0] != "unclassified"),
+        )
+        for oracle_id, action in (("excluded", "force_exclude"), ("manual", "force_include")):
+            save_card_classification_override(
+                session, oracle_id, ManualOverride("role", "ramp", action, reason="Reviewed"), catalog,
+            )
+
+    with Session(database) as session:
+        standalone = suggest_collection_cards_by_identity(
+            session, ("G", "B"), (), catalog, prioritized_roles=("ramp",),
+        )
+        ranked = suggest_collection_cards_by_identity(
+            session, ("G", "B"), ("tokens",), catalog, prioritized_roles=("ramp",),
+        )
+
+    by_id = {item.oracle_id: item for item in standalone.suggestions}
+    assert set(by_id) == {
+        "sol-ring", "dark-ritual", "exploration", "nature-lore", "treasure", "conditional", "manual",
+    }
+    assert standalone.unclassified_count >= 1
+    assert standalone.suggestions[0].oracle_id == "sol-ring"
+    assert by_id["dark-ritual"].ramp_profile.best_line.net_immediate_mana == 2
+    assert by_id["conditional"].ramp_profile.best_line.event.quantity.value is None
+    assert by_id["conditional"].ramp_profile.best_line.conditional
+    assert by_id["manual"].ramp_profile.best_line is None
+    assert by_id["manual"].score == 1
+    assert all("ramp" in item.role_ids for item in standalone.suggestions)
+    with_strategy = {item.oracle_id: item for item in ranked.suggestions}
+    assert set(with_strategy) == set(by_id)
+    treasure = with_strategy["treasure"]
+    assert treasure.strategy_scores["tokens"] > 0
+    assert treasure.score == round(by_id["treasure"].score + treasure.strategy_scores["tokens"] / 100, 3)

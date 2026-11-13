@@ -50,7 +50,7 @@ their administration in the UI. That work is in progress:
 | Later | Evaluate and calibrate heuristics with reference decks | Pending; current weights are initial and not empirically calibrated |
 | Later | Optional natural-language interface using an LLM | Idea from the initial document; not implemented |
 | In progress | Card Advantage module | Strict stock evaluator for fixed draw casts and self-enters draw, including evoke. Conditional engines, interactions, and ranking integration remain pending. |
-| In progress | [Ramp Evaluation Engine](./ramp_evaluation_engine_implementation_guide.md) | Versioned resource extraction covers direct mana, land development, and common mana tokens. Classification, scoring, and candidate integration are pending. |
+| In progress | [Ramp Evaluation Engine](./ramp_evaluation_engine_implementation_guide.md) | Suggestions ranks supported mana production, land development, and mana tokens with an optional strategy bonus. Broader mechanics, calibration, and persisted profiles remain pending. |
 
 Items marked Later are not approved or scheduled. Current work should preserve
 catalog versioning and classification provenance.

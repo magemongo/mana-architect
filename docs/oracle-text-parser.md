@@ -58,8 +58,8 @@ Events retain source offsets, activation costs, quantities, and recognized
 conditions. Quantities that depend on the board or a variable remain unknown.
 The versioned extraction patterns live in `ramp_rules_catalog.py`.
 
-Ramp classification, static scores, and candidate filtering are later phases
-of the guide.
+The Suggestions evaluator consumes these events for the Ramp role. Its
+[scoring and coverage](./synergy-scoring.md) describe the current integration.
 
 ## Downstream card-advantage and selection heuristics
 
