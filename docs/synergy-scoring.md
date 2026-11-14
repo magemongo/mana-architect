@@ -90,9 +90,9 @@ and ineligibility reasons. Contributions explain the rounded score within the
 configured precision. Caps for generic evidence, type-line matches, and weak
 rules are applied after the formula and shown in the reasons.
 
-## Collection Integration
+## Color-identity Suggestions
 
-The Suggestions page reads cards and physical quantities from the collection
+Without a selected commander, Suggestions reads cards and physical quantities from the collection
 and applies Commander legality, color identity, and classification filters
 before showing rankings. The page accepts zero or more strategies and zero or
 one core role. In a strategy-only search, cards need evidence for at least one
@@ -144,7 +144,7 @@ the weight combined. These weights are heuristic.
 | Duration | 5% | |
 
 Results include score, matched strategies, detected roles,
-evidence, and remaining quantity. Only classifications whose fingerprint still
+evidence, and remaining quantity. In color-identity searches, only classifications whose fingerprint still
 matches card data and the current rules are scored. The page offers an explicit
 action to reclassify only cards in the collection; opening the app does not
 trigger reclassification.

@@ -64,16 +64,14 @@ versioned; reclassification is incremental, explicit, and does not run when
 the app opens. Read [catalog persistence](docs/classification-storage.md)
 before persisting changes to the collection.
 
-The deterministic scorer evaluates synergy for an explicitly selected
-strategy. Suggestions shows scores, match reasons, detected roles, and
-available quantities. Choose Ramp, Card Advantage, Spot Interaction, or Mass
-Interaction to search without a strategy. Selecting strategies adds a bonus
-to the role score.
-Catalog-guided generation also uses the score alongside
-role and curve balance. Missing or stale classifications are not recalculated
-automatically; explicitly reclassify the collection on **Suggestions**. Cards
-without current classifications are reported and excluded from guided mode.
-Legality and color identity remain separate filters. See
+Suggestions ranks owned, legal cards by color identity or by an owned
+commander. Commander searches use mechanical synergy and accept multiple
+strategies with relative priorities. Score details show evidence and conditions.
+A core-role search uses its role score with an optional synergy bonus.
+Color-identity searches and catalog-guided generation use classification
+evidence. Missing or stale classifications are reported and can be refreshed
+on **Suggestions**. Guided generation excludes cards without current
+classifications. See
 [synergy scoring](docs/synergy-scoring.md) for details and limitations.
 
 ## Configuration and Database

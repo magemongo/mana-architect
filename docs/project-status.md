@@ -1,10 +1,8 @@
 # Project Status and Roadmap
 
-- **Reviewed:** 2026-11-12
-- **Latest reviewed implementation revision:** `43b0a7d`; a full test audit of
-  the recent suggestions and classification changes remains outstanding
-- **Approved development scope:** catalog, role, affinity administration, and
-  Oracle text parser integration requested on 2026-11-12
+- **Reviewed:** 2026-11-14
+- **Latest implementation verification:** `99b8341`, commander synergy integration
+- **Approved development scope:** strategy synergy and Suggestions integration
 - **Product language:** English
 
 This is the canonical summary of the product and its known roadmap. The status
@@ -105,10 +103,10 @@ related validation and generation tests.
   classifications, evidence, manual overrides, and affinities.
 - Deterministic scorer explains its components and reasons. Suggestions are
   filtered by collection, legality, and color identity.
-- The Suggestions page accepts multiple strategies and zero or one core role.
-  Ramp, Card Advantage, Spot Interaction, and Mass Interaction support role-only
-  searches and add an optional strategy bonus. With no role selected, strategy
-  evidence determines inclusion and ranking.
+- Suggestions supports commander searches with mechanical synergy and optional
+  weighted strategies, plus color-identity searches using classification
+  evidence. Either search can use a core role. Commander results expose score
+  components, conditions, and Oracle evidence.
 - The domain and UI support multiple strategy and tag affinities per commander,
   with `primary`, `secondary`, and `complementary` levels. The responsive table
   editor still needs visual verification.
@@ -203,12 +201,7 @@ heuristics.
 
 ### Evidence for this review
 
-- Audited code revision: `5533668` (`feat: integrate strategy catalog into deck generation`).
-- Tests at that revision: `python -m pytest -q` — **131 passed**. The current
-  changes had not been tested at the time of that review.
-- Manual Streamlit exercise with a temporary database: catalog mode, Tokens
-  strategy, **100/100** cards, 98 lands, and validation passed. The temporary
-  database was removed afterward.
-
-A behavior change invalidates the corresponding evidence. Update the reviewed
-revision, run relevant tests, and record the new result.
+- Implementation revision `99b8341` passed **281 tests** with
+  `python -m pytest -q`.
+- A Streamlit session using a temporary copy of the collection reproduced the
+  CLI's top three Anowon candidates and displayed commander evidence.
