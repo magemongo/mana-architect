@@ -11,6 +11,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from mana_architect.catalog import StrategyCatalog, load_strategy_catalog
+from mana_architect.synergy_capabilities import CAPABILITY_VERSION
 from mana_architect.classification import (
     CardClassificationInput,
     ClassificationEvidence,
@@ -126,6 +127,8 @@ def _classification_configuration_hash(
         ],
         "rules": rules_data,
     }
+    if any(rule.enabled and rule.match.type == "mechanical_capability_any" for rule in catalog.rules):
+        semantics["mechanical_capability_version"] = CAPABILITY_VERSION
     encoded = json.dumps(
         semantics,
         ensure_ascii=False,
@@ -701,6 +704,7 @@ def _register_catalog_version(
 
 def card_classification_input(card: Card) -> CardClassificationInput:
     return CardClassificationInput(
+        name=card.name,
         type_line=card.type_line,
         oracle_text=card.oracle_text,
         mana_cost=card.mana_cost,
@@ -718,6 +722,7 @@ def card_classification_input(card: Card) -> CardClassificationInput:
 
 def _card_input_fingerprint(card: Card, catalog: StrategyCatalog) -> str:
     values = {
+        "name": card.name,
         "type_line": card.type_line,
         "type_line_normalized": card.type_line,
         "oracle_text": card.oracle_text,
@@ -738,6 +743,10 @@ def _card_input_fingerprint(card: Card, catalog: StrategyCatalog) -> str:
         }
     )
     relevant_fields = sorted(set(relevant_fields) | {"oracle_text"})
+    if "mechanical_capabilities" in relevant_fields:
+        relevant_fields = sorted(
+            (set(relevant_fields) - {"mechanical_capabilities"}) | {"name", "type_line"}
+        )
     if any(role.oracle_keywords for role in catalog.roles):
         relevant_fields = sorted(set(relevant_fields) | {"oracle_text", "keywords"})
     if {"oracle_features", "oracle_mechanics", "classification_tags"}.intersection(

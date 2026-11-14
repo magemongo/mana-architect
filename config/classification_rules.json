@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "ruleset_version": "1.6.0",
+  "ruleset_version": "1.7.0",
   "rules": [
     {
       "id": "tag_create_tokens_oracle_text",
@@ -392,6 +392,1858 @@
       "confidence": 0.45,
       "evidence_label": "A life-loss effect may be an Aristocrats death payoff when paired with a death trigger.",
       "requires_review": true
+    },
+    {
+      "id": "strategy_enchantress_theme_cast_payoff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "enchantress",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["cast_payoff"], "where": {"object_type": "enchantment"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Enchantress theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_enchantress_theme_enter_payoff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "enchantress",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["enter_payoff"], "where": {"object_type": "enchantment"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Enchantress theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_enchantress_theme_reduce_spell_cost",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "enchantress",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["reduce_spell_cost"], "where": {"object_type": "enchantment"}},
+      "weight": 0.8,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Enchantress theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_enchantress_theme_return_from_graveyard",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "enchantress",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["return_from_graveyard"], "where": {"object_type": "enchantment"}},
+      "weight": 0.7,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Enchantress theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_equipment_theme_equip",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "equipment",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["equip"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Equipment theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_mill_theme_mill_opponent",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "mill",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["mill_opponent"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Mill theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_blink_theme_blink",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "blink",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["blink"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Blink theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_blink_theme_enter_payoff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "blink",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["enter_payoff"], "where": {"reference": "self"}},
+      "weight": 0.75,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Blink theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_graveyard_theme_self_mill",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "graveyard",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["self_mill"]},
+      "weight": 0.7,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Graveyard theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_graveyard_theme_discard",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "graveyard",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["discard"]},
+      "weight": 0.45,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Graveyard theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_graveyard_theme_return_from_graveyard",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "graveyard",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["return_from_graveyard"]},
+      "weight": 0.9,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Graveyard theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_graveyard_theme_recover_to_hand",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "graveyard",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["recover_to_hand"]},
+      "weight": 0.85,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Graveyard theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_discard_theme_force_discard",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "discard",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["force_discard"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Discard theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_sacrifice_theme_sacrifice",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "sacrifice",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["sacrifice"]},
+      "weight": 0.95,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Sacrifice theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_sacrifice_theme_sacrifice_payoff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "sacrifice",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["sacrifice_payoff"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Sacrifice theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_sacrifice_theme_create_token",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "sacrifice",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["create_token"], "where": {"object_type": "creature"}},
+      "weight": 0.5,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Sacrifice theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_clones_theme_copy_permanent",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "clones",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["copy_permanent"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Clones theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_treasure_theme_create_token",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "treasure",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["create_token"], "where": {"subtype": "treasure"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Treasure theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_auras_theme_attach_aura",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "auras",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["attach_aura"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Auras theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_card_draw_theme_draw",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "card_draw",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["draw"]},
+      "weight": 0.6,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Card Draw theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_card_draw_theme_additional_draw",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "card_draw",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["additional_draw"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Card Draw theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_flying_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "flying",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "flying"}},
+      "weight": 0.8,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Flying theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_flying_theme_grant_evasion",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "flying",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["grant_evasion"], "where": {"subtype": "flying"}},
+      "weight": 0.85,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Flying theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_group_slug_theme_deal_noncombat_damage",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "group_slug",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["deal_noncombat_damage"], "where": {"subtype": "each_opponent"}},
+      "weight": 0.85,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Group Slug theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_storm_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "storm",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "storm"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Storm theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_self_mill_theme_self_mill",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "self_mill",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["self_mill"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Self-Mill theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_stax_theme_restrict_actions",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "stax",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["restrict_actions"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Stax theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_landfall_theme_enter_payoff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "landfall",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["enter_payoff"], "where": {"object_type": "land"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Landfall theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_landfall_theme_extra_land_play",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "landfall",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["extra_land_play"]},
+      "weight": 0.8,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Landfall theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_landfall_theme_put_land",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "landfall",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["put_land"]},
+      "weight": 0.75,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Landfall theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_theft_theme_take_control",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "theft",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["take_control"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Theft theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_extra_combats_theme_extra_combat",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "extra_combats",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["extra_combat"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Extra Combats theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_infect_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "infect",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "infect"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Infect theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_forced_combat_theme_goad",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "forced_combat",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["goad"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Forced Combat theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_planeswalkers_theme_printed_type",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "planeswalkers",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["printed_type"], "where": {"object_type": "planeswalker"}},
+      "weight": 0.75,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Planeswalkers theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_planeswalkers_theme_put_counters",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "planeswalkers",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["put_counters"], "where": {"subtype": "loyalty", "object_type": "planeswalker"}},
+      "weight": 0.9,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Planeswalkers theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_vehicles_theme_printed_subtype",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "vehicles",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["printed_subtype"], "where": {"subtype": "vehicle"}},
+      "weight": 0.8,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Vehicles theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_vehicles_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "vehicles",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "crew"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Vehicles theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_lifedrain_theme_life_loss_opponent",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "lifedrain",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["life_loss_opponent"]},
+      "weight": 0.6,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Lifedrain theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_pillow_fort_theme_protect_from_attacks",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "pillow_fort",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["protect_from_attacks"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Pillow Fort theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_minus_one_counters_theme_put_counters",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "minus_one_counters",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["put_counters"], "where": {"subtype": "-1/-1"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the -1/-1 Counters theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_minus_one_counters_theme_proliferate",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "minus_one_counters",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["proliferate"]},
+      "weight": 0.65,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the -1/-1 Counters theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_cascade_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "cascade",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "cascade"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Cascade theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_populate_theme_populate",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "populate",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["populate"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Populate theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_populate_theme_create_token",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "populate",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["create_token"], "where": {"object_type": "creature"}},
+      "weight": 0.55,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Populate theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_dredge_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "dredge",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "dredge"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Dredge theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_etb_theme_enter_payoff_self",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "etb",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["enter_payoff"], "where": {"reference": "self"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the ETB theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_etb_theme_enter_payoff_other",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "etb",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["enter_payoff"], "where": {"object_type": "creature"}},
+      "weight": 0.85,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the ETB theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_extra_turns_theme_extra_turn",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "extra_turns",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["extra_turn"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Extra Turns theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_self_damage_theme_deal_noncombat_damage",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "self_damage",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["deal_noncombat_damage"], "where": {"subtype": "self_player"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Self-Damage theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_proliferate_theme_proliferate",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "proliferate",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["proliferate"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Proliferate theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_spell_copy_theme_copy_spell",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "spell_copy",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["copy_spell"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Spell Copy theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_spell_copy_theme_cast_or_copy_payoff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "spell_copy",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["cast_or_copy_payoff"]},
+      "weight": 0.85,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Spell Copy theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_attack_triggers_theme_attack_payoff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "attack_triggers",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["attack_payoff"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Attack Triggers theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_attack_triggers_theme_single_attacker_payoff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "attack_triggers",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["single_attacker_payoff"]},
+      "weight": 0.85,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Attack Triggers theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_attack_triggers_theme_extra_combat",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "attack_triggers",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["extra_combat"]},
+      "weight": 0.55,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Attack Triggers theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_affinity_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "affinity",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "affinity"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Affinity theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_food_theme_create_token",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "food",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["create_token"], "where": {"subtype": "food"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Food theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_energy_theme_gain_energy",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "energy",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["gain_energy"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Energy theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_defenders_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "defenders",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "defender"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Defenders theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_sagas_theme_printed_subtype",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "sagas",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["printed_subtype"], "where": {"subtype": "saga"}},
+      "weight": 0.85,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Sagas theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_modified_creatures_theme_modified_payoff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "modified_creatures",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["modified_payoff"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Modified Creatures theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_monarch_theme_become_monarch",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "monarch",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["become_monarch"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Monarch theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_cycling_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "cycling",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "cycling"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Cycling theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_go_wide_theme_create_token",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "go_wide",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["create_token"], "where": {"object_type": "creature"}},
+      "weight": 0.8,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Go Wide theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_go_wide_theme_mass_combat_buff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "go_wide",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["mass_combat_buff"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Go Wide theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_anthems_theme_mass_combat_buff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "anthems",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["mass_combat_buff"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Anthems theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_tap_untap_theme_untap",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "tap_untap",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["untap"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Tap / Untap theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_counterspells_theme_counter_spell",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "counterspells",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["counter_spell"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Counterspells theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_ninjutsu_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "ninjutsu",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "ninjutsu"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Ninjutsu theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_morph_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "morph",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "morph"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Morph theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_unblockable_theme_unblockable",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "unblockable",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["unblockable"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Unblockable theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_clues_theme_investigate",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "clues",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["investigate"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Clues theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_clues_theme_create_token",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "clues",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["create_token"], "where": {"subtype": "clue"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Clues theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_flashback_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "flashback",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "flashback"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Flashback theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_dungeon_theme_venture",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "dungeon",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["venture"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Dungeon theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_deathtouch_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "deathtouch",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "deathtouch"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Deathtouch theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_snow_theme_printed_supertype",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "snow",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["printed_supertype"], "where": {"subtype": "snow"}},
+      "weight": 0.65,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Snow theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_mutate_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "mutate",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "mutate"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Mutate theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_flash_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "flash",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "flash"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Flash theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_self_discard_theme_discard",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "self_discard",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["discard"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Self-Discard theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_prowess_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "prowess",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "prowess"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Prowess theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_haste_theme_grant_haste",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "haste",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["grant_haste"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Haste theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_haste_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "haste",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "haste"}},
+      "weight": 0.8,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Haste theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_bounce_theme_permanent_bounce",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "bounce",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["permanent_bounce"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Bounce theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_sea_creatures_theme_printed_subtype_leviathan",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "sea_creatures",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["printed_subtype"], "where": {"subtype": "leviathan"}},
+      "weight": 0.8,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Sea Creatures theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_sea_creatures_theme_printed_subtype_kraken",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "sea_creatures",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["printed_subtype"], "where": {"subtype": "kraken"}},
+      "weight": 0.8,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Sea Creatures theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_sea_creatures_theme_printed_subtype_octopus",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "sea_creatures",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["printed_subtype"], "where": {"subtype": "octopus"}},
+      "weight": 0.8,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Sea Creatures theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_sea_creatures_theme_printed_subtype_serpent",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "sea_creatures",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["printed_subtype"], "where": {"subtype": "serpent"}},
+      "weight": 0.8,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Sea Creatures theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_scry_theme_scry",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "scry",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["scry"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Scry theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_guildgates_theme_printed_subtype",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "guildgates",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["printed_subtype"], "where": {"subtype": "gate"}},
+      "weight": 0.75,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Guildgates theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_modular_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "modular",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "modular"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Modular theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_foretell_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "foretell",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "foretell"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Foretell theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_surveil_theme_surveil",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "surveil",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["surveil"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Surveil theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_firebending_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "firebending",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "firebending"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Firebending theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_annihilator_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "annihilator",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "annihilator"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Annihilator theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_shrines_theme_printed_subtype",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "shrines",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["printed_subtype"], "where": {"subtype": "shrine"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Shrines theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_madness_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "madness",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "madness"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Madness theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_madness_theme_discard",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "madness",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["discard"]},
+      "weight": 0.55,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Madness theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_convoke_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "convoke",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "convoke"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Convoke theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_suspend_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "suspend",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "suspend"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Suspend theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_blood_theme_create_token",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "blood",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["create_token"], "where": {"subtype": "blood"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Blood theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_myriad_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "myriad",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "myriad"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Myriad theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_deserts_theme_printed_subtype",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "deserts",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["printed_subtype"], "where": {"subtype": "desert"}},
+      "weight": 0.75,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Deserts theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_indestructible_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "indestructible",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "indestructible"}},
+      "weight": 0.85,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Indestructible theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_indestructible_theme_protect_creature",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "indestructible",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["protect_creature"], "where": {"subtype": "indestructible"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Indestructible theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_mana_dorks_theme_creature_mana",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "mana_dorks",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["creature_mana"]},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Mana Dorks theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_evoke_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "evoke",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "evoke"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Evoke theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_offspring_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "offspring",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "offspring"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Offspring theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_plot_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "plot",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "plot"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Plot theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_battles_theme_printed_type",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "battles",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["printed_type"], "where": {"object_type": "battle"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Battles theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_kicker_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "kicker",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "kicker"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Kicker theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_improvise_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "improvise",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "improvise"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Improvise theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_menace_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "menace",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "menace"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Menace theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_exploit_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "exploit",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "exploit"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Exploit theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_caves_theme_printed_subtype",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "caves",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["printed_subtype"], "where": {"subtype": "cave"}},
+      "weight": 0.75,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Caves theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_squad_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "squad",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "squad"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Squad theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_retrace_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "retrace",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "retrace"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Retrace theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_training_theme_keyword_ability",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "training",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {"type": "mechanical_capability_any", "values": ["keyword_ability"], "where": {"subtype": "training"}},
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Training theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_legends_theme_printed_supertype",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "legends",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {
+        "type": "mechanical_capability_any",
+        "values": [
+          "printed_supertype"
+        ],
+        "where": {
+          "subtype": "legendary"
+        }
+      },
+      "weight": 0.5,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Legends theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_legends_theme_cast_payoff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "legends",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {
+        "type": "mechanical_capability_any",
+        "values": [
+          "cast_payoff"
+        ],
+        "where": {
+          "subtype": "legendary"
+        }
+      },
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Legends theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_legends_theme_enter_payoff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "legends",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {
+        "type": "mechanical_capability_any",
+        "values": [
+          "enter_payoff"
+        ],
+        "where": {
+          "subtype": "legendary"
+        }
+      },
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Legends theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_historic_theme_cast_payoff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "historic",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {
+        "type": "mechanical_capability_any",
+        "values": [
+          "cast_payoff"
+        ],
+        "where": {
+          "subtype": "historic"
+        }
+      },
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Historic theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_historic_theme_enter_payoff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "historic",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {
+        "type": "mechanical_capability_any",
+        "values": [
+          "enter_payoff"
+        ],
+        "where": {
+          "subtype": "historic"
+        }
+      },
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Historic theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_wheels_theme_wheel",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "wheels",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {
+        "type": "mechanical_capability_any",
+        "values": [
+          "wheel"
+        ]
+      },
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Wheels theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_commander_matters_theme_commander_payoff",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "commander_matters",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {
+        "type": "mechanical_capability_any",
+        "values": [
+          "commander_payoff"
+        ]
+      },
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Commander Matters theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_toolbox_theme_search_library",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "toolbox",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {
+        "type": "mechanical_capability_any",
+        "values": [
+          "search_library"
+        ]
+      },
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Toolbox theme.",
+      "requires_review": false
+    },
+    {
+      "id": "strategy_lifedrain_theme_life_drain",
+      "enabled": true,
+      "target_type": "strategy",
+      "target_id": "lifedrain",
+      "source_fields": [
+        "mechanical_capabilities"
+      ],
+      "match": {
+        "type": "mechanical_capability_any",
+        "values": [
+          "life_drain"
+        ]
+      },
+      "weight": 1,
+      "confidence": 0.8,
+      "evidence_label": "Card evidence supports the Lifedrain theme.",
+      "requires_review": false
     }
   ]
 }

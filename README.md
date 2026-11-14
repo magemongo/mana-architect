@@ -135,6 +135,15 @@ abilities and color identity. Select strategies and set their relative
 priorities if desired, then click **Find suggestions**. Expand **Score
 details** to see the score components, matched abilities, and conditions.
 
+Pair a theme with a **Typal** preference, such as **Mill** and **Rogue**
+for Anowon. Typal fit boosts matching creatures, changelings, token makers,
+and supported payoffs. Turn on **Only matching creature cards** to find
+creature cards of that type, including changelings.
+
+See the [EDHREC theme coverage](docs/edhrec-themes.md) for available strategies
+and the full theme reference. For a color-identity search that uses saved
+classifications, click **Reclassify collection cards** to apply catalog updates.
+
 The CLI provides the same synergy ranking before deck construction:
 
 ```powershell

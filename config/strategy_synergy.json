@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "1.0.0",
+  "version": "1.2.0",
   "aliases": {},
   "strategies": [
     {
@@ -21,6 +21,7 @@
       "objective": "Grow threats with +1/+1 counters and turn their placement into value",
       "preferences": [
         {"id": "plus_one_counters_put_counters", "capability": "put_counters", "role": "generator", "weight": 0.85, "subtype": "+1/+1"},
+        {"id": "plus_one_counters_typal_entry_counters", "capability": "typal_entry_counters", "role": "generator", "weight": 0.9},
         {"id": "plus_one_counters_multiply_counter_placement", "capability": "multiply_counter_placement", "role": "amplifier", "weight": 0.95},
         {"id": "plus_one_counters_double_existing_counters", "capability": "double_existing_counters", "role": "amplifier", "weight": 0.75},
         {"id": "plus_one_counters_counter_payoff", "capability": "counter_payoff", "role": "payoff", "weight": 0.95},
@@ -193,6 +194,949 @@
       ],
       "interaction_rule_ids": ["recursion_reuses_etb", "blink_retriggers_etb"],
       "exclusions": ["ordinary_creature_type"]
+    },
+    {
+      "id": "enchantress",
+      "objective": "Use enchantment casts and entries to build a repeatable value engine.",
+      "preferences": [
+        {"id": "enchantress_theme_cast_payoff", "capability": "cast_payoff", "role": "payoff", "weight": 1, "types": ["enchantment"]},
+        {"id": "enchantress_theme_enter_payoff", "capability": "enter_payoff", "role": "payoff", "weight": 1, "types": ["enchantment"]},
+        {"id": "enchantress_theme_reduce_spell_cost", "capability": "reduce_spell_cost", "role": "enabler", "weight": 0.8, "types": ["enchantment"]},
+        {"id": "enchantress_theme_return_from_graveyard", "capability": "return_from_graveyard", "role": "converter", "weight": 0.7, "types": ["enchantment"]}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_enchantment_without_payoff"]
+    },
+    {
+      "id": "equipment",
+      "objective": "Attach and reuse Equipment to turn creatures into sustained threats.",
+      "preferences": [
+        {"id": "equipment_theme_equip", "capability": "equip", "role": "enabler", "weight": 1}
+      ],
+      "interaction_rule_ids": ["equipment_enables_voltron"],
+      "exclusions": ["generic_artifact_without_equipment_support"]
+    },
+    {
+      "id": "mill",
+      "objective": "Deplete opponents' libraries or convert their milled cards into resources.",
+      "preferences": [
+        {"id": "mill_theme_mill_opponent", "capability": "mill_opponent", "role": "finisher", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["self_mill"]
+    },
+    {
+      "id": "blink",
+      "objective": "Exile and return your permanents to reuse their entry abilities.",
+      "preferences": [
+        {"id": "blink_theme_blink", "capability": "blink", "role": "enabler", "weight": 1},
+        {"id": "blink_theme_enter_payoff", "capability": "enter_payoff", "role": "payoff", "weight": 0.75, "reference": "self"}
+      ],
+      "interaction_rule_ids": ["blink_retriggers_etb"],
+      "exclusions": ["permanent_exile_without_return"]
+    },
+    {
+      "id": "graveyard",
+      "objective": "Stock your graveyard and use it as a recurring resource across card types.",
+      "preferences": [
+        {"id": "graveyard_theme_self_mill", "capability": "self_mill", "role": "enabler", "weight": 0.7},
+        {"id": "graveyard_theme_discard", "capability": "discard", "role": "enabler", "weight": 0.45},
+        {"id": "graveyard_theme_return_from_graveyard", "capability": "return_from_graveyard", "role": "converter", "weight": 0.9},
+        {"id": "graveyard_theme_recover_to_hand", "capability": "recover_to_hand", "role": "converter", "weight": 0.85}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["graveyard_hate_without_recursion"]
+    },
+    {
+      "id": "discard",
+      "objective": "Disrupt opponents by making them discard cards from hand.",
+      "preferences": [
+        {"id": "discard_theme_force_discard", "capability": "force_discard", "role": "enabler", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["self_discard"]
+    },
+    {
+      "id": "sacrifice",
+      "objective": "Trade permanents for resources and reward the act of sacrificing.",
+      "preferences": [
+        {"id": "sacrifice_theme_sacrifice", "capability": "sacrifice", "role": "converter", "weight": 0.95},
+        {"id": "sacrifice_theme_sacrifice_payoff", "capability": "sacrifice_payoff", "role": "payoff", "weight": 1},
+        {"id": "sacrifice_theme_create_token", "capability": "create_token", "role": "generator", "weight": 0.5, "types": ["creature"]}
+      ],
+      "interaction_rule_ids": ["sacrifice_triggers_payoff", "fodder_feeds_sacrifice_outlet", "treasure_feeds_artifact_sacrifice"],
+      "exclusions": ["death_without_sacrifice"]
+    },
+    {
+      "id": "clones",
+      "objective": "Copy permanents to reuse their characteristics and abilities.",
+      "preferences": [
+        {"id": "clones_theme_copy_permanent", "capability": "copy_permanent", "role": "converter", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["copies_of_instant_or_sorcery_spells"]
+    },
+    {
+      "id": "treasure",
+      "objective": "Produce Treasure as a resource for mana, artifact synergies, or sacrifice costs.",
+      "preferences": [
+        {"id": "treasure_theme_create_token", "capability": "create_token", "role": "generator", "weight": 1, "subtype": "treasure"}
+      ],
+      "interaction_rule_ids": ["treasure_feeds_artifact_sacrifice"],
+      "exclusions": ["generic_artifact_creation"]
+    },
+    {
+      "id": "auras",
+      "objective": "Attach Auras to amplify threats and maintain access to those attachments.",
+      "preferences": [
+        {"id": "auras_theme_attach_aura", "capability": "attach_aura", "role": "enabler", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_enchantments"]
+    },
+    {
+      "id": "card_draw",
+      "objective": "Build around additional card draw and effects that increase draw output.",
+      "preferences": [
+        {"id": "card_draw_theme_draw", "capability": "draw", "role": "generator", "weight": 0.6},
+        {"id": "card_draw_theme_additional_draw", "capability": "additional_draw", "role": "amplifier", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["loot_effect_alone"]
+    },
+    {
+      "id": "flying",
+      "objective": "Use flying threats and interactions that grant flying.",
+      "preferences": [
+        {"id": "flying_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 0.8, "subtype": "flying"},
+        {"id": "flying_theme_grant_evasion", "capability": "grant_evasion", "role": "amplifier", "weight": 0.85, "subtype": "flying"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["unrelated_evasion"]
+    },
+    {
+      "id": "group_slug",
+      "objective": "Pressure the whole table with recurring damage from shared actions.",
+      "preferences": [
+        {"id": "group_slug_theme_deal_noncombat_damage", "capability": "deal_noncombat_damage", "role": "payoff", "weight": 0.85, "subtype": "each_opponent"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["single_target_burn"]
+    },
+    {
+      "id": "storm",
+      "objective": "Cast many spells in one turn to amplify a spell with storm.",
+      "preferences": [
+        {"id": "storm_theme_keyword_ability", "capability": "keyword_ability", "role": "finisher", "weight": 1, "subtype": "storm"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_spell_copies"]
+    },
+    {
+      "id": "self_mill",
+      "objective": "Move cards from your own library into your graveyard to fuel graveyard effects.",
+      "preferences": [
+        {"id": "self_mill_theme_self_mill", "capability": "self_mill", "role": "generator", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["opponent_mill"]
+    },
+    {
+      "id": "stax",
+      "objective": "Use persistent restrictions to limit actions and constrain opponents' resources.",
+      "preferences": [
+        {"id": "stax_theme_restrict_actions", "capability": "restrict_actions", "role": "enabler", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_one_shot_removal"]
+    },
+    {
+      "id": "landfall",
+      "objective": "Trigger payoffs when lands enter and create additional land-entry events.",
+      "preferences": [
+        {"id": "landfall_theme_enter_payoff", "capability": "enter_payoff", "role": "payoff", "weight": 1, "types": ["land"]},
+        {"id": "landfall_theme_extra_land_play", "capability": "extra_land_play", "role": "enabler", "weight": 0.8},
+        {"id": "landfall_theme_put_land", "capability": "put_land", "role": "generator", "weight": 0.75}
+      ],
+      "interaction_rule_ids": ["extra_land_play_enables_landfall", "land_entry_triggers_payoff"],
+      "exclusions": ["land_types_without_entry_payoff"]
+    },
+    {
+      "id": "theft",
+      "objective": "Take control of other players' permanents to use their board resources.",
+      "preferences": [
+        {"id": "theft_theme_take_control", "capability": "take_control", "role": "converter", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_removal"]
+    },
+    {
+      "id": "extra_combats",
+      "objective": "Generate extra combat phases to repeat attacks and combat triggers.",
+      "preferences": [
+        {"id": "extra_combats_theme_extra_combat", "capability": "extra_combat", "role": "finisher", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["untap_without_additional_combat"]
+    },
+    {
+      "id": "infect",
+      "objective": "Use infect to deliver poison counters and proliferate to increase them.",
+      "preferences": [
+        {"id": "infect_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "infect"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_life_total_damage"]
+    },
+    {
+      "id": "forced_combat",
+      "objective": "Use goad to make opposing creatures attack and steer combat.",
+      "preferences": [
+        {"id": "forced_combat_theme_goad", "capability": "goad", "role": "enabler", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_attack_payoff"]
+    },
+    {
+      "id": "planeswalkers",
+      "objective": "Develop planeswalkers and support their loyalty abilities.",
+      "preferences": [
+        {"id": "planeswalkers_theme_printed_type", "capability": "printed_type", "role": "enabler", "weight": 0.75, "types": ["planeswalker"]},
+        {"id": "planeswalkers_theme_put_counters", "capability": "put_counters", "role": "amplifier", "weight": 0.9, "types": ["planeswalker"], "subtype": "loyalty"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_nonplaneswalker_permanent"]
+    },
+    {
+      "id": "vehicles",
+      "objective": "Build around Vehicles and the creatures that crew them.",
+      "preferences": [
+        {"id": "vehicles_theme_printed_subtype", "capability": "printed_subtype", "role": "enabler", "weight": 0.8, "subtype": "vehicle"},
+        {"id": "vehicles_theme_keyword_ability", "capability": "keyword_ability", "role": "converter", "weight": 1, "subtype": "crew"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["generic_artifact_without_vehicle"]
+    },
+    {
+      "id": "lifedrain",
+      "objective": "Win through opponent life loss, often while recovering life yourself.",
+      "preferences": [
+        {"id": "lifedrain_theme_life_loss_opponent", "capability": "life_loss_opponent", "role": "finisher", "weight": 0.6},
+        {"id": "lifedrain_theme_life_drain", "capability": "life_drain", "role": "finisher", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["life_gain_alone"]
+    },
+    {
+      "id": "pillow_fort",
+      "objective": "Deter attacks against you with persistent combat restrictions.",
+      "preferences": [
+        {"id": "pillow_fort_theme_protect_from_attacks", "capability": "protect_from_attacks", "role": "enabler", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_creature_protection"]
+    },
+    {
+      "id": "minus_one_counters",
+      "objective": "Place -1/-1 counters to shrink opposing creatures and build counter synergies.",
+      "preferences": [
+        {"id": "minus_one_counters_theme_put_counters", "capability": "put_counters", "role": "generator", "weight": 1, "subtype": "-1/-1"},
+        {"id": "minus_one_counters_theme_proliferate", "capability": "proliferate", "role": "amplifier", "weight": 0.65}
+      ],
+      "interaction_rule_ids": ["counter_multiplier_amplifies_placement"],
+      "exclusions": ["plus_one_counters"]
+    },
+    {
+      "id": "cascade",
+      "objective": "Use cascade to cast an additional eligible spell from the library.",
+      "preferences": [
+        {"id": "cascade_theme_keyword_ability", "capability": "keyword_ability", "role": "generator", "weight": 1, "subtype": "cascade"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_cost_reduction"]
+    },
+    {
+      "id": "populate",
+      "objective": "Populate to copy creature tokens already on your battlefield.",
+      "preferences": [
+        {"id": "populate_theme_populate", "capability": "populate", "role": "amplifier", "weight": 1},
+        {"id": "populate_theme_create_token", "capability": "create_token", "role": "generator", "weight": 0.55, "types": ["creature"]}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_token_creation_as_the_only_signal"]
+    },
+    {
+      "id": "dredge",
+      "objective": "Replace draws with dredge to stock your graveyard and recover dredge cards.",
+      "preferences": [
+        {"id": "dredge_theme_keyword_ability", "capability": "keyword_ability", "role": "generator", "weight": 1, "subtype": "dredge"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_self_mill"]
+    },
+    {
+      "id": "etb",
+      "objective": "Gain value when your permanents enter the battlefield.",
+      "preferences": [
+        {"id": "etb_theme_enter_payoff_self", "capability": "enter_payoff", "role": "payoff", "weight": 1, "reference": "self"},
+        {"id": "etb_theme_enter_payoff_other", "capability": "enter_payoff", "role": "payoff", "weight": 0.85, "types": ["creature"]}
+      ],
+      "interaction_rule_ids": ["blink_retriggers_etb", "recursion_reuses_etb"],
+      "exclusions": ["ordinary_permanent_without_entry_trigger"]
+    },
+    {
+      "id": "extra_turns",
+      "objective": "Take additional turns to accumulate resources or close the game.",
+      "preferences": [
+        {"id": "extra_turns_theme_extra_turn", "capability": "extra_turn", "role": "finisher", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["additional_combat_only"]
+    },
+    {
+      "id": "self_damage",
+      "objective": "Use damage to yourself as fuel for effects that reward taking damage.",
+      "preferences": [
+        {"id": "self_damage_theme_deal_noncombat_damage", "capability": "deal_noncombat_damage", "role": "enabler", "weight": 1, "subtype": "self_player"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["opponent_damage"]
+    },
+    {
+      "id": "proliferate",
+      "objective": "Increase existing counters on chosen permanents and players.",
+      "preferences": [
+        {"id": "proliferate_theme_proliferate", "capability": "proliferate", "role": "amplifier", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["first_counter_placement_without_proliferate"]
+    },
+    {
+      "id": "spell_copy",
+      "objective": "Copy spells on the stack or reward copying them.",
+      "preferences": [
+        {"id": "spell_copy_theme_copy_spell", "capability": "copy_spell", "role": "amplifier", "weight": 1},
+        {"id": "spell_copy_theme_cast_or_copy_payoff", "capability": "cast_or_copy_payoff", "role": "payoff", "weight": 0.85}
+      ],
+      "interaction_rule_ids": ["spell_copy_amplifies_spell_effect", "spell_copy_triggers_payoff"],
+      "exclusions": ["copies_of_permanents"]
+    },
+    {
+      "id": "attack_triggers",
+      "objective": "Build around abilities that trigger when creatures attack.",
+      "preferences": [
+        {"id": "attack_triggers_theme_attack_payoff", "capability": "attack_payoff", "role": "payoff", "weight": 1},
+        {"id": "attack_triggers_theme_single_attacker_payoff", "capability": "single_attacker_payoff", "role": "payoff", "weight": 0.85},
+        {"id": "attack_triggers_theme_extra_combat", "capability": "extra_combat", "role": "amplifier", "weight": 0.55}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["combat_damage_trigger_only"]
+    },
+    {
+      "id": "affinity",
+      "objective": "Reduce costs through the affinity keyword and supply the objects it counts.",
+      "preferences": [
+        {"id": "affinity_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "affinity"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_cost_reduction"]
+    },
+    {
+      "id": "food",
+      "objective": "Create and spend Food tokens as resources.",
+      "preferences": [
+        {"id": "food_theme_create_token", "capability": "create_token", "role": "generator", "weight": 1, "subtype": "food"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_life_gain"]
+    },
+    {
+      "id": "energy",
+      "objective": "Generate and stock energy counters to pay for repeatable abilities.",
+      "preferences": [
+        {"id": "energy_theme_gain_energy", "capability": "gain_energy", "role": "generator", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_mana"]
+    },
+    {
+      "id": "defenders",
+      "objective": "Build around creatures with defender and effects that make their board presence useful.",
+      "preferences": [
+        {"id": "defenders_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "defender"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_creature_without_defender"]
+    },
+    {
+      "id": "sagas",
+      "objective": "Use Saga chapters to accumulate value over several turns.",
+      "preferences": [
+        {"id": "sagas_theme_printed_subtype", "capability": "printed_subtype", "role": "enabler", "weight": 0.85, "subtype": "saga"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["enchantment_without_saga"]
+    },
+    {
+      "id": "modified_creatures",
+      "objective": "Exploit modified creatures with counters, Equipment, or Auras.",
+      "preferences": [
+        {"id": "modified_creatures_theme_modified_payoff", "capability": "modified_payoff", "role": "payoff", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["generic_unmodified_creatures"]
+    },
+    {
+      "id": "monarch",
+      "objective": "Introduce the monarch and defend the crown to keep its recurring draw.",
+      "preferences": [
+        {"id": "monarch_theme_become_monarch", "capability": "become_monarch", "role": "enabler", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_draw_spell"]
+    },
+    {
+      "id": "cycling",
+      "objective": "Cycle cards to trade unused options for new draws and fuel cycling payoffs.",
+      "preferences": [
+        {"id": "cycling_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "cycling"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_discard"]
+    },
+    {
+      "id": "go_wide",
+      "objective": "Build a large creature board and reward attacking with many bodies.",
+      "preferences": [
+        {"id": "go_wide_theme_create_token", "capability": "create_token", "role": "generator", "weight": 0.8, "types": ["creature"]},
+        {"id": "go_wide_theme_mass_combat_buff", "capability": "mass_combat_buff", "role": "amplifier", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["noncreature_token_creation"]
+    },
+    {
+      "id": "anthems",
+      "objective": "Improve the strength of multiple creatures with a shared buff.",
+      "preferences": [
+        {"id": "anthems_theme_mass_combat_buff", "capability": "mass_combat_buff", "role": "amplifier", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["single_creature_buff"]
+    },
+    {
+      "id": "tap_untap",
+      "objective": "Untap permanents to reuse their abilities and get more from tapping them.",
+      "preferences": [
+        {"id": "tap_untap_theme_untap", "capability": "untap", "role": "enabler", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_attack_without_untap"]
+    },
+    {
+      "id": "counterspells",
+      "objective": "Interact with spells on the stack through counterspells.",
+      "preferences": [
+        {"id": "counterspells_theme_counter_spell", "capability": "counter_spell", "role": "enabler", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["removal_after_resolution"]
+    },
+    {
+      "id": "ninjutsu",
+      "objective": "Use ninjutsu to turn unblocked attacks into threats and combat triggers.",
+      "preferences": [
+        {"id": "ninjutsu_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "ninjutsu"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_combat_triggers"]
+    },
+    {
+      "id": "morph",
+      "objective": "Deploy face-down spells and turn them face up for tactical value.",
+      "preferences": [
+        {"id": "morph_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "morph"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_permanent_without_morph"]
+    },
+    {
+      "id": "unblockable",
+      "objective": "Make attackers unblockable to deliver reliable combat damage triggers.",
+      "preferences": [
+        {"id": "unblockable_theme_unblockable", "capability": "unblockable", "role": "enabler", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_flying_or_menace"]
+    },
+    {
+      "id": "clues",
+      "objective": "Investigate or create Clues to bank card draw for later.",
+      "preferences": [
+        {"id": "clues_theme_investigate", "capability": "investigate", "role": "generator", "weight": 1},
+        {"id": "clues_theme_create_token", "capability": "create_token", "role": "generator", "weight": 1, "subtype": "clue"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_card_draw"]
+    },
+    {
+      "id": "flashback",
+      "objective": "Cast spells a second time from the graveyard using flashback.",
+      "preferences": [
+        {"id": "flashback_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "flashback"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_spell_recursion_to_hand"]
+    },
+    {
+      "id": "dungeon",
+      "objective": "Advance through dungeons to gain their room and completion effects.",
+      "preferences": [
+        {"id": "dungeon_theme_venture", "capability": "venture", "role": "generator", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["generic_venture_unrelated_text"]
+    },
+    {
+      "id": "deathtouch",
+      "objective": "Use deathtouch to deter attacks and trade creatures efficiently.",
+      "preferences": [
+        {"id": "deathtouch_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "deathtouch"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_combat_damage"]
+    },
+    {
+      "id": "snow",
+      "objective": "Develop a snow permanent base to support snow costs and payoffs.",
+      "preferences": [
+        {"id": "snow_theme_printed_supertype", "capability": "printed_supertype", "role": "enabler", "weight": 0.65, "subtype": "snow"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_land_type"]
+    },
+    {
+      "id": "mutate",
+      "objective": "Merge creature spells using mutate to reuse or stack mutate effects.",
+      "preferences": [
+        {"id": "mutate_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "mutate"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_creature_casts"]
+    },
+    {
+      "id": "flash",
+      "objective": "Deploy permanents with flash while holding mana for other plays.",
+      "preferences": [
+        {"id": "flash_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "flash"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_instant_without_flash"]
+    },
+    {
+      "id": "self_discard",
+      "objective": "Discard your own cards to enable graveyard plays and discard payoffs.",
+      "preferences": [
+        {"id": "self_discard_theme_discard", "capability": "discard", "role": "enabler", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["opponent_discard"]
+    },
+    {
+      "id": "prowess",
+      "objective": "Turn noncreature spell casts into combat pressure via prowess.",
+      "preferences": [
+        {"id": "prowess_theme_keyword_ability", "capability": "keyword_ability", "role": "payoff", "weight": 1, "subtype": "prowess"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_static_combat_buff"]
+    },
+    {
+      "id": "haste",
+      "objective": "Attack or use tap abilities with creatures as soon as they enter.",
+      "preferences": [
+        {"id": "haste_theme_grant_haste", "capability": "grant_haste", "role": "amplifier", "weight": 1},
+        {"id": "haste_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 0.8, "subtype": "haste"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_combat_with_summoning_sickness"]
+    },
+    {
+      "id": "bounce",
+      "objective": "Return permanents to hand for tempo or to reuse them.",
+      "preferences": [
+        {"id": "bounce_theme_permanent_bounce", "capability": "permanent_bounce", "role": "converter", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["graveyard_to_hand_recursion"]
+    },
+    {
+      "id": "sea_creatures",
+      "objective": "Build around leviathans, krakens, octopuses, and serpents.",
+      "preferences": [
+        {"id": "sea_creatures_theme_printed_subtype_leviathan", "capability": "printed_subtype", "role": "enabler", "weight": 0.8, "subtype": "leviathan"},
+        {"id": "sea_creatures_theme_printed_subtype_kraken", "capability": "printed_subtype", "role": "enabler", "weight": 0.8, "subtype": "kraken"},
+        {"id": "sea_creatures_theme_printed_subtype_octopus", "capability": "printed_subtype", "role": "enabler", "weight": 0.8, "subtype": "octopus"},
+        {"id": "sea_creatures_theme_printed_subtype_serpent", "capability": "printed_subtype", "role": "enabler", "weight": 0.8, "subtype": "serpent"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["unrelated_creature_type"]
+    },
+    {
+      "id": "scry",
+      "objective": "Use scry to control upcoming draws and enable scry payoffs.",
+      "preferences": [
+        {"id": "scry_theme_scry", "capability": "scry", "role": "enabler", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["generic_card_draw"]
+    },
+    {
+      "id": "guildgates",
+      "objective": "Assemble Gates to enable Gate-based mana and victory payoffs.",
+      "preferences": [
+        {"id": "guildgates_theme_printed_subtype", "capability": "printed_subtype", "role": "enabler", "weight": 0.75, "subtype": "gate"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_land_without_gate"]
+    },
+    {
+      "id": "modular",
+      "objective": "Move +1/+1 counters between artifact creatures using modular.",
+      "preferences": [
+        {"id": "modular_theme_keyword_ability", "capability": "keyword_ability", "role": "payoff", "weight": 1, "subtype": "modular"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["generic_artifacts_without_modular"]
+    },
+    {
+      "id": "foretell",
+      "objective": "Set aside cards with foretell for later casting.",
+      "preferences": [
+        {"id": "foretell_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "foretell"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_exile"]
+    },
+    {
+      "id": "surveil",
+      "objective": "Use surveil to improve upcoming draws and stock your graveyard.",
+      "preferences": [
+        {"id": "surveil_theme_surveil", "capability": "surveil", "role": "enabler", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["scry_without_graveyard_movement"]
+    },
+    {
+      "id": "firebending",
+      "objective": "Use firebending attacks to generate mana for combat plays.",
+      "preferences": [
+        {"id": "firebending_theme_keyword_ability", "capability": "keyword_ability", "role": "generator", "weight": 1, "subtype": "firebending"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_mana_production"]
+    },
+    {
+      "id": "annihilator",
+      "objective": "Force the defending player to sacrifice permanents through annihilator triggers.",
+      "preferences": [
+        {"id": "annihilator_theme_keyword_ability", "capability": "keyword_ability", "role": "payoff", "weight": 1, "subtype": "annihilator"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_sacrifice_cost"]
+    },
+    {
+      "id": "shrines",
+      "objective": "Build a board of Shrines whose effects scale with each other.",
+      "preferences": [
+        {"id": "shrines_theme_printed_subtype", "capability": "printed_subtype", "role": "enabler", "weight": 1, "subtype": "shrine"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_enchantment_without_shrine"]
+    },
+    {
+      "id": "madness",
+      "objective": "Cast cards with madness when you discard them.",
+      "preferences": [
+        {"id": "madness_theme_keyword_ability", "capability": "keyword_ability", "role": "payoff", "weight": 1, "subtype": "madness"},
+        {"id": "madness_theme_discard", "capability": "discard", "role": "enabler", "weight": 0.55}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_opponent_discard"]
+    },
+    {
+      "id": "convoke",
+      "objective": "Tap creatures to help pay for spells with convoke.",
+      "preferences": [
+        {"id": "convoke_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "convoke"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_creature_ramp"]
+    },
+    {
+      "id": "suspend",
+      "objective": "Use suspend to delay spells and cast them when their time counters run out.",
+      "preferences": [
+        {"id": "suspend_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "suspend"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_exile"]
+    },
+    {
+      "id": "blood",
+      "objective": "Create Blood tokens and use them for card filtering or artifact value.",
+      "preferences": [
+        {"id": "blood_theme_create_token", "capability": "create_token", "role": "generator", "weight": 1, "subtype": "blood"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_discard_without_blood"]
+    },
+    {
+      "id": "myriad",
+      "objective": "Use myriad to copy an attacker against multiple opponents.",
+      "preferences": [
+        {"id": "myriad_theme_keyword_ability", "capability": "keyword_ability", "role": "payoff", "weight": 1, "subtype": "myriad"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_copy_effect"]
+    },
+    {
+      "id": "deserts",
+      "objective": "Develop a Desert land base to support Desert-specific effects.",
+      "preferences": [
+        {"id": "deserts_theme_printed_subtype", "capability": "printed_subtype", "role": "enabler", "weight": 0.75, "subtype": "desert"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_land_without_desert"]
+    },
+    {
+      "id": "indestructible",
+      "objective": "Use indestructible threats and effects that grant indestructible to preserve the board.",
+      "preferences": [
+        {"id": "indestructible_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 0.85, "subtype": "indestructible"},
+        {"id": "indestructible_theme_protect_creature", "capability": "protect_creature", "role": "amplifier", "weight": 1, "subtype": "indestructible"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["hexproof_without_indestructible"]
+    },
+    {
+      "id": "mana_dorks",
+      "objective": "Use creatures that produce mana to accelerate development.",
+      "preferences": [
+        {"id": "mana_dorks_theme_creature_mana", "capability": "creature_mana", "role": "generator", "weight": 1}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["mana_from_lands"]
+    },
+    {
+      "id": "evoke",
+      "objective": "Cast creatures for their evoke costs to reuse or exploit entry and sacrifice effects.",
+      "preferences": [
+        {"id": "evoke_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "evoke"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_entry_trigger"]
+    },
+    {
+      "id": "offspring",
+      "objective": "Pay offspring costs to get a token copy of a creature as it enters.",
+      "preferences": [
+        {"id": "offspring_theme_keyword_ability", "capability": "keyword_ability", "role": "generator", "weight": 1, "subtype": "offspring"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_token_creation_without_offspring"]
+    },
+    {
+      "id": "plot",
+      "objective": "Build around plot to prepare spells for a later turn.",
+      "preferences": [
+        {"id": "plot_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "plot"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_exile"]
+    },
+    {
+      "id": "battles",
+      "objective": "Deploy battles and use combat to unlock their transformed rewards.",
+      "preferences": [
+        {"id": "battles_theme_printed_type", "capability": "printed_type", "role": "enabler", "weight": 1, "types": ["battle"]}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_nonbattle_permanent"]
+    },
+    {
+      "id": "kicker",
+      "objective": "Use optional kicker costs to scale spells or enable their upgraded effects.",
+      "preferences": [
+        {"id": "kicker_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "kicker"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_additional_cost"]
+    },
+    {
+      "id": "improvise",
+      "objective": "Tap artifacts to help pay for spells with improvise.",
+      "preferences": [
+        {"id": "improvise_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "improvise"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_cost_reduction"]
+    },
+    {
+      "id": "menace",
+      "objective": "Use menace to make blocking difficult and pressure opponents.",
+      "preferences": [
+        {"id": "menace_theme_keyword_ability", "capability": "keyword_ability", "role": "enabler", "weight": 1, "subtype": "menace"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["unrelated_evasion"]
+    },
+    {
+      "id": "exploit",
+      "objective": "Use exploit to sacrifice creatures and trigger exploit payoffs.",
+      "preferences": [
+        {"id": "exploit_theme_keyword_ability", "capability": "keyword_ability", "role": "converter", "weight": 1, "subtype": "exploit"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_creature_without_exploit"]
+    },
+    {
+      "id": "caves",
+      "objective": "Assemble Caves for their land and graveyard payoffs.",
+      "preferences": [
+        {"id": "caves_theme_printed_subtype", "capability": "printed_subtype", "role": "enabler", "weight": 0.75, "subtype": "cave"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_land_without_cave"]
+    },
+    {
+      "id": "squad",
+      "objective": "Pay squad costs to create token copies of creatures with squad.",
+      "preferences": [
+        {"id": "squad_theme_keyword_ability", "capability": "keyword_ability", "role": "generator", "weight": 1, "subtype": "squad"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_token_creation_without_squad"]
+    },
+    {
+      "id": "retrace",
+      "objective": "Discard lands to cast spells from the graveyard using retrace.",
+      "preferences": [
+        {"id": "retrace_theme_keyword_ability", "capability": "keyword_ability", "role": "converter", "weight": 1, "subtype": "retrace"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_discard_without_retrace"]
+    },
+    {
+      "id": "training",
+      "objective": "Attack alongside stronger creatures to grow threats through training.",
+      "preferences": [
+        {"id": "training_theme_keyword_ability", "capability": "keyword_ability", "role": "payoff", "weight": 1, "subtype": "training"}
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": ["ordinary_counter_placement"]
+    },
+    {
+      "id": "legends",
+      "objective": "Build around legendary cards and effects that reward legendary spells or permanents.",
+      "preferences": [
+        {
+          "id": "legends_theme_printed_supertype",
+          "capability": "printed_supertype",
+          "role": "enabler",
+          "weight": 0.5,
+          "subtype": "legendary"
+        },
+        {
+          "id": "legends_theme_cast_payoff",
+          "capability": "cast_payoff",
+          "role": "payoff",
+          "weight": 1,
+          "subtype": "legendary"
+        },
+        {
+          "id": "legends_theme_enter_payoff",
+          "capability": "enter_payoff",
+          "role": "payoff",
+          "weight": 1,
+          "subtype": "legendary"
+        }
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": [
+        "ordinary_nonlegendary_permanents"
+      ]
+    },
+    {
+      "id": "historic",
+      "objective": "Reward historic spells and permanents across artifacts, legendary cards, and Sagas.",
+      "preferences": [
+        {
+          "id": "historic_theme_cast_payoff",
+          "capability": "cast_payoff",
+          "role": "payoff",
+          "weight": 1,
+          "subtype": "historic"
+        },
+        {
+          "id": "historic_theme_enter_payoff",
+          "capability": "enter_payoff",
+          "role": "payoff",
+          "weight": 1,
+          "subtype": "historic"
+        }
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": [
+        "ordinary_nonhistoric_spell"
+      ]
+    },
+    {
+      "id": "wheels",
+      "objective": "Replace each player's hand to reset resources or trigger discard and draw payoffs.",
+      "preferences": [
+        {
+          "id": "wheels_theme_wheel",
+          "capability": "wheel",
+          "role": "enabler",
+          "weight": 1
+        }
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": [
+        "draw_without_table_wide_discard"
+      ]
+    },
+    {
+      "id": "commander_matters",
+      "objective": "Build around effects that specifically reward controlling, casting, or attacking with your commander.",
+      "preferences": [
+        {
+          "id": "commander_matters_theme_commander_payoff",
+          "capability": "commander_payoff",
+          "role": "payoff",
+          "weight": 1
+        }
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": [
+        "legendary_card_without_commander_text"
+      ]
+    },
+    {
+      "id": "toolbox",
+      "objective": "Search the library for context-specific answers, resources, or finishers.",
+      "preferences": [
+        {
+          "id": "toolbox_theme_search_library",
+          "capability": "search_library",
+          "role": "enabler",
+          "weight": 1
+        }
+      ],
+      "interaction_rule_ids": [],
+      "exclusions": [
+        "basic_land_ramp"
+      ]
     }
   ]
 }

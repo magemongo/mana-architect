@@ -4,5 +4,6 @@
 - [Repository README](../README.md) covers installation, the UI, and CLI usage.
 - [Deck generation](deckbuilding-guidelines.md) describes selection and validation.
 - [Synergy and role scoring](synergy-scoring.md) describes candidate ranking and scoring evidence.
+- [EDHREC theme coverage](edhrec-themes.md) lists scored strategies and reference themes.
 - [Oracle text parser](oracle-text-parser.md) describes the parser contract, downstream evaluators, and inspector.
 - [Catalog and classification persistence](classification-storage.md) describes schema migrations, transactions, and classification history.

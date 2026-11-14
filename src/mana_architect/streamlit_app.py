@@ -43,6 +43,7 @@ from mana_architect.suggestions import (
     INTERACTION_SUGGESTION_ROLES,
     IdentityCollectionSuggestion,
     STANDALONE_SUGGESTION_ROLES,
+    collection_creature_types,
     collection_oracle_ids,
     suggest_collection_cards_by_identity,
 )
@@ -1322,7 +1323,7 @@ def _render_oracle_parser_inspector(
 def _render_collection_suggestions(session: Session) -> None:
     st.header("Card Suggestions")
     st.caption(
-        "Find Commander-legal cards in your collection by commander, color identity, strategy, or core role."
+        "Find Commander-legal cards in your collection by commander, color identity, theme, creature type, or core role."
     )
     catalog = load_strategy_catalog()
     color_options = _color_identity_options()
@@ -1352,13 +1353,22 @@ def _render_collection_suggestions(session: Session) -> None:
             st.session_state["suggestion_strategy_ids"] = compatible
     strategy_ids = tuple(
         st.multiselect(
-            "Strategies",
+            "Themes",
             options=strategy_options,
             format_func=lambda value: strategy_names[value],
             key="suggestion_strategy_ids",
-            placeholder="Choose strategies for synergy ranking",
+            placeholder="Choose themes for synergy ranking",
             help="When a scored core role is selected, synergy adds a ranking bonus.",
         )
+    )
+    creature_type = st.selectbox(
+        "Typal (optional)",
+        options=collection_creature_types(session),
+        index=None,
+        key="suggestion_creature_type",
+        placeholder="Choose or enter a creature type",
+        accept_new_options=True,
+        help="Prefer matching creatures, changelings, token makers, and supported creature-type payoffs.",
     )
     with st.form("suggestion_filters"):
         if commander_id:
@@ -1390,6 +1400,11 @@ def _render_collection_suggestions(session: Session) -> None:
             help="Rank cards by Ramp, Card Advantage, Spot Interaction, or Mass Interaction without selecting a strategy.",
         )
         role_ids = (selected_role_id,) if selected_role_id is not None else ()
+        require_creature_body = bool(creature_type) and st.checkbox(
+            "Only matching creature cards",
+            key="suggestion_require_creature_body",
+            help="Include matching creature cards and changelings. Spells that only create matching tokens are filtered out.",
+        )
         search_clicked = st.form_submit_button(
             "Find suggestions",
             type="primary",
@@ -1402,7 +1417,10 @@ def _render_collection_suggestions(session: Session) -> None:
         if selected_role_id is not None and selected_role_id in INTERACTION_SUGGESTION_ROLES
         else None
     )
-    active_query = (tuple(color_identity), strategy_ids, role_ids, commander_id, tuple(priorities.items()))
+    active_query = (
+        tuple(color_identity), strategy_ids, role_ids, commander_id, tuple(priorities.items()),
+        creature_type, require_creature_body,
+    )
     if search_clicked:
         st.session_state["suggestion_query"] = active_query
         st.session_state["suggestion_visible_count"] = 20
@@ -1415,8 +1433,8 @@ def _render_collection_suggestions(session: Session) -> None:
     if saved_query != active_query:
         st.info("Choose the filters and click **Find suggestions**.")
         return
-    if not commander_id and not strategy_ids and selected_role_id not in STANDALONE_SUGGESTION_ROLES:
-        st.info("Choose a commander, a strategy, or a core role with its own ranking.")
+    if not commander_id and not strategy_ids and not creature_type and selected_role_id not in STANDALONE_SUGGESTION_ROLES:
+        st.info("Choose a commander, a theme, a creature type, or a scored core role.")
         return
 
     if st.button(
@@ -1453,6 +1471,8 @@ def _render_collection_suggestions(session: Session) -> None:
                 limit=50,
                 commander_identifier=commander_id,
                 strategy_priorities=priorities,
+                creature_type=creature_type,
+                require_creature_body=require_creature_body,
             )
         except ValueError as error:
             st.warning(str(error))
@@ -1467,7 +1487,7 @@ def _render_collection_suggestions(session: Session) -> None:
     if batch.unclassified_count:
         if commander_id:
             st.caption("Commander synergy is evaluated live. Saved classification details may be missing.")
-        else:
+        elif strategy_ids or role_ids:
             st.info(
                 "Some cards do not have current classifications. Use "
                 "**Reclassify collection cards** to refresh them locally."
@@ -1547,14 +1567,21 @@ def _render_collection_suggestions(session: Session) -> None:
                 )
                 summary_parts = []
                 if strategy_labels:
-                    summary_parts.append("Strategies: " + ", ".join(strategy_labels))
+                    summary_parts.append("Themes · " + ", ".join(strategy_labels))
+                if item.typal_match and item.typal_match.reasons:
+                    summary_parts.append(
+                        f"Typal · {item.typal_match.creature_type.title()} · "
+                        + ", ".join(item.typal_match.reasons)
+                    )
                 if role_labels:
                     summary_parts.append("Roles: " + ", ".join(role_labels))
                 if summary_parts:
                     st.caption(" · ".join(summary_parts))
-                with st.expander("Score details" if item.mechanical_synergy else "Classification details"):
+                with st.expander("Score details" if item.mechanical_synergy or creature_type else "Classification details"):
                     if item.mechanical_synergy:
                         _render_mechanical_synergy_details(item)
+                    if item.typal_match:
+                        st.caption(f"Typal affinity · {item.typal_match.affinity:.0%}")
                     if ramp_line is not None:
                         st.caption(f"Base ramp score {ramp_line.score:.3f}")
                         st.text(ramp_line.event.evidence.oracle_span)
@@ -1606,7 +1633,8 @@ def _render_mechanical_synergy_details(item: IdentityCollectionSuggestion) -> No
     if item.ramp_profile or item.interaction_profile or item.strict_card_advantage is not None:
         st.caption("The core-role ranking uses synergy as a bonus.")
     st.caption(
-        f"Synergy {scores.overall:.2f}/100 · Commander {scores.direct_commander_synergy:.0%} · "
+        f"{'Base synergy' if item.typal_match else 'Synergy'} {scores.overall:.2f}/100 · "
+        f"Commander {scores.direct_commander_synergy:.0%} · "
         f"Weighted affinity {scores.weighted_strategy_affinity:.0%} · Bridge {scores.cross_strategy_bridge:.0%} · "
         f"Reliability {scores.interaction_reliability:.0%} · Coverage {scores.coverage_confidence:.0%}"
     )

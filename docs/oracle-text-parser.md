@@ -53,6 +53,11 @@ effects. It reuses the mana resource extractor for land and mana development.
 The same Treasure creation event carries both the token kind and artifact
 type. Evidence offsets refer to the original Oracle text. Unrecognized
 clauses and unsupported modal choices surface as unknowns.
+The supported typal entry replacement records the qualifying creature type
+and the variable count based on permanents already controlled. It can match
+an entering creature, matching creature token, or the entrant's own
++1/+1-counter payoff. Passive and player-attributed counter triggers retain
+their controller and self-reference constraints.
 See the [mechanical scoring reference](synergy-scoring.md#mechanical-candidate-evaluation).
 
 ## Mana resource extraction

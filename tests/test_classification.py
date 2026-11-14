@@ -79,7 +79,9 @@ def test_seed_rules_return_traceable_evidence_for_token_creation(catalog: Strate
 
     result = classify_card(card, catalog)
 
-    assert len(result.evidence) == 2
+    assert {item.target_id for item in result.evidence} == {
+        "create_tokens", "instant_sorcery_spell_density", "clones",
+    }
     evidence = result.evidence[0]
     assert evidence.rule_id == "tag_create_tokens_oracle_text"
     assert (evidence.target_type, evidence.target_id) == ("tag", "create_tokens")
@@ -101,7 +103,7 @@ def test_artifact_type_is_only_a_weak_reviewable_candidate(catalog: StrategyCata
         catalog,
     )
 
-    assert [(item.target_id, item.weight, item.requires_review) for item in result.evidence] == [
+    assert [(item.target_id, item.weight, item.requires_review) for item in result.evidence if item.target_type == "tag"] == [
         ("artifact_count", 0.3, True)
     ]
     assert all(item.target_id != "single_creature_buff" for item in result.evidence)
@@ -119,7 +121,7 @@ def test_burn_evidence_is_separate_from_combat_damage(catalog: StrategyCatalog) 
         catalog,
     )
 
-    assert [item.target_id for item in burn.evidence] == ["noncombat_damage"]
+    assert {item.target_id for item in burn.evidence} == {"noncombat_damage", "group_slug"}
     combat_targets = {item.target_id for item in combat.evidence}
     assert "combat_damage" in combat_targets
     assert "noncombat_damage" not in combat_targets
@@ -221,7 +223,7 @@ def test_land_drop_and_expensive_creature_are_not_ramp_or_reanimation(
     )
 
     assert all(item.target_id != "land_ramp" for item in land_drop.evidence)
-    assert expensive_creature.evidence == ()
+    assert {item.target_id for item in expensive_creature.evidence} == {"flying"}
 
 
 def test_island_subtype_is_not_misclassified_as_land_role(catalog: StrategyCatalog) -> None:
@@ -245,7 +247,7 @@ def test_reanimation_returns_specific_evidence_and_face_provenance(
 
     result = classify_card(card, catalog)
 
-    assert len(result.evidence) == 1
+    assert {item.target_id for item in result.evidence} == {"reanimate_creature", "graveyard"}
     assert result.evidence[0].target_id == "reanimate_creature"
     assert result.evidence[0].face_index == 1
 

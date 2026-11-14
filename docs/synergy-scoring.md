@@ -27,7 +27,17 @@ trigger's resolution text retains any additional condition for drawing cards.
 Token creation from a supported death replacement effect retains the required
 event, so it receives conditional affinity and earns no validated bridge.
 
+Giada's entry replacement gives matching Angel creatures, Angel tokens, and
+changelings conditional commander synergy. A qualifying creature's own
++1/+1-counter trigger can score an additional interaction. For Exemplar of
+Light, the counters it enters with can trigger its draw ability while Giada
+is already on the battlefield. The count includes Giada.
+[Foundations release notes](https://magic.wizards.com/en/news/feature/foundations-release-notes)
+
 The mechanical strategy definitions are in `config/strategy_synergy.json`.
+The expanded themes also use the same extracted capabilities as evidence in
+saved classifications. The [EDHREC theme coverage](edhrec-themes.md) lists the
+themes available in both ranking paths.
 Interaction rules live in `synergy_interactions.py`, with scoring defaults in
 `strategy_synergy.py`. The parser preserves evidence from supported
 [Oracle ability forms](oracle-text-parser.md#strategy-capability-extraction).
@@ -40,6 +50,14 @@ the components, matched abilities, dependencies, and unresolved Oracle text.
 Commander synergy is evaluated live and saved classifications are optional.
 When a core role is selected, its score remains the base and mechanical
 synergy supplies the bonus. Role exclusions still apply.
+
+Suggestions also accepts a creature type independently of the selected themes.
+With a commander or theme selected, the typal affinity supplies 20% of the
+combined synergy score. A typal-only search ranks by typal affinity. The
+highest applicable signal sets that affinity, with matching creatures and
+changelings at 100%, supported type payoffs at 85%, and matching creature token
+creation at 75%. The creature-card filter requires a matching front-face
+creature or changeling. Typal evidence is evaluated live.
 
 ## Catalog-guided generation
 

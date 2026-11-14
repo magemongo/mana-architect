@@ -292,6 +292,16 @@ def test_suggestions_page_filters_by_identity_and_strategy_without_corrections(
         assert any("Token Spell" in item.value for item in app.markdown)
         assert any("Commander 100%" in item.value for item in app.caption)
         assert any("Whenever a creature token you control enters" in item.value for item in app.text)
+
+        app.selectbox(key="suggestion_creature_type").select("Elf").run()
+        app.form_submit_button(key="search_collection_suggestions").click().run()
+        assert not app.exception
+        assert any("Typal · Elf · Creates creature tokens" in item.value for item in app.caption)
+        app.checkbox(key="suggestion_require_creature_body").check()
+        app.form_submit_button(key="search_collection_suggestions").click().run()
+        assert not app.exception
+        assert any("No cards matched" in item.value for item in app.info)
+        app.selectbox(key="suggestion_creature_type").select(None).run()
         app.selectbox(key="suggestion_commander_id").select(None).run()
         app.selectbox(key="suggestion_color_identity").select(("G",))
 

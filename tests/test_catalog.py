@@ -16,11 +16,11 @@ def _copy_catalog(tmp_path: Path) -> Path:
 def test_loads_versioned_catalog_and_all_initial_strategy_roles() -> None:
     catalog = load_strategy_catalog()
 
-    assert catalog.catalog_version == "1.4.0"
-    assert catalog.ruleset_version == "1.6.0"
+    assert catalog.catalog_version == "1.5.0"
+    assert catalog.ruleset_version == "1.7.0"
     assert catalog.scoring_version == "1.1.0"
-    assert len(catalog.strategies) == 15
-    assert {strategy.id for strategy in catalog.strategies} == {
+    assert len(catalog.strategies) == 110
+    assert {strategy.id for strategy in catalog.strategies} >= {
         "tokens",
         "plus_one_counters",
         "combo",

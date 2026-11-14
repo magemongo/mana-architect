@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.4.0",
+  "catalog_version": "1.5.0",
   "strategies": [
     {
       "id": "tokens",
@@ -676,6 +676,1051 @@
       "notes": [
         "This is a broad affinity; do not automatically label every efficient card as midrange."
       ]
+    },
+    {
+      "id": "enchantress",
+      "name": "Enchantress",
+      "description": "Use enchantment casts and entries to build a repeatable value engine.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "equipment",
+      "name": "Equipment",
+      "description": "Attach and reuse Equipment to turn creatures into sustained threats.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "mill",
+      "name": "Mill",
+      "description": "Deplete opponents' libraries or convert their milled cards into resources.",
+      "nature": [
+        "victory_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "blink",
+      "name": "Blink",
+      "description": "Exile and return your permanents to reuse their entry abilities.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "graveyard",
+      "name": "Graveyard",
+      "description": "Stock your graveyard and use it as a recurring resource across card types.",
+      "nature": [
+        "graveyard_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "discard",
+      "name": "Discard",
+      "description": "Disrupt opponents by making them discard cards from hand.",
+      "nature": [
+        "interaction_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "sacrifice",
+      "name": "Sacrifice",
+      "description": "Trade permanents for resources and reward the act of sacrificing.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "clones",
+      "name": "Clones",
+      "description": "Copy permanents to reuse their characteristics and abilities.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "treasure",
+      "name": "Treasure",
+      "description": "Produce Treasure as a resource for mana, artifact synergies, or sacrifice costs.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "auras",
+      "name": "Auras",
+      "description": "Attach Auras to amplify threats and maintain access to those attachments.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "card_draw",
+      "name": "Card Draw",
+      "description": "Build around additional card draw and effects that increase draw output.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "flying",
+      "name": "Flying",
+      "description": "Use flying threats and interactions that grant flying.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "group_slug",
+      "name": "Group Slug",
+      "description": "Pressure the whole table with recurring damage from shared actions.",
+      "nature": [
+        "victory_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "storm",
+      "name": "Storm",
+      "description": "Cast many spells in one turn to amplify a spell with storm.",
+      "nature": [
+        "victory_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "self_mill",
+      "name": "Self-Mill",
+      "description": "Move cards from your own library into your graveyard to fuel graveyard effects.",
+      "nature": [
+        "graveyard_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "stax",
+      "name": "Stax",
+      "description": "Use persistent restrictions to limit actions and constrain opponents' resources.",
+      "nature": [
+        "interaction_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "landfall",
+      "name": "Landfall",
+      "description": "Trigger payoffs when lands enter and create additional land-entry events.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "theft",
+      "name": "Theft",
+      "description": "Take control of other players' permanents to use their board resources.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "extra_combats",
+      "name": "Extra Combats",
+      "description": "Generate extra combat phases to repeat attacks and combat triggers.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "infect",
+      "name": "Infect",
+      "description": "Use infect to deliver poison counters and proliferate to increase them.",
+      "nature": [
+        "victory_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "forced_combat",
+      "name": "Forced Combat",
+      "description": "Use goad to make opposing creatures attack and steer combat.",
+      "nature": [
+        "interaction_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "planeswalkers",
+      "name": "Planeswalkers",
+      "description": "Develop planeswalkers and support their loyalty abilities.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "vehicles",
+      "name": "Vehicles",
+      "description": "Build around Vehicles and the creatures that crew them.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "lifedrain",
+      "name": "Lifedrain",
+      "description": "Win through opponent life loss, often while recovering life yourself.",
+      "nature": [
+        "victory_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "pillow_fort",
+      "name": "Pillow Fort",
+      "description": "Deter attacks against you with persistent combat restrictions.",
+      "nature": [
+        "interaction_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "minus_one_counters",
+      "name": "-1/-1 Counters",
+      "description": "Place -1/-1 counters to shrink opposing creatures and build counter synergies.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "cascade",
+      "name": "Cascade",
+      "description": "Use cascade to cast an additional eligible spell from the library.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "populate",
+      "name": "Populate",
+      "description": "Populate to copy creature tokens already on your battlefield.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "dredge",
+      "name": "Dredge",
+      "description": "Replace draws with dredge to stock your graveyard and recover dredge cards.",
+      "nature": [
+        "graveyard_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "etb",
+      "name": "ETB",
+      "description": "Gain value when your permanents enter the battlefield.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "extra_turns",
+      "name": "Extra Turns",
+      "description": "Take additional turns to accumulate resources or close the game.",
+      "nature": [
+        "victory_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "self_damage",
+      "name": "Self-Damage",
+      "description": "Use damage to yourself as fuel for effects that reward taking damage.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "proliferate",
+      "name": "Proliferate",
+      "description": "Increase existing counters on chosen permanents and players.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "spell_copy",
+      "name": "Spell Copy",
+      "description": "Copy spells on the stack or reward copying them.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "attack_triggers",
+      "name": "Attack Triggers",
+      "description": "Build around abilities that trigger when creatures attack.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "affinity",
+      "name": "Affinity",
+      "description": "Reduce costs through the affinity keyword and supply the objects it counts.",
+      "nature": [
+        "resource_acceleration"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "food",
+      "name": "Food",
+      "description": "Create and spend Food tokens as resources.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "energy",
+      "name": "Energy",
+      "description": "Generate and stock energy counters to pay for repeatable abilities.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "defenders",
+      "name": "Defenders",
+      "description": "Build around creatures with defender and effects that make their board presence useful.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "sagas",
+      "name": "Sagas",
+      "description": "Use Saga chapters to accumulate value over several turns.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "modified_creatures",
+      "name": "Modified Creatures",
+      "description": "Exploit modified creatures with counters, Equipment, or Auras.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "monarch",
+      "name": "Monarch",
+      "description": "Introduce the monarch and defend the crown to keep its recurring draw.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "cycling",
+      "name": "Cycling",
+      "description": "Cycle cards to trade unused options for new draws and fuel cycling payoffs.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "go_wide",
+      "name": "Go Wide",
+      "description": "Build a large creature board and reward attacking with many bodies.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "anthems",
+      "name": "Anthems",
+      "description": "Improve the strength of multiple creatures with a shared buff.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "tap_untap",
+      "name": "Tap / Untap",
+      "description": "Untap permanents to reuse their abilities and get more from tapping them.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "counterspells",
+      "name": "Counterspells",
+      "description": "Interact with spells on the stack through counterspells.",
+      "nature": [
+        "interaction_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "ninjutsu",
+      "name": "Ninjutsu",
+      "description": "Use ninjutsu to turn unblocked attacks into threats and combat triggers.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "morph",
+      "name": "Morph",
+      "description": "Deploy face-down spells and turn them face up for tactical value.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "unblockable",
+      "name": "Unblockable",
+      "description": "Make attackers unblockable to deliver reliable combat damage triggers.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "clues",
+      "name": "Clues",
+      "description": "Investigate or create Clues to bank card draw for later.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "flashback",
+      "name": "Flashback",
+      "description": "Cast spells a second time from the graveyard using flashback.",
+      "nature": [
+        "graveyard_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "dungeon",
+      "name": "Dungeon",
+      "description": "Advance through dungeons to gain their room and completion effects.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "deathtouch",
+      "name": "Deathtouch",
+      "description": "Use deathtouch to deter attacks and trade creatures efficiently.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "snow",
+      "name": "Snow",
+      "description": "Develop a snow permanent base to support snow costs and payoffs.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "mutate",
+      "name": "Mutate",
+      "description": "Merge creature spells using mutate to reuse or stack mutate effects.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "flash",
+      "name": "Flash",
+      "description": "Deploy permanents with flash while holding mana for other plays.",
+      "nature": [
+        "interaction_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "self_discard",
+      "name": "Self-Discard",
+      "description": "Discard your own cards to enable graveyard plays and discard payoffs.",
+      "nature": [
+        "graveyard_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "prowess",
+      "name": "Prowess",
+      "description": "Turn noncreature spell casts into combat pressure via prowess.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "haste",
+      "name": "Haste",
+      "description": "Attack or use tap abilities with creatures as soon as they enter.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "bounce",
+      "name": "Bounce",
+      "description": "Return permanents to hand for tempo or to reuse them.",
+      "nature": [
+        "interaction_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "sea_creatures",
+      "name": "Sea Creatures",
+      "description": "Build around leviathans, krakens, octopuses, and serpents.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "scry",
+      "name": "Scry",
+      "description": "Use scry to control upcoming draws and enable scry payoffs.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "guildgates",
+      "name": "Guildgates",
+      "description": "Assemble Gates to enable Gate-based mana and victory payoffs.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "modular",
+      "name": "Modular",
+      "description": "Move +1/+1 counters between artifact creatures using modular.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "foretell",
+      "name": "Foretell",
+      "description": "Set aside cards with foretell for later casting.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "surveil",
+      "name": "Surveil",
+      "description": "Use surveil to improve upcoming draws and stock your graveyard.",
+      "nature": [
+        "graveyard_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "firebending",
+      "name": "Firebending",
+      "description": "Use firebending attacks to generate mana for combat plays.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "annihilator",
+      "name": "Annihilator",
+      "description": "Force the defending player to sacrifice permanents through annihilator triggers.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "shrines",
+      "name": "Shrines",
+      "description": "Build a board of Shrines whose effects scale with each other.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "madness",
+      "name": "Madness",
+      "description": "Cast cards with madness when you discard them.",
+      "nature": [
+        "graveyard_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "convoke",
+      "name": "Convoke",
+      "description": "Tap creatures to help pay for spells with convoke.",
+      "nature": [
+        "resource_acceleration"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "suspend",
+      "name": "Suspend",
+      "description": "Use suspend to delay spells and cast them when their time counters run out.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "blood",
+      "name": "Blood",
+      "description": "Create Blood tokens and use them for card filtering or artifact value.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "myriad",
+      "name": "Myriad",
+      "description": "Use myriad to copy an attacker against multiple opponents.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "deserts",
+      "name": "Deserts",
+      "description": "Develop a Desert land base to support Desert-specific effects.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "indestructible",
+      "name": "Indestructible",
+      "description": "Use indestructible threats and effects that grant indestructible to preserve the board.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "mana_dorks",
+      "name": "Mana Dorks",
+      "description": "Use creatures that produce mana to accelerate development.",
+      "nature": [
+        "resource_acceleration"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "evoke",
+      "name": "Evoke",
+      "description": "Cast creatures for their evoke costs to reuse or exploit entry and sacrifice effects.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "offspring",
+      "name": "Offspring",
+      "description": "Pay offspring costs to get a token copy of a creature as it enters.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "plot",
+      "name": "Plot",
+      "description": "Build around plot to prepare spells for a later turn.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "battles",
+      "name": "Battles",
+      "description": "Deploy battles and use combat to unlock their transformed rewards.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "kicker",
+      "name": "Kicker",
+      "description": "Use optional kicker costs to scale spells or enable their upgraded effects.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "improvise",
+      "name": "Improvise",
+      "description": "Tap artifacts to help pay for spells with improvise.",
+      "nature": [
+        "resource_acceleration"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "menace",
+      "name": "Menace",
+      "description": "Use menace to make blocking difficult and pressure opponents.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "exploit",
+      "name": "Exploit",
+      "description": "Use exploit to sacrifice creatures and trigger exploit payoffs.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "caves",
+      "name": "Caves",
+      "description": "Assemble Caves for their land and graveyard payoffs.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "squad",
+      "name": "Squad",
+      "description": "Pay squad costs to create token copies of creatures with squad.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "retrace",
+      "name": "Retrace",
+      "description": "Discard lands to cast spells from the graveyard using retrace.",
+      "nature": [
+        "graveyard_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "training",
+      "name": "Training",
+      "description": "Attack alongside stronger creatures to grow threats through training.",
+      "nature": [
+        "combat_plan"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "legends",
+      "name": "Legends",
+      "description": "Build around legendary cards and effects that reward legendary spells or permanents.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "historic",
+      "name": "Historic",
+      "description": "Reward historic spells and permanents across artifacts, legendary cards, and Sagas.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "wheels",
+      "name": "Wheels",
+      "description": "Replace each player's hand to reset resources or trigger discard and draw payoffs.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "commander_matters",
+      "name": "Commander Matters",
+      "description": "Build around effects that specifically reward controlling, casting, or attacking with your commander.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
+    },
+    {
+      "id": "toolbox",
+      "name": "Toolbox",
+      "description": "Search the library for context-specific answers, resources, or finishers.",
+      "nature": [
+        "resource_engine"
+      ],
+      "active": true,
+      "tag_affinities": [],
+      "notes": []
     }
   ]
 }

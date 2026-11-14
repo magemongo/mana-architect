@@ -18,6 +18,7 @@ from mana_architect.roles import (
     has_card_selection,
     has_neutral_draw_discard,
 )
+from mana_architect.synergy_capabilities import MechanicalCapability, extract_mechanical_capabilities
 
 
 _WHITESPACE = re.compile(r"\s+")
@@ -43,6 +44,7 @@ class CardClassificationInput:
     color_identity: tuple[str, ...] | None = None
     produced_mana: tuple[str, ...] | None = None
     keywords: tuple[str, ...] | None = None
+    name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,7 @@ class NormalizedCard:
     oracle_text_faces: tuple[str, ...]
     mana_cost_normalized: str | None
     normalized_fields: Mapping[str, object]
+    name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -143,6 +146,7 @@ def normalize_card(card: CardClassificationInput) -> NormalizedCard:
         oracle_text_faces=oracle_text_faces,
         mana_cost_normalized=mana_cost_normalized,
         normalized_fields=MappingProxyType(normalized_fields),
+        name=card.name,
     )
 
 
@@ -173,10 +177,15 @@ def classify_card(
     ordered_rules = tuple(
         rule for rule in catalog.rules if rule.target_type == "tag"
     ) + tuple(rule for rule in catalog.rules if rule.target_type != "tag")
+    capabilities = ()
+    if any(rule.enabled and rule.match.type == "mechanical_capability_any" for rule in ordered_rules):
+        capabilities = extract_mechanical_capabilities(
+            oracle_parse, name=normalized.name or "", type_line=normalized.type_line or "",
+        ).capabilities
     for rule in ordered_rules:
         if not rule.enabled:
             continue
-        match = _match_rule(normalized, rule, oracle_parse, tuple(evidence))
+        match = _match_rule(normalized, rule, oracle_parse, tuple(evidence), capabilities)
         if match is None:
             continue
         source_field, matched_value, face_index, span_start, span_end = match
@@ -371,8 +380,25 @@ def _match_rule(
     rule: ClassificationRule,
     oracle_parse: OracleParse,
     existing_evidence: tuple[ClassificationEvidence, ...] = (),
+    capabilities: tuple[MechanicalCapability, ...] = (),
 ) -> tuple[str, str, int | None, int | None, int | None] | None:
     predicate = rule.match
+    if predicate.type == "mechanical_capability_any":
+        for capability in capabilities:
+            if capability.id not in predicate.values or capability.quantity.value == 0:
+                continue
+            if capability.id == "enter_payoff" and capability.controller == "opponent":
+                continue
+            attributes = {
+                "object_type": capability.object_types,
+                "subtype": capability.object.subtypes,
+                "reference": (capability.object.reference,),
+                "controller": (capability.controller,),
+            }
+            if all(expected in attributes[key] for key, expected in predicate.where):
+                span = capability.evidence
+                return span.source_field, span.oracle_span, None, span.start, span.end
+        return None
     if predicate.type == "oracle_feature_any":
         for feature in oracle_parse.features:
             if feature.id in predicate.values:

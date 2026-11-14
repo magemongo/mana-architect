@@ -36,7 +36,7 @@ def test_cost_observation_and_effect_are_separate_with_original_offsets():
         "{1}, Sacrifice another creature: Scry 1. Activate only as a sorcery."
     )
     profile = compile_card(text)
-    trigger, draw, sacrifice = profile.capabilities
+    trigger, draw, sacrifice, scry = profile.capabilities
     assert trigger.id == "death_payoff"
     assert trigger.object.reference == "other"
     assert trigger.object.types == ("creature",)
@@ -47,6 +47,7 @@ def test_cost_observation_and_effect_are_separate_with_original_offsets():
     assert sacrifice.costs == ("{1}, Sacrifice another creature",)
     assert sacrifice.timing == "sorcery_speed"
     assert sacrifice.source_zone == "battlefield"
+    assert scry.id == "scry" and scry.quantity.value == 1
     assert sacrifice.destination_zone == "graveyard"
     assert profile.unknowns[0].oracle_span.startswith("{1}")
 
@@ -83,11 +84,12 @@ def test_self_reference_is_linked_without_shifting_unicode_offsets():
         "Whenever Café Hero enters the battlefield, you gain 2 life.",
         name="Café Hero", type_line="Legendary Creature — Human",
     )
-    trigger, gain, creature = profile.capabilities
+    trigger, gain, creature, legendary = profile.capabilities
     assert trigger.object.reference == "self"
     assert gain.quantity.value == 2
     assert gain.evidence.oracle_span == "you gain 2 life"
     assert creature.object.subtypes == ("human",)
+    assert legendary.id == "printed_supertype" and legendary.object.subtypes == ("legendary",)
 
 
 def test_inline_scryfall_face_separator_keeps_offsets_and_face_types():

@@ -229,8 +229,8 @@ def test_reclassification_persists_reproducible_evidence_and_skips_unchanged_car
         catalog,
     )
     assert len(runs) == 3
-    assert len(candidates) == 4
-    assert len(evidence) == 4
+    assert len(candidates) == 6
+    assert len(evidence) == 6
     assert len(versions) == 1
     assert set(versions[0].configuration_snapshot) == {
         "strategy_catalog.json",
@@ -266,7 +266,7 @@ def test_incremental_reclassification_only_reprocesses_changed_card(
     assert len(runs) == 2
     assert latest is not None
     assert {item.target_id for item in latest.evidence} == {
-        "instant_sorcery_spell_density"
+        "instant_sorcery_spell_density", "card_draw",
     }
 
 

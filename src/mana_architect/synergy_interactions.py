@@ -6,7 +6,7 @@ import re
 
 from mana_architect.synergy_capabilities import MechanicalCapability, MechanicalObject
 
-INTERACTION_RULE_VERSION = "1.1.0"
+INTERACTION_RULE_VERSION = "1.2.0"
 
 
 class MatchStatus(StrEnum):
@@ -48,6 +48,15 @@ INTERACTION_RULES = (
                    "amplifies", "counter_placement", "The replacement applies to the qualifying counter placement."),
     MechanicalRule("counter_placement_triggers_payoff", "put_counters", "counter_payoff",
                    "directly_triggers", "counter_placement", "The payoff observes the qualifying counters being placed."),
+    MechanicalRule("creature_receives_typal_entry_counters", "typal_entry_counters", "creature_presence",
+                   "rewards", "counter_placement", "The creature can enter with additional +1/+1 counters.",
+                   dependency="matching_creature_enters_under_your_control", weight=0.65),
+    MechanicalRule("token_receives_typal_entry_counters", "typal_entry_counters", "create_token",
+                   "rewards", "counter_placement", "The created creature token can enter with additional +1/+1 counters.",
+                   dependency="matching_creature_enters_under_your_control", weight=0.75),
+    MechanicalRule("typal_entry_counters_trigger_self_payoff", "typal_entry_counters", "counter_payoff",
+                   "directly_triggers", "counter_placement", "The creature's own payoff sees the +1/+1 counters it enters with.",
+                   dependency="matching_creature_enters_under_your_control"),
     MechanicalRule("blink_retriggers_etb", "blink", "enter_payoff",
                    "directly_triggers", "enter", "Exiling and returning the eligible card can cause the observed entry.",
                    dependency="eligible_card_can_leave_and_return"),
@@ -175,6 +184,9 @@ def validate_interaction(
     if not rule_applies_to_capability(rule, source) or not rule_applies_to_capability(rule, target):
         return None
 
+    if source.id == "typal_entry_counters":
+        return _validate_typal_entry(rule, source, target, target_type, same_card)
+
     dependencies = set(filter(None, (rule.dependency,)))
     producer, observer = (target, source) if rule.relation == "amplifies" else (source, target)
     produced, required = producer.object, observer.object
@@ -295,3 +307,31 @@ def validate_interaction(
     dependencies.update(target.conditions)
     status = MatchStatus.CONDITIONAL if dependencies else MatchStatus.VALIDATED
     return RuleMatch(status, rule.explanation, tuple(sorted(dependencies)))
+
+
+def _validate_typal_entry(
+    rule: MechanicalRule, source: MechanicalCapability, target: MechanicalCapability,
+    target_type: str, same_card: bool,
+) -> RuleMatch | None:
+    if target.controller != "you" or target.quantity.value == 0:
+        return None
+    if same_card and target.id != "create_token":
+        return None
+    if target.id == "counter_payoff":
+        if target.object.reference != "self" or "+1/+1" not in target.object.subtypes:
+            return None
+        entrant = _card_object(target_type)
+    else:
+        entrant = target.object
+    if "creature" not in entrant.types:
+        return None
+    if target.resolution != "changeling" and not set(source.object.subtypes).intersection(entrant.subtypes):
+        return None
+    dependencies = {rule.dependency, *source.conditions, *target.conditions}
+    if target.costs:
+        dependencies.add("pay_ability_cost")
+    if target.modality == "optional":
+        dependencies.add("choose_optional_effect")
+    if target.quantity.kind in {"up_to", "variable"}:
+        dependencies.add("positive_event_quantity")
+    return RuleMatch(MatchStatus.CONDITIONAL, rule.explanation, tuple(sorted(dependencies)))

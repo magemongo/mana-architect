@@ -1,4 +1,5 @@
 import json
+import re
 
 import pytest
 
@@ -9,11 +10,19 @@ from mana_architect.synergy_catalog import load_synergy_strategies
 def test_definitions_cover_all_active_builtin_strategy_ids():
     legacy = load_strategy_catalog()
     mechanical = load_synergy_strategies()
-    assert len(mechanical.strategies) == 15
     assert {strategy.id for strategy in mechanical.strategies} == {
         strategy.id for strategy in legacy.strategies if strategy.active
     }
     assert all(strategy.objective and strategy.exclusions for strategy in mechanical.strategies)
+
+
+def test_edhrec_reference_covers_every_active_strategy():
+    reference = DEFAULT_CATALOG_DIR.parent / "docs" / "edhrec-themes.md"
+    rows = re.findall(r"^\| \d+ \| .+ \|", reference.read_text(encoding="utf-8"), re.MULTILINE)
+    scored = [match[1] for row in rows if (match := re.search(r"Scored · `([a-z0-9_]+)`", row))]
+    assert len(rows) == 284
+    assert len(scored) == len(set(scored))
+    assert set(scored) == {strategy.id for strategy in load_synergy_strategies().strategies}
 
 
 def test_catalog_aliases_preserve_canonical_active_ids(tmp_path):

@@ -4,8 +4,10 @@ import json
 import pytest
 
 from mana_architect.models import Card
+from mana_architect.classification import CardClassificationInput, classify_card
 from mana_architect.strategy_synergy import SelectedStrategy, evaluate_synergy, load_synergy_context
 from mana_architect.synergy_interactions import MatchStatus
+from mana_architect.typal import match_typal
 
 
 def card(oracle_id, text, *, type_line="Creature", colors=("B",), legality="legal"):
@@ -26,6 +28,37 @@ def run(context, commander, candidate, *strategies, quantity=1):
         commander, candidate, tuple(SelectedStrategy(s) for s in strategies),
         context, owned_quantity=quantity,
     )
+
+
+@pytest.mark.parametrize(
+    "text,type_line,expected,excluded",
+    [
+        ("Each opponent mills three cards.", "Sorcery", "mill", "self_mill"),
+        ("Mill three cards.", "Sorcery", "self_mill", "mill"),
+        ("Target opponent discards two cards.", "Sorcery", "discard", "self_discard"),
+        ("Discard a card.", "Sorcery", "self_discard", "discard"),
+        ("Exile target creature you control, then return it to the battlefield under its owner's control.",
+         "Instant", "blink", "bounce"),
+        ("Create a Food token.", "Instant", "food", "treasure"),
+        ("Create a Treasure token.", "Instant", "treasure", "food"),
+        ("Whenever you cast an enchantment spell, draw a card.", "Creature", "enchantress", "auras"),
+        ("Flying, haste", "Creature", "flying", "unblockable"),
+        ("", "Legendary Enchantment — Shrine", "shrines", "sagas"),
+        ("Each player discards their hand, then draws seven cards.", "Sorcery", "wheels", "self_discard"),
+        ("Whenever you cast a historic spell, draw a card.", "Creature", "historic", "enchantress"),
+        ("Whenever one or more Rogues you control deal combat damage to a player, that player mills a card for each 1 damage dealt to them.",
+         "Creature", "mill", "self_mill"),
+    ],
+)
+def test_expanded_themes_share_specific_evidence(context, text, type_line, expected, excluded):
+    candidate = card("candidate", text, type_line=type_line)
+    classified = classify_card(CardClassificationInput(type_line=type_line, oracle_text=text), context.oracle)
+    saved = {item.target_id for item in classified.evidence if item.target_type == "strategy"}
+    result = run(context, card("commander", ""), candidate, expected, excluded)
+    live = {item.strategy_id for item in result.strategy_affinities if item.score > 0}
+
+    assert expected in saved and expected in live
+    assert excluded not in saved and excluded not in live
 
 
 def test_treasure_is_a_bridge_and_only_conditionally_triggers_sacrifice(context):
@@ -143,6 +176,10 @@ def test_anowon_rewards_actual_rogues_rogue_tokens_and_changelings(context):
     assert "If the player mills at least one creature card" in combat.target.resolution
     assert not tokens.commander_unknowns
 
+    typal = [match_typal(result.mechanical_capabilities, "rogue") for result in results]
+    assert [item.affinity for item in typal] == [1, 1, 0.75, 1, 0, 0]
+    assert [item.is_creature_body for item in typal] == [True, True, False, True, False, False]
+
 
 def test_kalitas_style_creation_is_discounted_and_earns_no_validated_bridge(context):
     commander = card("commander", "")
@@ -159,3 +196,29 @@ def test_kalitas_style_creation_is_discounted_and_earns_no_validated_bridge(cont
     intrinsic = next(item for item in result.evidence if item.rule_id == "tokens_create_token")
     assert intrinsic.status == MatchStatus.CONDITIONAL
     assert "a nontoken creature an opponent controls would die" in intrinsic.dependencies
+
+
+def test_giada_rewards_angel_entries_and_triggers_their_own_counter_payoffs(context):
+    giada = card(
+        "giada", "Each other Angel you control enters with an additional +1/+1 counter on it "
+        "for each Angel you already control.", type_line="Legendary Creature — Angel",
+    )
+    payoff = "Whenever you put one or more +1/+1 counters on this creature, draw a card."
+    exemplar = card("exemplar", payoff, type_line="Creature — Angel")
+    plain_angel = card("angel", "", type_line="Creature — Angel")
+    human = card("human", payoff, type_line="Creature — Human")
+    token_maker = card("token-maker", "Create a 4/4 white Angel creature token.", type_line="Sorcery")
+    changeling = card("changeling", "Changeling", type_line="Creature — Shapeshifter")
+    kindred = card("kindred", "Draw a card.", type_line="Kindred Sorcery — Angel")
+
+    results = [run(context, giada, candidate, "plus_one_counters")
+               for candidate in (exemplar, plain_angel, human, token_maker, changeling, kindred)]
+    scores = [result.scores.direct_commander_synergy for result in results]
+    assert scores == pytest.approx([0.7, 0.455, 0, 0.525, 0.455, 0])
+    match = next(item for item in results[0].evidence
+                 if item.rule_id == "typal_entry_counters_trigger_self_payoff")
+    assert match.status == MatchStatus.CONDITIONAL
+    assert "source_on_battlefield_before_entry" in match.dependencies
+    assert "control_a_angel_before_entry" in match.dependencies
+    assert match.source.evidence.oracle_span == giada.oracle_text
+    assert match.target.evidence.oracle_span == payoff

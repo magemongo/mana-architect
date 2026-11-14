@@ -191,6 +191,13 @@ def _capabilities(card: Card, parsed: OracleParse) -> MechanicalProfile:
     return _compile_parsed_capabilities(parsed, card.name, card.type_line or "", CAPABILITY_VERSION)
 
 
+def mechanical_profile(card: Card, catalog: StrategyCatalog) -> MechanicalProfile:
+    parsed = _parse_cached(
+        card.oracle_text or "", PARSER_VERSION, catalog.oracle_lexicon, catalog.oracle_mechanical_patterns,
+    )
+    return _capabilities(card, parsed)
+
+
 def normalize_priorities(selected: tuple[SelectedStrategy, ...], context: SynergyCatalogContext) -> dict[str, float]:
     known = {strategy.id for strategy in context.strategies.strategies}
     aliases = dict(context.strategies.aliases)
@@ -237,10 +244,7 @@ def _evidence_id(*parts: str) -> str:
 def _preference_matches(preference: CapabilityPreference, cap: MechanicalCapability, card: Card) -> bool:
     if preference.capability != cap.id:
         return False
-    types = set(cap.object.types) | {cap.object.kind}
-    if cap.object.reference == "self" and not cap.object.types:
-        types.update((cap.face_type_line or card.type_line or "").casefold().split(" — ")[0].split())
-    if preference.types and not types.intersection(preference.types):
+    if preference.types and not cap.object_types.intersection(preference.types):
         return False
     if preference.subtype and preference.subtype not in cap.object.subtypes:
         return False

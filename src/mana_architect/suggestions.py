@@ -33,14 +33,17 @@ from mana_architect.strategy_synergy import (
     StrategySynergyProfile,
     SynergyCatalogContext,
     evaluate_synergy,
+    mechanical_profile,
     normalize_priorities,
     parse_synergy_oracle,
 )
 from mana_architect.synergy_catalog import load_synergy_strategies
+from mana_architect.typal import TypalMatch, creature_subtypes, match_typal
 
 INTERACTION_SUGGESTION_ROLES = frozenset({"spot_interaction", "mass_interaction"})
 STANDALONE_SUGGESTION_ROLES = INTERACTION_SUGGESTION_ROLES | {"card_advantage", "ramp"}
 _MAX_INTERACTION_STRATEGY_BONUS = 5.0
+_TYPAL_WEIGHT = 0.20
 
 
 @dataclass(frozen=True)
@@ -62,6 +65,7 @@ class IdentityCollectionSuggestion:
     ramp_profile: RampProfile | None = None
     interaction_profile: InteractionProfile | None = None
     mechanical_synergy: StrategySynergyProfile | None = None
+    typal_match: TypalMatch | None = None
 
 
 @dataclass(frozen=True)
@@ -87,6 +91,13 @@ def collection_oracle_ids(session: Session) -> tuple[str, ...]:
     )
 
 
+def collection_creature_types(session: Session) -> tuple[str, ...]:
+    type_lines = session.scalars(
+        select(Card.type_line).join(CollectionPrinting).where(Card.type_line.is_not(None)).distinct()
+    )
+    return tuple(sorted({subtype for line in type_lines for subtype in creature_subtypes(line)}))
+
+
 def suggest_collection_cards_by_identity(
     session: Session,
     color_identity: tuple[str, ...],
@@ -98,6 +109,8 @@ def suggest_collection_cards_by_identity(
     limit: int = 50,
     commander_identifier: str | None = None,
     strategy_priorities: Mapping[str, float] | None = None,
+    creature_type: str | None = None,
+    require_creature_body: bool = False,
 ) -> IdentityCollectionSuggestionBatch:
     """Rank by strategy or core role, optionally using a commander's actual abilities."""
     role_id = prioritized_roles[0] if len(prioritized_roles) == 1 else None
@@ -109,8 +122,11 @@ def suggest_collection_cards_by_identity(
         raise ValueError("color_identity must contain unique Magic colors.")
     if len(set(strategy_ids)) != len(strategy_ids):
         raise ValueError("Select unique strategies.")
-    if not commander_identifier and not strategy_ids and role_id not in STANDALONE_SUGGESTION_ROLES:
-        raise ValueError("Choose a strategy or select a core role with its own ranking.")
+    selected_type = " ".join(creature_type.split()).casefold() if creature_type else None
+    if require_creature_body and not selected_type:
+        raise ValueError("Choose a creature type to filter for creature bodies.")
+    if not commander_identifier and not strategy_ids and not selected_type and role_id not in STANDALONE_SUGGESTION_ROLES:
+        raise ValueError("Choose a theme, a creature type, or a core role with its own ranking.")
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 50:
         raise ValueError("limit must be an integer between 1 and 50.")
     strategies = {item.id: item for item in catalog.strategies if item.active}
@@ -165,10 +181,15 @@ def suggest_collection_cards_by_identity(
         classification = classifications.get(card.oracle_id)
         if classification is None:
             unclassified += 1
-            if commander is None:
+            if commander is None and not selected_type:
                 continue
         if _commander_legality(card) is not True:
             ineligible += 1
+            continue
+        typal_match = (
+            match_typal(mechanical_profile(card, catalog).capabilities, selected_type) if selected_type else None
+        )
+        if require_creature_body and typal_match and not typal_match.is_creature_body:
             continue
         if classification is None:
             classification = (
@@ -263,6 +284,12 @@ def suggest_collection_cards_by_identity(
         else:
             strategy_scores = _classified_strategy_scores(strategies, strategy_ids, evidence, manual_inclusions)
             synergy_score = max(strategy_scores.values(), default=0.0)
+        if typal_match:
+            typal_score = 100 * typal_match.affinity
+            if commander is not None or strategy_ids:
+                synergy_score = (1 - _TYPAL_WEIGHT) * synergy_score + _TYPAL_WEIGHT * typal_score
+            else:
+                synergy_score = typal_score
         matched_strategy_ids = tuple(
             strategy_id
             for strategy_id in strategy_ids
@@ -301,6 +328,7 @@ def suggest_collection_cards_by_identity(
                 classification=enriched,
                 overrides=overrides,
                 mechanical_synergy=mechanical_synergy,
+                typal_match=typal_match,
             )
         )
     suggestions.sort(

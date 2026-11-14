@@ -9,6 +9,7 @@ from types import MappingProxyType
 from typing import Iterable, Mapping
 
 from mana_architect.oracle_text import LexiconEntry, MechanicalPattern
+from mana_architect.synergy_capabilities import CAPABILITY_IDS
 
 
 DEFAULT_CATALOG_DIR = Path(__file__).resolve().parents[2] / "config"
@@ -23,6 +24,7 @@ _RULE_SOURCE_FIELDS = {
     "oracle_text_normalized",
     "oracle_features",
     "oracle_mechanics",
+    "mechanical_capabilities",
     "classification_tags",
     "produced_mana",
     "type_line",
@@ -37,6 +39,7 @@ _PREDICATE_TYPES = {
     "field_equals",
     "oracle_feature_any",
     "oracle_mechanic_any",
+    "mechanical_capability_any",
     "classification_tag_any",
 }
 _SCORING_COMPONENTS = {
@@ -416,6 +419,7 @@ def _parse_predicate(
         "keyword_contains",
         "oracle_feature_any",
         "oracle_mechanic_any",
+        "mechanical_capability_any",
         "classification_tag_any",
     }:
         values = _string_tuple(raw, filename, f"{path}.values")
@@ -426,6 +430,7 @@ def _parse_predicate(
             "keyword_contains": {"keywords"},
             "oracle_feature_any": {"oracle_features"},
             "oracle_mechanic_any": {"oracle_mechanics"},
+            "mechanical_capability_any": {"mechanical_capabilities"},
             "classification_tag_any": {"classification_tags"},
         }.get(predicate_type)
         if required_field is not None and not required_field.intersection(source_fields):
@@ -436,7 +441,7 @@ def _parse_predicate(
                 f"{' ou '.join(sorted(required_field))}",
             )
         where: tuple[tuple[str, str | int | float | bool], ...] = ()
-        if predicate_type == "oracle_mechanic_any":
+        if predicate_type in {"oracle_mechanic_any", "mechanical_capability_any"}:
             raw_where = raw.get("where", {})
             if not isinstance(raw_where, dict) or not all(
                 isinstance(key, str)
@@ -446,6 +451,13 @@ def _parse_predicate(
             ):
                 raise _error(filename, f"{path}.where", "expected an object of scalar attributes")
             where = tuple(sorted(raw_where.items()))
+            if predicate_type == "mechanical_capability_any":
+                if set(values) - CAPABILITY_IDS:
+                    raise _error(filename, f"{path}.values", "unknown mechanical capability")
+                if set(raw_where) - {"object_type", "subtype", "reference", "controller"} or any(
+                    not isinstance(value, str) or not value.strip() for value in raw_where.values()
+                ):
+                    raise _error(filename, f"{path}.where", "unknown capability filter or invalid value")
         elif "where" in raw:
             raise _error(filename, f"{path}.where", "where is supported only for mechanic predicates")
         return MatchPredicate(type=predicate_type, values=values, where=where)

@@ -9,7 +9,7 @@ from mana_architect.mana_resource_extractor import extract_mana_resources
 from mana_architect.oracle_text import OracleParse
 from mana_architect.ramp_rules_catalog import NUMBER_WORDS
 
-CAPABILITY_VERSION = "1.1.0"
+CAPABILITY_VERSION = "1.3.0"
 
 # One event can satisfy multiple strategies through its object types. Creating a
 # Treasure therefore produces a single capability and a single quantity.
@@ -26,7 +26,14 @@ CAPABILITY_IDS = frozenset({
     "attack_payoff", "artifact_count_payoff", "land_count_payoff",
     "token_count_payoff", "protect_creature", "resolve_spell", "grant_lifelink",
     "populate", "additional_draw", "tribal_buff", "combat_damage_payoff",
-    "creature_presence", "self_evasion",
+    "creature_presence", "self_evasion", "mill_opponent", "force_discard",
+    "copy_permanent", "extra_turn", "mass_combat_buff", "goad", "take_control",
+    "life_loss_opponent", "protect_from_attacks", "keyword_ability",
+    "permanent_bounce", "investigate", "venture", "become_monarch",
+    "gain_energy", "modified_payoff", "unblockable", "printed_subtype", "printed_supertype",
+    "printed_type", "scry", "surveil", "creature_mana",
+    "wheel", "commander_payoff", "search_library", "life_drain",
+    "typal_entry_counters",
 })
 
 _FLAGS = re.IGNORECASE
@@ -41,6 +48,22 @@ _TOKEN_TYPES = {
     "gold": "artifact", "junk": "artifact", "map": "artifact",
     "powerstone": "artifact", "treasure": "artifact", "incubator": "artifact",
 }
+_THEME_KEYWORDS = re.compile(
+    r"(?P<keyword>affinity|annihilator|cascade|convoke|crew|cycling|deathtouch|defender|dredge|"
+    r"evoke|exploit|firebending|flash|flashback|flying|foretell|haste|improvise|indestructible|"
+    r"infect|kicker|madness|menace|modular|morph|mutate|myriad|ninjutsu|offspring|plot|prowess|"
+    r"retrace|squad|storm|suspend|training)\b(?: (?:\{[^}]+\})+| \d+| for [a-z]+|"
+    r" \d+—(?:\{[^}]+\})+|—.+| — .+)?"
+)
+_SUPERTYPES = {"basic", "legendary", "snow", "world", "ongoing"}
+_WHEEL = re.compile(
+    rf"each player discards? (?:their hand|all the cards in their hand)"
+    rf"(?:,? (?:then|and) draws?|\.\s*then each player draws?) (?P<count>{_NUMBER}) cards?\.?"
+)
+_LIFE_DRAIN = re.compile(
+    rf"(?P<target>each opponent|target opponent|target player) loses (?P<count>{_NUMBER}) life"
+    rf"(?:,? and you gain|\.\s*you gain) (?P<gain>{_NUMBER}) life\.?"
+)
 _SELF = r"(?:this (?:creature|permanent|artifact|enchantment|spell|card|land|planeswalker)|@self)"
 _BASIC_LANDS = frozenset({"plains", "island", "swamp", "mountain", "forest", "wastes"})
 _QUANTITY_WORDS = {"a": 1, "an": 1, **NUMBER_WORDS}
@@ -72,6 +95,10 @@ _EVASION = re.compile(
     rf"(?:(?:{_SELF}) can't be blocked|flying|fear)\.?"
 )
 _CHANGELING = re.compile(r"^changeling(?:\s|$)", re.IGNORECASE | re.MULTILINE)
+_TYPAL_ENTRY_COUNTERS = re.compile(
+    r"each other (?P<subtype>[a-z][a-z' -]*?) you control enters(?: the battlefield)? "
+    r"with an additional \+1/\+1 counter on it for each (?P=subtype) you already control\.?"
+)
 
 
 @dataclass(frozen=True)
@@ -125,6 +152,13 @@ class MechanicalCapability:
     def event_key(self) -> str:
         return f"{self.evidence.ability_id}:{self.evidence.start}:{self.evidence.end}"
 
+    @property
+    def object_types(self) -> set[str]:
+        types = set(self.object.types) | {self.object.kind}
+        if self.object.reference == "self" and not self.object.types:
+            types.update(self.face_type_line.partition(" — ")[0].casefold().split())
+        return types
+
 
 @dataclass(frozen=True)
 class MechanicalProfile:
@@ -147,6 +181,8 @@ def _object(text: str, *, kind: str = "permanent") -> MechanicalObject:
     words = set(re.findall(r"[a-z]+", text))
     types = tuple(sorted({word.removesuffix("s") for word in words} & _TYPES))
     subtypes = tuple(sorted(words & (_TOKEN_TYPES.keys() | _BASIC_LANDS)))
+    if "legendary" in words or "historic" in words:
+        subtypes = tuple(sorted(set(subtypes) | (words & {"legendary", "historic"})))
     if "token" in words or "tokens" in words or kind == "token":
         kind = "token"
         types = tuple(sorted(set(types) | {_TOKEN_TYPES[s] for s in subtypes if s in _TOKEN_TYPES}))
@@ -203,6 +239,31 @@ def _tribal_group(match: re.Match[str]) -> MechanicalObject:
 
 
 def _match_action(text: str) -> tuple[str, str, MechanicalObject, dict] | None:
+    if match := re.fullmatch(
+        rf"(?P<actor>target opponent|each opponent|that opponent|target player|each player|that player) "
+        rf"(?P<action>mills?|discards?) (?P<count>{_NUMBER}) cards?(?P<scale> for each .+)?", text,
+    ):
+        mill = match["action"].startswith("mill")
+        action = "mill" if mill else "discard"
+        return ("mill_opponent" if mill else "force_discard"), action, MechanicalObject("card"), dict(
+            event=action, controller="opponent" if "opponent" in match["actor"] else "any",
+            source_zone="library" if mill else "hand", destination_zone="graveyard",
+            quantity=MechanicalQuantity("variable", expression=match["scale"].strip()) if match["scale"] else _quantity(match["count"]),
+        )
+    if match := re.fullmatch(
+        r"create (?:a|one) token that's a copy of (?P<object>target .+?|@self|that (?:creature|permanent|artifact|enchantment))(?: except .+)?"
+        r"|have @self enter(?: the battlefield)? as a copy of (?P<original>(?:any|a|another|target) [^.]+)", text,
+    ):
+        original = match["original"]
+        return "copy_permanent", "copy", _object(original or match["object"]), dict(
+            event="copy_as_enters" if original else "token_creation", controller="you",
+            source_zone="battlefield", destination_zone="battlefield",
+        )
+    if match := re.fullmatch(rf".+ deals? (?P<count>{_NUMBER}) damage to (?P<recipient>each opponent|you)", text):
+        recipient = {"each opponent": "each_opponent", "you": "self_player"}[match["recipient"]]
+        return "deal_noncombat_damage", "deal", MechanicalObject("player", subtypes=(recipient,)), dict(
+            event="noncombat_damage", quantity=_quantity(match["count"]),
+        )
     if match := re.fullmatch(rf"create (?P<up_to>up to )?(?P<count>{_NUMBER}) (?P<object>.+?)(?: tokens?)(?P<tail>.*)", text):
         obj = match["object"]
         # Color, size, and the printed token name do not constrain a creator's
@@ -258,6 +319,14 @@ def _match_action(text: str) -> tuple[str, str, MechanicalObject, dict] | None:
             conditions=("eligible_spell_on_stack",),
             resolution=_controller(match["object"], "any"),
         )
+    if match := re.fullmatch(
+        r"search your library for (?P<object>(?:a|an|up to one) (?!basic land\b)[^,.]*?\bcard),? "
+        r"(?:reveal (?:it|that card),? (?:then )?|then )?"
+        r"(?:put (?:it|that card) (?:into your hand|onto the battlefield),? (?:then )?shuffle)", text,
+    ):
+        return "search_library", "search", _object(match["object"]), dict(
+            event="library_search", source_zone="library", controller="you", quantity=_quantity("one"),
+        )
     for capability_id, action, pattern in _SIMPLE_EFFECTS:
         match = pattern.fullmatch(text)
         if match is not None:
@@ -266,9 +335,15 @@ def _match_action(text: str) -> tuple[str, str, MechanicalObject, dict] | None:
             obj = _object(object_text) if object_text else MechanicalObject({
                 "draw": "card", "discard": "card", "self_mill": "card",
             }.get(capability_id, "unknown"))
+            subtype = fields.get("subtype")
+            if subtype is None and capability_id == "life_loss_opponent" and text.startswith("each opponent "):
+                subtype = "each_opponent"
+            if subtype:
+                obj = replace(obj, subtypes=(subtype,))
             return capability_id, action, obj, dict(
                 controller=_controller(object_text, "you" if obj.reference == "self" or obj.kind == "card" else "unknown"),
-                quantity=_quantity(fields.get("count")),
+                quantity=(MechanicalQuantity("fixed", fields["count"].count("{e}"))
+                          if capability_id == "gain_energy" else _quantity(fields.get("count"))),
                 costs=(fields["cost"],) if fields.get("cost") else (),
             )
     return None
@@ -291,15 +366,29 @@ _SIMPLE_EFFECTS = tuple(
         ("untap", "untap", r"untap (?P<object>target .+|all .+|this .+)"),
         ("counter_spell", "counter", r"counter (?P<object>target (?:.+ )?spell)"),
         ("remove_permanent", "remove", r"(?:destroy|exile) (?P<object>(?:target|all|each) (?:nonland )?(?:artifact|creature|enchantment|land|permanent|planeswalker)s?(?: (?:an opponent|you) controls?)?)"),
-        ("remove_permanent", "remove", r"return (?P<object>(?:target|all|each) .+?) to (?:its owner's hand|their owners' hands)"),
+        ("permanent_bounce", "return", r"return (?P<object>(?:target|all|each) .+?) to (?:its owner's hand|their owners' hands)"),
         ("restrict_actions", "restrict", r"(?P<object>players|opponents|your opponents) (?:can't|cannot) (?:cast|activate|attack|block).+"),
         ("reduce_spell_cost", "reduce", r"(?P<object>.+ spells?) you cast cost \{[^}]+\} less to cast"),
         ("deal_noncombat_damage", "deal", rf".+ deals? (?P<count>{_NUMBER}) damage to (?P<object>.+)"),
+        ("mass_combat_buff", "buff", r"(?P<object>(?:other |all |attacking )?creatures you control) get \+\d+/[+-]\d+(?: .+)?"),
         ("combat_buff", "buff", r"(?P<object>.+ creatures?.*|creatures?.*|@self) gets? \+\d+/\+\d+(?: .+)?"),
         ("grant_haste", "grant", r"(?P<object>.+ creatures?.*|creatures?.*|@self) (?:gain[s]?|ha[sv]e?s?) haste(?: .+)?"),
-        ("grant_evasion", "grant", r"(?P<object>.+ creatures?.*|creatures?.*|@self) (?:gain[s]?|ha[sv]e?s?) (?:flying|trample|menace)(?: .+)?"),
-        ("protect_creature", "protect", r"(?P<object>target creature.*|@self) gains? (?:hexproof|indestructible|protection from .+)(?: .+)?"),
+        ("grant_evasion", "grant", r"(?P<object>.+ creatures?.*|creatures?.*|@self) (?:gains?|has|have) (?P<subtype>flying|trample|menace)(?: .+)?"),
+        ("protect_creature", "protect", r"(?P<object>target creature.*|@self) gains? (?P<subtype>hexproof|indestructible|protection from .+)(?: .+)?"),
         ("extra_combat", "permit", r"after this (?:main|combat) phase, there is an additional combat phase(?: .+)?"),
+        ("extra_turn", "permit", r"(?:you )?take an extra turn after this one"),
+        ("goad", "goad", r"goad (?P<object>target creature|that creature|each creature(?: an opponent controls)?|all creatures(?: target opponent controls)?)"),
+        ("take_control", "gain_control", r"gain control of (?P<object>target (?:creature|artifact|enchantment|permanent|planeswalker)(?: an opponent controls)?)(?: until end of turn)?"),
+        ("life_loss_opponent", "lose", rf"(?:each opponent|target opponent|that opponent) loses? (?P<count>{_NUMBER}) life"),
+        ("protect_from_attacks", "restrict", r"creatures can't attack you(?: or planeswalkers you control)? unless .+"),
+        ("investigate", "investigate", r"investigate"),
+        ("venture", "venture", r"venture into (?:the dungeon|undercity)"),
+        ("become_monarch", "become", r"you become the monarch"),
+        ("gain_energy", "gain", r"(?:you )?get (?P<count>(?:\{e\})+)"),
+        ("modified_payoff", "reward", r"(?P<object>modified creatures you control) (?:have|gain|get|can't be blocked)\b.*"),
+        ("unblockable", "evade", rf"(?P<object>target creature|{_SELF}) can't be blocked(?: this turn)?"),
+        ("scry", "scry", rf"scry (?P<count>{_NUMBER})"),
+        ("surveil", "surveil", rf"surveil (?P<count>{_NUMBER})"),
         ("equip", "attach", r"equip (?P<cost>(?:\{[^}]+\})+)"),
         ("attach_aura", "attach", r"enchant (?P<object>creature(?: you control)?)"),
     )
@@ -315,6 +404,7 @@ _OBSERVERS = tuple(
         ("cast_or_copy_payoff", "cast_or_copy", r"(?P<actor>you|a player|an opponent) casts? or (?:copy|copies) (?P<object>.+ spell)"),
         ("cast_payoff", "cast", r"(?P<actor>you|a player|an opponent) casts? (?P<object>.+ spell)"),
         ("counter_payoff", "counter_placement", r"(?:one or more )?(?P<counter>\+1/\+1) counters? (?:is|are) put on (?P<object>.+)"),
+        ("counter_payoff", "counter_placement", r"(?P<actor>you|an opponent|a player) puts? (?:one or more )?(?P<counter>\+1/\+1) counters? on (?P<object>.+)"),
         ("single_attacker_payoff", "attack_alone", r"(?P<object>.+) attacks? alone"),
         ("attack_payoff", "attack", r"(?P<object>.+) attacks?"),
     )
@@ -332,7 +422,7 @@ _REPLACEMENTS = (
 )
 
 _BLINK = re.compile(
-    r"exile (?P<object>target [^.]+?)\.\s+(?:then )?return (?:it|that card) to the battlefield "
+    r"exile (?P<object>(?:target|another) [^.,]+?)\s*(?:\.\s+(?:then )?|,?\s+then )return (?:it|that card) to the battlefield "
     r"under (?P<owner>its owner's|your) control(?P<tail>[^.]*)\.?"
 )
 
@@ -397,7 +487,7 @@ def extract_mechanical_capabilities(
             capabilities.extend(extracted)
             spell_type = re.match(r"^(?:kindred )?(instant|sorcery)\b", face_type)
             if spell_type and extracted and face not in spell_faces and re.match(
-                r"^(?:draw|create|you |return|exile|destroy|counter|put|add|copy|@self)", normalized.strip(),
+                r"^(?:draw|create|you |return|exile|destroy|counter|put|add|copy|@self|target |each |take |gain control|goad)", normalized.strip(),
             ):
                 spell_faces.add(face)
                 capabilities.append(MechanicalCapability(
@@ -421,6 +511,27 @@ def extract_mechanical_capabilities(
             resolution="changeling" if changeling else "unknown",
             face_type_line=first_face,
         ))
+    # Type-line evidence needs no inferred casting or entry event.
+    face_start = 0
+    for printed in printed_face_types:
+        face_type = printed.casefold()
+        face_types_text, _, face_subtypes = face_type.partition(" — ")
+        types = set(face_types_text.split())
+        evidence = CapabilityEvidence("type_line", face_start, face_start + len(printed), printed, "type_line")
+        face_start += len(printed) + len(" // ")
+        for capability_id, words in (
+            ("printed_type", tuple(sorted(types & {"battle", "planeswalker"}))),
+            ("printed_supertype", tuple(sorted(types & {"legendary", "snow"}))),
+            ("printed_subtype", tuple(sorted(set(face_subtypes.split()) & {
+                "cave", "desert", "gate", "kraken", "leviathan", "octopus", "saga", "serpent", "shrine", "vehicle",
+            }))),
+        ):
+            if words:
+                capabilities.append(MechanicalCapability(
+                    capability_id, "has_type", "type_line",
+                    MechanicalObject("card", tuple(sorted(types - _SUPERTYPES)), words, "self"),
+                    evidence, face_type_line=face_type,
+                ))
     return MechanicalProfile(tuple(capabilities), tuple(unknowns), parsed.parser_version)
 
 
@@ -454,6 +565,23 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
             fields.pop("costs")
         details.update(fields)
         capabilities.append(MechanicalCapability(capability_id, action, object=obj, **details))
+
+    if entry := _TYPAL_ENTRY_COUNTERS.fullmatch(compact):
+        subtype = entry["subtype"]
+        emit(
+            "typal_entry_counters", "put", MechanicalObject("permanent", ("creature",), (subtype,), "other"),
+            event="counter_placement", controller="you", destination_zone="battlefield",
+            quantity=MechanicalQuantity("variable", expression=f"one for each {subtype} already controlled"),
+            timing="replacement", repeatability="repeatable",
+            conditions=("source_on_battlefield_before_entry", f"control_a_{subtype.replace(' ', '_')}_before_entry"),
+        )
+        return capabilities, False
+
+    if re.match(r"^(?:while |as long as )?(?:your commander|a commander you control) (?:has|gains?|gets?|is|can|can't)\b", compact) or re.match(
+        r"^(?:if|whenever|when) (?:you (?:cast|control) your commander|(?:your commander|a commander you control) (?:enters|attacks|deals|dies))\b",
+        compact,
+    ):
+        emit("commander_payoff", "reward", MechanicalObject("card"), conditions=("qualifying_commander",))
 
     if replacement := _DEATH_REPLACEMENT.fullmatch(compact):
         if ", instead " not in compact and not replacement["instead"]:
@@ -514,8 +642,16 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
                 "combat_damage_payoff", "observe", _tribal_group(group), event="combat_damage",
                 controller="you", targeting="none", resolution=resolution,
             )
-            # The observer retains the full resolution, including any later
-            # conditions for drawing cards. Do not infer separate draw events.
+            # Recognize the initial mill while keeping subsequent conditions
+            # for drawing cards on the full observer resolution.
+            raw_effect = text[remainder_start:].partition(".")[0]
+            first_effect = raw_effect.strip()
+            if result := _match_action(" ".join(first_effect.split())):
+                capability_id, action, obj, fields = result
+                if capability_id == "mill_opponent":
+                    start = evidence.start + remainder_start + len(raw_effect) - len(raw_effect.lstrip())
+                    span = _evidence(parsed, evidence.ability_id, start, start + len(first_effect))
+                    emit(capability_id, action, obj, span, **fields)
             return capabilities, False
         for capability_id, event, pattern in _OBSERVERS:
             if match := pattern.fullmatch(observed):
@@ -564,7 +700,16 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
     remainder = text[remainder_start:]
     stripped = " ".join(remainder.split())
     optional_prefix = re.match(r"^(?:you )?may ", stripped)
-    blink = _BLINK.fullmatch(stripped[optional_prefix.end():] if optional_prefix else stripped)
+    effect_text = stripped[optional_prefix.end():] if optional_prefix else stripped
+    if wheel := _WHEEL.fullmatch(effect_text):
+        emit("wheel", "redraw", MechanicalObject("card"), event="discard_and_draw",
+             controller="any", quantity=_quantity(wheel["count"]))
+        return capabilities, False
+    if drain := _LIFE_DRAIN.fullmatch(effect_text):
+        emit("life_drain", "drain", MechanicalObject("player"), event="life_loss_and_gain",
+             controller="any" if drain["target"] == "target player" else "opponent",
+             quantity=_quantity(drain["count"]))
+    blink = _BLINK.fullmatch(effect_text)
     if blink:
         obj = _object(blink["object"])
         emit("blink", "exile_and_return", obj, event="zone_change", source_zone="battlefield",
@@ -590,19 +735,37 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
         if local_condition:
             effect = effect[local_condition.end():]
         effect = re.sub(r"^(?:you )?may ", "", effect)
+        if not remainder_start and not local_condition and effect == clause_text:
+            keyword_parts = tuple(re.finditer(r"[^,]+", clause[0]))
+            if keyword_parts and all(_THEME_KEYWORDS.fullmatch(part[0].strip()) for part in keyword_parts):
+                for part in keyword_parts:
+                    keyword = _THEME_KEYWORDS.match(part[0].lstrip())["keyword"]
+                    start = clause_start + part.start() + len(part[0]) - len(part[0].lstrip())
+                    span = _evidence(parsed, evidence.ability_id, start, clause_start + part.start() + len(part[0].rstrip()))
+                    emit("keyword_ability", "has_keyword", MechanicalObject(
+                        "card", subtypes=(keyword,), reference="self",
+                    ), span)
+                    if keyword == "flying":
+                        emit("self_evasion", "evade", MechanicalObject("permanent", ("creature",), reference="self"),
+                             span, controller="you", event="combat_damage")
+                continue
         if group := _TRIBAL_BUFF.fullmatch(effect):
             emit("tribal_buff", "buff", _tribal_group(group), clause_span, controller="you",
                  event="battlefield_presence", targeting="none",
                  conditions=(local_condition["condition"],) if local_condition else ())
             continue
         if _EVASION.fullmatch(effect):
-            emit("self_evasion", "evade", MechanicalObject("permanent", ("creature",), reference="self"), clause_span,
-                 controller="you", event="combat_damage",
-                 conditions=(local_condition["condition"],) if local_condition else ())
+            obj = MechanicalObject("permanent", ("creature",), reference="self")
+            restrictions = (local_condition["condition"],) if local_condition else ()
+            emit("self_evasion", "evade", obj, clause_span, controller="you",
+                 event="combat_damage", conditions=restrictions)
+            if effect.endswith("can't be blocked"):
+                emit("unblockable", "evade", obj, clause_span, controller="you",
+                     event="combat_damage", conditions=restrictions)
             continue
         # Parse a common compound of independent imperative effects while
         # retaining each event's original span.
-        parts = re.split(r"(?:\s+and |,?\s+then )(?=(?:create|draw|gain|put|sacrifice|untap)\b)", effect)
+        parts = re.split(r"(?:\s+and |,?\s+then )(?=(?:create|draw|gain|put|sacrifice|untap|discard)\b)", effect)
         cursor = 0
         for part in parts:
             part = part.strip()
@@ -633,6 +796,10 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
                 if capability_id == "attach_aura":
                     fields.update(targeting="target", source_zone="stack", destination_zone="battlefield")
                 emit(capability_id, action, obj, span, **fields)
+                if capability_id == "mass_combat_buff":
+                    emit("combat_buff", action, obj, span, **fields)
+                if capability_id == "permanent_bounce":
+                    emit("remove_permanent", "remove", obj, span, **fields)
             else:
                 unparsed = True
 
@@ -647,6 +814,8 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
              quantity=MechanicalQuantity(resource.quantity.kind, resource.quantity.value, resource.quantity.expression),
              conditions=tuple(item for item in (*resource.requirements, *resource.restrictions) if item not in conditions),
              modality="optional" if resource.optional else "mandatory")
+        if capability_id == "add_mana" and "creature" in type_line.partition(" — ")[0].split():
+            capabilities.append(replace(capabilities[-1], id="creature_mana"))
     return capabilities, unparsed and (
         not resource_events or bool(capabilities[:-len(resource_events)])
     )
