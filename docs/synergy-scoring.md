@@ -28,9 +28,10 @@ Token creation from a supported death replacement effect retains the required
 event, so it receives conditional affinity and earns no validated bridge.
 
 The mechanical strategy definitions are in `config/strategy_synergy.json`.
-The rule and scoring defaults are versioned in Python. These values are
-heuristics. Supported Oracle forms and fixtures are documented in the
-[implementation guide](./strategy_synergy_engine_implementation_guide.md).
+Interaction rules live in `synergy_interactions.py`, with scoring defaults in
+`strategy_synergy.py`. The parser preserves evidence from supported
+[Oracle ability forms](oracle-text-parser.md#strategy-capability-extraction).
+
 In Suggestions, choose an owned commander to use the same score. The
 commander supplies the color identity. Strategies are optional, and selected
 strategies can have different priorities. The picker shows strategies defined
@@ -40,10 +41,7 @@ Commander synergy is evaluated live and saved classifications are optional.
 When a core role is selected, its score remains the base and mechanical
 synergy supplies the bonus. Role exclusions still apply.
 
-The remainder of this reference covers the tag-based scorer used by
-color-identity searches and catalog-guided deck generation.
-
-## Formula
+## Catalog-guided generation
 
 `score_card_for_strategy` scores a card for an explicitly selected commander and
 strategy. Components use the `[0, 1]` scale:
@@ -71,34 +69,30 @@ A strategy without a declared commander affinity gets no implicit factor: it
 returns no score and cannot be ranked as strategy-specific synergy. This is
 reported separately from ineligibility reasons.
 
-## Eligibility and Availability
-
-Format legality and color identity are filters, not points. Missing legality or
-identity data makes a card ineligible until the data is known. In collection-
-only mode, unknown or zero availability also makes a card ineligible. Copies
-already used are subtracted from physical quantity but do not change a card's
-intrinsic synergy score.
-
-The score never replaces available quantity, mana curve, legality, or color
-identity. Stable ordering uses eligibility, affinity presence, descending
-score, descending availability, normalized name, and Oracle ID.
-
-## Explanation and Limitations
-
-The result includes components, affinity factor, tier, contribution reasons,
-and ineligibility reasons. Contributions explain the rounded score within the
-configured precision. Caps for generic evidence, type-line matches, and weak
-rules are applied after the formula and shown in the reasons.
+Generation combines this score with role, curve, and land priorities. It
+applies ownership, legality, color identity, and copy limits during selection.
+The [generation reference](deckbuilding-guidelines.md#catalog-guided-generation)
+describes the required affinity and classification data.
 
 ## Color-identity Suggestions
 
-Without a selected commander, Suggestions reads cards and physical quantities from the collection
-and applies Commander legality, color identity, and classification filters
+Without a selected commander, Suggestions reads owned cards and quantities and
+applies Commander legality, color identity, and classification filters
 before showing rankings. The page accepts zero or more strategies and zero or
 one core role. In a strategy-only search, cards need evidence for at least one
 selected strategy. A supported core role can be searched by itself.
-Card Advantage uses the highest positive strict net gain on successful
-resolution as its base. When the evaluator lacks coverage, an included Card
+
+Current classifications supply strategy and role evidence. Strategy ranking
+uses the best score among the selected strategies, based on the strength and
+weight of matching tags or direct strategy evidence. Missing or stale saved
+classifications are reported and can be refreshed explicitly in Suggestions.
+
+## Core roles
+
+Card Advantage measures strict net gain in cards in hand and on the
+battlefield. Supported lines cover fixed draw on resolution, fixed draw when
+the card enters, and supported evoke costs. The highest positive net gain
+supplies the base score. When the evaluator lacks coverage, an included Card
 Advantage classification receives one ranking point. This is a ranking value
 with unmeasured net gain. Measured zero or negative lines and manual role
 exclusions are omitted. The best selected strategy score divided by 100 is
@@ -143,77 +137,12 @@ the weight combined. These weights are heuristic.
 | Answer quality | 25% | 20% |
 | Duration | 5% | |
 
-Results include score, matched strategies, detected roles,
-evidence, and remaining quantity. In color-identity searches, only classifications whose fingerprint still
-matches card data and the current rules are scored. The page offers an explicit
-action to reclassify only cards in the collection; opening the app does not
-trigger reclassification.
+The Ramp evaluator scores the strongest supported event. Cost reductions,
+untaps, and multipliers are outside its current coverage. The strategy bonus
+uses the best selected strategy score in color-identity searches and the
+overall mechanical score in commander searches. Role searches can run with an
+empty strategy selection in either mode.
 
-The Ramp weights are initial heuristics and are not calibrated. The evaluator
-uses the strongest supported event, so multiple abilities are not summed.
-Its text patterns have limited coverage of conditional costs and activation
-restrictions. Cost reductions, untaps, and multipliers are not yet evaluated.
-A zero strategy score contributes no bonus, even when a strategy was selected.
-
-Commander affinities can be edited on this page and are persisted with a manual
-source. Strategy, tag, and role overrides are linked to a card's Oracle ID,
-require a reason, and remain separate from automatic evidence. Contradictory
-exclusions are shown as conflicts; removing an override restores the automatic
-classification.
-
-The core role catalog contains `spot_interaction`, `mass_interaction`, `ramp`,
-and `card_advantage`. `card_selection` is a separate optional mechanical tag,
-not a core role. Role evidence is calculated from Oracle text for deck
-selection and Suggestions. The current card-advantage heuristic distinguishes
-net-positive or repeatable access from filtering and one-for-one replacement:
-
-- A draw/discard sequence in either order is recognized as card selection.
-  Equal draw and discard quantities do not create card advantage.
-- Activated draw abilities are evaluated with their cost and effect. Discarding
-  or sacrificing a card/token as the activation cost prevents a one-card draw
-  from being treated as repeatable advantage; discarding after drawing also
-  offsets the draw.
-- A single Clue's reminder text does not count as a reusable activated draw.
-  Repeated triggers that generate Clues can still qualify as a recurring value
-  engine when the trigger itself can happen repeatedly.
-
-These are deterministic text heuristics; they do not model every rules cost,
-condition, or game-state interaction. `main_strategy` is a dynamic deckbuilding
-role derived from evidence matching the selected strategy's tag affinities, not
-a universal card label.
-Configured role rules can also consume classified tags: counterspell, spot
-removal, and single-target protection support `spot_interaction`; board wipes
-and mass protection support `mass_interaction`. Strategy tag affinities are a
-separate mapping, so the same tag can inform a generic role and one or more
-strategy plans without conflating those concepts. Catalog role terms remain
-available for user-configured rules and are reviewable.
-
-For example, the Aristocrats strategy consumes tags such as
-`sacrifice_creature`, `dies_trigger`, `aristocrats_payoff`, `death_drain`,
-`sacrifice_outlet`, and `create_tokens` through its configured affinities.
-These tags come from reviewable classification rules; they are not roles, and
-no single one alone proves that a card belongs in an Aristocrats deck.
-
-The generator also accepts an explicit catalog strategy. In that mode,
-`build_deck` scores legal, color-identity-compatible cards available in the
-collection using current classifications and overrides. The score is
-normalized to `[0, 1]` using the configured scale and contributes a weight of
-`0.25` alongside core-role, dynamic `main_strategy`, and mana-curve balance.
-The generator updates those role counts as it selects cards. Suggestions can
-optionally apply role coverage to requested core roles. For lands, strategy
-score only breaks ties with the same structural color-coverage result, utility,
-and tapped-land status. The initial soft target for dynamic `main_strategy` is
-configurable in `config/scoring.json` (currently half the nonland slots); it
-affects ranking but cannot prevent deck completion.
-
-Guided mode requires an explicit commander/strategy affinity. Cards without a
-current classification are not scored or selected; their count is reported,
-and classifications are not persisted automatically. The CLI uses legacy mode
-when `--strategy` is omitted, as does Deck Builder unless catalog mode is
-selected. Final generation remains subject to the existing Commander
-validator.
-
-User priority adjustment represents a preference, not evidence about a card.
-Weights and caps are initial values that need validation through real use; they
-are not empirically calibrated. Suggestions does not modify the decklist or
-provide manual decklist editing.
+Per-card manual overrides can affect classification-based ranking. The
+[classification storage reference](classification-storage.md) describes how
+these decisions are stored alongside automatic evidence.

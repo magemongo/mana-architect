@@ -47,7 +47,6 @@ class Transition:
     card_id: str
     from_zone: Zone
     to_zone: Zone
-    player_id: str = 'self'
 
     @property
     def strict_delta(self) -> int:
@@ -57,20 +56,10 @@ class Transition:
 @dataclass(frozen=True)
 class StrictResult:
     ledger: tuple[Transition, ...]
-    token_delta: int = 0
-    self_id: str = 'self'
 
     @property
     def self_delta(self) -> int:
-        return sum(item.strict_delta for item in self.ledger if item.player_id == self.self_id)
-
-    @property
-    def opponent_deltas(self) -> dict[str, int]:
-        deltas: dict[str, int] = {}
-        for item in self.ledger:
-            if item.player_id != self.self_id:
-                deltas[item.player_id] = deltas.get(item.player_id, 0) + item.strict_delta
-        return deltas
+        return sum(item.strict_delta for item in self.ledger)
 
 
 def compile_profile(
@@ -162,177 +151,8 @@ def evaluate_cast(line: CastLine, *, resolves: bool = True) -> StrictResult:
     return StrictResult(tuple(ledger))
 
 
-@dataclass(frozen=True)
-class Engine:
-    kind: Literal["opponent_cast", "equipped_creature_dies"]
-    draw: Draw
-    payment: int = 0
-
-
-@dataclass(frozen=True)
-class OpponentCast:
-    paid: bool
-    choose_draw: bool = True
-    trigger_resolves: bool = True
-
-
-@dataclass(frozen=True)
-class EquippedDeath:
-    card_id: str
-    token: bool = False
-    reaches_graveyard: bool = True
-    trigger_resolves: bool = True
-
-
-def compile_engine(parsed: OracleParse) -> Engine | None:
-    """Recognize supported trigger signatures without inferring event frequency."""
-    lines = _ability_lines(parsed)
-    texts = tuple(line.text for line in lines)
-    rhystic_prefix = "Whenever an opponent casts a spell, you may "
-    rhystic_suffix = " unless that player pays {1}."
-    if len(lines) == 1 and texts[0].startswith(rhystic_prefix) and texts[0].endswith(rhystic_suffix):
-        end = lines[0].end - len(rhystic_suffix) + 1
-        clause = replace(lines[0], text=texts[0][:-len(rhystic_suffix)] + ".", end=end)
-        draw = _fixed_draw(parsed, clause, len(rhystic_prefix))
-        if draw:
-            return Engine("opponent_cast", draw, payment=1)
-
-    death_prefix = "Whenever equipped creature dies, "
-    equip = r"Equip \{1\}(?: \([^\n]*\))?"
-    if (
-        len(lines) == 3
-        and texts[0] == "Equipped creature gets +1/-1."
-        and texts[1].startswith(death_prefix)
-        and re.fullmatch(equip, texts[2])
-    ):
-        draw = _fixed_draw(parsed, lines[1], len(death_prefix))
-        if draw:
-            return Engine("equipped_creature_dies", draw)
-    return None
-
-
-def evaluate_engine(
-    engine: Engine, events: tuple[OpponentCast | EquippedDeath, ...],
-) -> StrictResult:
-    """Evaluate supplied events with the engine already in play.
-
-    Each event is a confirmed opportunity within the caller's horizon. An
-    equipped death describes a controlled creature leaving the battlefield;
-    it includes exile replacements so the loss is charged even without a draw.
-    """
-    ledger: list[Transition] = []
-    token_delta = 0
-    consumed: set[str] = set()
-    for index, event in enumerate(events):
-        event_id = f"engine:{index}"
-        if isinstance(event, OpponentCast) and engine.kind == "opponent_cast":
-            draws = event.trigger_resolves and not event.paid and event.choose_draw
-        elif isinstance(event, EquippedDeath) and engine.kind == "equipped_creature_dies":
-            if event.card_id in consumed:
-                raise ValueError("A creature instance can leave only once in an engine line")
-            consumed.add(event.card_id)
-            if event.token:
-                token_delta -= 1
-            else:
-                destination = "graveyard" if event.reaches_graveyard else "exile"
-                ledger.append(Transition(event_id, event.card_id, "battlefield", destination))
-            draws = event.reaches_graveyard and event.trigger_resolves
-        else:
-            raise ValueError("Event is incompatible with the engine trigger")
-        if draws:
-            ledger.extend(_draw_transitions(engine.draw.quantity, event_id))
-    return StrictResult(tuple(ledger), token_delta=token_delta)
-
-
 def _draw_transitions(quantity: int, source_event: str) -> tuple[Transition, ...]:
     return tuple(
         Transition(f"{source_event}:draw:{index}", f"{source_event}:drawn:{index}", "library", "hand")
         for index in range(quantity)
     )
-
-
-@dataclass(frozen=True)
-class CreatureInPlay:
-    card_id: str
-    controller_id: str
-    token: bool = False
-    indestructible: bool = False
-    exile_instead: bool = False
-
-
-def evaluate_wrath_of_god(
-    creatures: tuple[CreatureInPlay, ...], *, caster_id: str, resolves: bool = True,
-) -> StrictResult:
-    """Evaluate Wrath's immediate exchange from an explicit board snapshot."""
-    if len({creature.card_id for creature in creatures}) != len(creatures):
-        raise ValueError("A creature instance can occur only once in the board snapshot")
-    ledger = [
-        Transition("cast", "source", "hand", "stack", caster_id),
-        Transition("resolve" if resolves else "countered", "source", "stack", "graveyard", caster_id),
-    ]
-    token_delta = 0
-    if resolves:
-        for index, creature in enumerate(creatures):
-            if creature.indestructible:
-                continue
-            if creature.token:
-                token_delta -= int(creature.controller_id == caster_id)
-                continue
-            destination = "exile" if creature.exile_instead else "graveyard"
-            ledger.append(Transition(
-                f"destroy:{index}", creature.card_id, "battlefield",
-                destination, creature.controller_id,
-            ))
-    return StrictResult(tuple(ledger), token_delta=token_delta, self_id=caster_id)
-
-
-@dataclass(frozen=True)
-class BlinkTarget:
-    """An eligible creature controlled by the caster at the time of targeting."""
-
-    card_id: str
-    enters_draw: Draw | None = None
-    token: bool = False
-    owned_by_caster: bool = True
-
-
-def evaluate_ephemerate(
-    first: BlinkTarget | None,
-    rebound: BlinkTarget | None = None,
-    *,
-    cast_from_hand: bool = True,
-) -> StrictResult:
-    """Replay confirmed Ephemerate resolutions, assuming no return replacement.
-
-    A missing first target represents a spell that was cast but failed to
-    resolve. A missing rebound target leaves the card in exile when rebound
-    applies. A supplied rebound target represents a second cast that resolves.
-    A target's enters draw must come from a compatible self-enters profile.
-    """
-    if rebound is not None and (not cast_from_hand or first is None):
-        raise ValueError("Rebound requires a successful cast from hand")
-    ledger = [Transition("cast", "source", "hand" if cast_from_hand else "exile", "stack")]
-    token_delta = 0
-    for index, target in enumerate((first, rebound)):
-        if target is None:
-            continue
-        event = f"blink:{index}"
-        if index == 1:
-            if first and first.token and first.card_id == target.card_id:
-                raise ValueError("An exiled token cannot return for the rebound cast")
-            if first and not first.owned_by_caster and first.card_id == target.card_id:
-                raise ValueError("The returned creature is controlled by its owner")
-            ledger.append(Transition("rebound:cast", "source", "exile", "stack"))
-        if target.token:
-            token_delta -= 1
-        else:
-            ledger.append(Transition(f"{event}:leave", target.card_id, "battlefield", "exile"))
-            controller = "self" if target.owned_by_caster else "owner"
-            ledger.append(Transition(f"{event}:return", target.card_id, "exile", "battlefield", controller))
-        destination = "exile" if index == 0 and cast_from_hand else "graveyard"
-        ledger.append(Transition(f"{event}:resolve", "source", "stack", destination))
-        if not target.token and target.owned_by_caster and target.enters_draw:
-            ledger.extend(_draw_transitions(target.enters_draw.quantity, event))
-    if first is None:
-        ledger.append(Transition("failed", "source", "stack", "graveyard"))
-    return StrictResult(tuple(ledger), token_delta=token_delta)

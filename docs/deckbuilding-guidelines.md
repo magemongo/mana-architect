@@ -1,71 +1,30 @@
-# Initial Deckbuilding Guidelines
+# Deck Generation
 
-This document describes generator goals and tradeoffs; it is not a legality
-rules list. The validator remains authoritative for deck size, color identity,
-singleton rules, collection availability, and legality in the local snapshot.
+Deck Builder and `build-deck` produce a deterministic draft from owned
+printings. The generator uses available quantities, commander color identity,
+known Commander legality, and copy limits. The final validator checks the
+100-card list, including the commander.
 
-## Principles
+## Default generation
 
-- The physical collection is the only source of selectable cards.
-- Strategic preferences change priority; they do not exclude cards by themselves.
-  Availability, color identity, and legality remain hard filters.
-- Category counts are configurable targets, not universal ratios.
-- Every strategic signal used by the engine should be presented as a heuristic
-  and traceable to Oracle text, card type, or structural data.
-- The mana base should first cover the commander's colors, favoring sources that
-  help cover multiple colors. Utility lands are configurable preferences and
-  compete for slots with colored sources.
-- Power level should be contextual and explainable. It must never be an absolute
-  grade that automatically removes a card from the collection.
+Nonland selection balances the mana curve and the core roles of ramp, card
+advantage, spot interaction, and mass interaction. Commander profiles in
+`config/strategy_profiles.toml` add priority signals. Anowon's profile favors
+Rogues, mill, and combat damage. Land selection prioritizes color coverage and
+considers utility lands within the available inventory.
 
-## Structured Profiles
+## Catalog-guided generation
 
-`config/strategy_profiles.toml` stores signals, initial weights, and commander-
-specific preferences in a format readable by people and machines. Weights are
-relative priorities for ranking candidates, not quality scores. Text patterns
-are approximations and can produce false positives; review profiles against
-reference decks and tests.
+Select **Catalog Strategy** in Deck Builder or pass `build-deck --strategy`.
+This mode requires a saved affinity for the selected commander and strategy.
+Affinities are stored by `save_commander_affinity_profile` in the Python
+repository layer. The generator uses current classifications with per-card
+overrides and reports cards it skips because their classifications are stale
+or missing. Refresh classifications explicitly in Suggestions.
 
-Anowon's initial profile covers Rogue tribal, mill, and combat damage. A
-commander without a profile still uses the general role and mana-curve scoring.
-
-## Evolution
-
-Before adding numeric targets for ramp, card advantage, interaction, or lands,
-compare reference decks and different collections. In the future, user
-preferences and deck context may adjust these targets without changing legality
-rules.
-
-The core roles are `spot_interaction`, `mass_interaction`, `ramp`, and
-`card_advantage`. Protection is interaction too: a targeted shield is spot
-interaction, while a fog or board-wide shield is mass interaction. Parser
-mechanics and synergy tags should preserve the method (counter, destroy, exile,
-return, prevention, and so on).
-
-`main_strategy` is a dynamic role assigned against the selected deck strategy.
-It can overlap with every core role. A card may contribute to +1/+1 counters
-and card advantage at once, for example. Strategy tag affinities define the
-initial evidence used for this dynamic role. Catalog-guided generation uses a
-configurable soft target (currently half the nonland slots) for
-`main_strategy`; this changes ranking but never blocks a complete deck. The
-ratio is a starting heuristic, not a calibrated recommendation. Configure its
-ratio and weight in `config/scoring.json`. Card selection and neutral card
-replacement are useful optional signals, but are not universal deck quotas.
-
-Card advantage is an outcome, not a synonym for drawing or recursion. The
-current Oracle text heuristic evaluates draw and discard quantities together,
-whether discard appears before or after the draw. Equal quantities are neutral
-and can contribute the optional `card_selection` tag, but do not establish the
-`card_advantage` role. Activated draw abilities are checked against their
-activation cost and effect; card-consuming costs and a later discard are not
-treated as free repeatable draws. A single Clue's reminder text is not itself a
-repeatable engine, while a trigger that can generate Clues repeatedly may be
-advantageous over time. These checks are deterministic heuristics, not a full
-simulation of rules, costs, or game-state repetition.
-
-On **Suggestions**, choose a color identity and select strategies, a core role,
-or both. Ramp, Card Advantage, Spot Interaction, and Mass Interaction use
-their own scores for ranking. Selecting strategies adds a bonus for matching
-strategy evidence. `card_selection` is available as a mechanical tag.
-Cards with stale classifications are reported until the collection is
-explicitly reclassified on the Suggestions page.
+The [catalog score](synergy-scoring.md#catalog-guided-generation) contributes
+up to 0.25 to nonland ranking. Selection updates role counts as it fills the
+deck. Evidence for the chosen strategy contributes to a deck-specific
+`main_strategy` role that can overlap with core roles. Its soft target is set
+in `config/scoring.json`. For lands, the catalog score breaks ties within the
+structural priorities for color coverage, utility, and tapped-land status.

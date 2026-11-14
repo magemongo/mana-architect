@@ -395,8 +395,8 @@ def build_deck(
             for affinity in commander_affinities.strategy_affinities
         ):
             raise DeckBuildError(
-                "Add a commander affinity for this strategy on the Suggestions "
-                "page before building the deck."
+                "Add a commander affinity for this strategy before building "
+                "a catalog-guided deck."
             )
 
     candidate_rows = session.execute(

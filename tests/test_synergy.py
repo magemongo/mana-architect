@@ -10,7 +10,6 @@ from mana_architect.commander_affinity import (
 from mana_architect.overrides import ManualOverride
 from mana_architect.synergy import (
     CardScoreInput,
-    rank_scored_cards,
     score_card_for_strategy,
 )
 
@@ -336,18 +335,6 @@ def test_manual_confidence_replaces_signal_strength(catalog) -> None:
     assert sum(reason.contribution for reason in result.reasons) == pytest.approx(
         result.score
     )
-
-
-def test_deterministic_ranking_uses_score_availability_name_and_oracle_id(
-    catalog,
-) -> None:
-    evidence = (_evidence("tag", "create_tokens"),)
-    first = _score(catalog, _card("z-id", "Same", evidence=evidence, available=4))
-    second = _score(catalog, _card("b-id", "Same", evidence=evidence, available=2))
-    third = _score(catalog, _card("a-id", "Alpha", evidence=evidence, available=4))
-    ordered = rank_scored_cards((second, first, third))
-
-    assert [item.card_oracle_id for item in ordered] == ["a-id", "z-id", "b-id"]
 
 
 def test_validation_rejects_unknown_strategies_roles_and_bad_adjustments(catalog) -> None:

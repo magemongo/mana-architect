@@ -314,25 +314,6 @@ def score_card_for_strategy(
     )
 
 
-def rank_scored_cards(
-    scores: tuple[CardSynergyScore, ...],
-) -> tuple[CardSynergyScore, ...]:
-    """Order eligible, ranked cards deterministically, then availability and identity."""
-    return tuple(
-        sorted(
-            scores,
-            key=lambda item: (
-                not item.eligible,
-                not item.rankable,
-                -(item.score if item.score is not None else -1.0),
-                -(item.available_quantity if item.available_quantity is not None else -1),
-                item.card_name.casefold(),
-                item.card_oracle_id,
-            ),
-        )
-    )
-
-
 def _available_quantity(card: CardScoreInput) -> int | None:
     if card.available_quantity is None:
         return None

@@ -3,8 +3,8 @@
 A local application for organizing a Magic: The Gathering collection and
 building Commander decks using cards the player owns.
 
-See [project status](docs/project-status.md) for the product roadmap and the
-[documentation index](docs/README.md) for technical references.
+See [project scope](docs/project-status.md) and the
+[technical references](docs/README.md).
 
 ## Quickstart (Windows / PowerShell)
 
@@ -22,57 +22,19 @@ To install the local UI as well:
 
 ```powershell
 python -m pip install -e ".[app,dev]"
+```
+
+Import your collection and sync card data using the commands below. Then
+start the local UI:
+
+```powershell
 streamlit run .\src\mana_architect\streamlit_app.py
 ```
 
-Streamlit opens Mana Architect in a browser. Choose a commander and generate a
-draft on **Deck Builder**. Open **Deck** to browse the list in three compact
-columns: Commander, Creatures, Artifacts, Enchantments, Instants, Sorceries,
-and Lands. Hover over a card name to preview its image and Oracle text. Deck
-validation and JSON/TXT downloads are on the Deck page. Analysis shows a
-mana-curve histogram and known mana-cost symbols as compact icons. Direct
-decklist editing is not available yet. The UI and CLI use the local database
-configured in `.env`.
-
-Anowon's legacy profile prioritizes Rogue tribal, mill, and combat damage. It
-remains in `config/strategy_profiles.toml` and is the generator default. The
-versioned strategy, tag, role, rule, and parameter catalog lives in JSON files
-under `config/`. In Deck Builder or the CLI, choose a catalog strategy to guide
-selection; this requires an explicit commander/strategy affinity configured on
-**Suggestions**. See [deckbuilding guidelines](docs/deckbuilding-guidelines.md).
-The catalog prioritizes candidates while the generator balances roles and curve
-and respects collection availability, legality, color identity, and mana-base
-color coverage.
-
-The versioned rule classifier produces candidate evidence and retains human
-review for ambiguous signals. Results can be persisted through an explicit
-action. Text rules are limited literal heuristics: they do not interpret full
-context or cross-card synergy, and infinite combos require explicit curation.
-
-The domain layer supports manual overrides while preserving automatic evidence
-and flagging contradictory exclusions. Commander profiles support multiple
-strategy and tag affinities with `primary`, `secondary`, or `complementary`
-levels and explanations. Affinity scores are heuristics, not probabilities.
-Overrides, affinities, and evidence are stored in additive SQLite tables.
-**Suggestions** supports editing multiple affinities in one table and
-correcting a card classification without deleting automatic evidence. Roles
-are grouped into deck services and strategy synergies. **Catalog** supports
-viewing, creating, editing, and deleting strategies and roles, including
-Oracle terms per role. Confirmed deletions remove current links and manual
-overrides while preserving classification history. Config changes are
-versioned; reclassification is incremental, explicit, and does not run when
-the app opens. Read [catalog persistence](docs/classification-storage.md)
-before persisting changes to the collection.
-
-Suggestions ranks owned, legal cards by color identity or by an owned
-commander. Commander searches use mechanical synergy and accept multiple
-strategies with relative priorities. Score details show evidence and conditions.
-A core-role search uses its role score with an optional synergy bonus.
-Color-identity searches and catalog-guided generation use classification
-evidence. Missing or stale classifications are reported and can be refreshed
-on **Suggestions**. Guided generation excludes cards without current
-classifications. See
-[synergy scoring](docs/synergy-scoring.md) for details and limitations.
+Choose a commander in **Deck Builder**, then open **Deck** to inspect,
+validate, and download the draft. Use **Suggestions** to rank owned candidates
+and explicitly refresh classifications. **Catalog** manages strategies and
+roles and includes an Oracle text inspector.
 
 ## Configuration and Database
 
@@ -106,9 +68,8 @@ python -m mana_architect sync-scryfall
 ```
 
 `sync-scryfall` downloads Scryfall's `default_cards` Bulk Data, enriches card
-records, and links collection printings to their `oracle_id`. The initial
-download is approximately 77 MB compressed and is cached under
-`data/cache/scryfall/`. Collection matching is local; collection IDs are not
+records, and links collection printings to their `oracle_id`. The bulk download
+is cached under `data/cache/scryfall/`. Collection matching is local; collection IDs are not
 sent to the API. Sync requires internet, while search and import remain local.
 Existing downloads can be reprocessed from cache. Canonical card names, type
 lines, and Oracle text use Scryfall's English data; physical printing language
@@ -140,7 +101,7 @@ synced data and present in the collection. The player chooses one. Commander
 search includes only owned cards marked legal by synchronized Scryfall data and
 whose color identity is a subset of the commander's. Legality data can become
 stale; sync and check the displayed date. Role classification is a heuristic
-based on Oracle text. Partner/Background commander selection is not implemented.
+based on Oracle text. The application supports one commander per deck.
 
 ## Validate a Commander Deck
 
@@ -166,7 +127,6 @@ color identity, singleton rules (including basic lands and explicit Oracle
 text exceptions), and physical availability. Missing data can make the result
 incomplete. A `valid` result is conditional on synchronized data and does not
 guarantee the ban list is current today. Run `sync-scryfall` before validating.
-Two-commander partner decks are not supported yet.
 
 ## Rank Commander Candidates
 
@@ -201,17 +161,18 @@ with mana value as a
 secondary criterion. This is not a guaranteed recommendation; review synergy,
 curve, lands, and game plan.
 
-To use a catalog strategy, configure the commander affinity on **Suggestions**
-and pass an active strategy:
+For a commander with a saved affinity for an active catalog strategy, pass
+that strategy to the builder:
 
 ```powershell
 python -m mana_architect build-deck "Anowon, the Ruin Thief" --strategy tokens --output .\data\decks\anowon-tokens.json
 ```
 
-Catalog score complements role and curve balance. Without `--strategy`, the
-CLI stays in legacy mode. Catalog mode reports and skips cards without current
-classifications and does not reclassify or persist classifications
-automatically. A draft is saved only when it has 100 cards and no known
+Catalog score complements role and curve balance. Omitting `--strategy` uses
+default generation, including a commander profile when one exists. See
+[deck generation](docs/deckbuilding-guidelines.md) for the affinity requirement.
+Catalog mode reports and skips cards without current classifications. A draft
+is saved only when it has 100 cards and no known
 deterministic violations. If data cannot complete it, no incomplete deck is
 written. Incomplete validation due to missing data is included in JSON and
 returns exit code 2. Output is not overwritten unless `--overwrite` is passed.
@@ -230,10 +191,3 @@ uses `quantity card name` format. It is not overwritten without `--overwrite`.
 Role labels can overlap and are not a strategic evaluation.
 
 Run tests with `python -m pytest`.
-
-## Current Scope
-
-See [project status](docs/project-status.md) for current capabilities,
-limitations, and next candidates. This README covers installation and usage;
-the [documentation index](docs/README.md) lists technical and historical
-documents.

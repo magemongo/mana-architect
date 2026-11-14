@@ -1,8 +1,6 @@
 # Oracle Text Parser
 
-## Status
-
-The parser foundation is implemented in `src/mana_architect/oracle_text.py`.
+The parser lives in `src/mana_architect/oracle_text.py`.
 Lexical entries and supported mechanical patterns are loaded from
 `config/oracle_lexicon.json` and `config/oracle_mechanics.json`. Parser output
 is used by classification rules, persisted on each classification run, and
@@ -10,8 +8,8 @@ returned on `ClassificationResult.oracle_parse`.
 
 ## Current contract
 
-- `parse_oracle_text(text, lexicon, mechanical_patterns)` returns the original text, paragraph-based ability
-  segments, lexical feature occurrences, and conservative mechanical facts.
+- `parse_oracle_text(text, lexicon, mechanical_patterns)` returns the original
+  text, paragraph-based ability segments, lexical features, and mechanical facts.
 - Source offsets are Python Unicode code-point offsets into the original text.
 - Features have stable IDs, category, surface spelling, canonical phrase,
   ability ID, and source span. Matching is case-insensitive and chooses the
@@ -43,8 +41,7 @@ returned on `ClassificationResult.oracle_parse`.
 ## Integration boundary
 
 `classification.py` supports both normalized-text predicates and parser-backed
-predicates. Most rules still use normalized text and should migrate one at a
-time. New classification runs store the parser version, ability segmentation,
+predicates. Classification runs store the parser version, ability segmentation,
 feature spans, and mechanics as JSON. Evidence rows also store source offsets.
 Older runs remain readable with `oracle_parse=None`.
 
@@ -55,13 +52,12 @@ source-linked ability lines as typed events, costs, triggers, and replacement
 effects. It reuses the mana resource extractor for land and mana development.
 The same Treasure creation event carries both the token kind and artifact
 type. Evidence offsets refer to the original Oracle text. Unrecognized
-clauses and unsupported modal choices surface as unknowns. See the
-[Strategy Synergy Engine guide](./strategy_synergy_engine_implementation_guide.md).
+clauses and unsupported modal choices surface as unknowns.
+See the [mechanical scoring reference](synergy-scoring.md#mechanical-candidate-evaluation).
 
 ## Mana resource extraction
 
-The first phase of the [Ramp Evaluation Engine](./ramp_evaluation_engine_implementation_guide.md)
-is available through `extract_mana_resources(parsed)`. It extracts direct
+`extract_mana_resources(parsed)` extracts direct
 mana production, land searches onto the battlefield, lands put into play from
 hand, extra land plays, and creation of Treasure, Gold, and Powerstone tokens.
 Events retain source offsets, activation costs, quantities, and recognized
@@ -73,9 +69,8 @@ The Suggestions evaluator consumes these events for the Ramp role. Its
 
 ## Interaction evaluation
 
-The [Interaction Evaluation Engine](./interaction_evaluation_engine_implementation_guide.md)
-uses the parsed ability spans and original Oracle text to build a card-local
-profile. `classify_card_interaction(card, parsed)` accepts a collection card and
+The interaction evaluator uses parsed ability spans and original Oracle text to
+build a card profile. `classify_card_interaction(card, parsed)` accepts a collection card and
 can reuse its existing `OracleParse`. `build_interaction_profile(card_id, parsed,
 ...)` accepts metadata directly. Interaction evidence uses the same absolute
 source offsets as the parser. Effects retain separate target and affected-object
@@ -88,24 +83,23 @@ scope. Within a variant, the strongest effect for each scope supplies its
 score, so overlapping effects and modal combinations do not accumulate points.
 Unknown weighted dimensions, such as the efficiency of an X cost, leave the
 total `null`. Pass `scoring=None` for classification only. The current
-[scoring reference](./synergy-scoring.md#collection-integration) documents the
+[scoring reference](./synergy-scoring.md#core-roles) documents the
 weights, and `config/interaction_profile.schema.json` defines the JSON output
-contract. The implementation guide contains illustrative formulas.
+contract.
 
 Supported variants include distinct modal choices, overload, and common kicker
 conditions. The profile carries warnings for recognized but unsupported
 syntax or ambiguous scope, such as repeatable mode selection and complex
 alternate costs. The profile is available through the card-level Python API
 and supplies the base scores and evidence for Spot Interaction and Mass
-Interaction on [Suggestions](./synergy-scoring.md#collection-integration).
+Interaction on [Suggestions](./synergy-scoring.md#core-roles).
 The registry covers the tested Oracle patterns, and the scores have yet to be
 calibrated against a full collection corpus.
 
-Interaction profiles are built from current card metadata and the saved Oracle
-parse when Suggestions runs. Changes to the interaction rule catalog or scoring
-weights apply on the next search. Saved classifications still need to be current
-for a card to enter Suggestions. Cards with stale classifications are reported
-and can be explicitly reclassified from that page.
+Suggestions builds interaction profiles from current card metadata and Oracle
+text, reusing a current saved parse when available. Color-identity searches
+require current classifications. Commander searches can classify and parse
+cards live.
 
 ## Downstream card-advantage and selection heuristics
 
@@ -129,20 +123,9 @@ features or mechanical facts.
   with counters. This supports card-advantage and strategy evidence without
   treating reminder text as an independent engine.
 
-This role heuristic is broader than the structured parser patterns and remains
-conservative. It uses text patterns rather than a complete ability-cost syntax
-tree or game-state simulation; ambiguous wording should be reviewed through the
-Catalog Oracle Parser inspector and classification evidence.
-
-The Card Advantage role and Suggestions score for conditional engines indicate
-potential payoffs. They do not estimate trigger frequency, available fodder,
-board state, or realized net cards. The selected strategy score adds ranking
-weight when configured.
-
-This role heuristic is broader than the structured parser patterns and remains
-conservative. It uses text patterns rather than a complete ability-cost syntax
-tree or game-state simulation; ambiguous wording should be reviewed through
-the Catalog Oracle Parser inspector and classification evidence.
+The Card Advantage ranking uses measured net gain for supported cast lines
+and classification evidence as a fallback for effects outside that coverage.
+See [core role scoring](synergy-scoring.md#core-roles).
 
 ## UI inspection
 
@@ -153,26 +136,8 @@ stale, the page shows a live preview without writing it. **Save current parser
 result for this card** explicitly reclassifies only the selected card; the
 collection is never reclassified automatically from this page.
 
-The next migration should:
-
-1. Expand coverage and schema validation for the versioned parser catalogs.
-2. Expand structured attributes and exact-match `where` predicates to cover
-  targets, controller scope, zone transitions, and polarity. Keep ability words
-  as lexical evidence; do not infer mechanics from a label.
-3. Gradually replace remaining `roles[].oracle_keywords` compatibility terms
-  and text heuristics with explicit feature/mechanic and tag-to-role rules.
-4. Compare classifications against a broader Oracle fixture corpus and review
-  false positives as the parser catalog grows.
-
 ## Scope limits
 
-The current segmenter splits paragraphs; it does not yet parse multiple
-abilities within one paragraph or reminder-text boundaries. The starter
-lexicon and pattern catalog are intentionally partial. Negation handles common
-local forms, but full condition, target/controller scope, all zone movement
-relations, and general mana-cost grammars remain future increments. The current
-mechanical patterns are conservative, not a complete Magic rules interpreter.
-
-See [the implementation guide](./oracle_text_parser_implementation_guide.md)
-for the target taxonomy, schemas, worked examples, phases, and acceptance
-criteria.
+The segmenter splits on paragraph boundaries. Its lexicon, ability shapes,
+and mechanical patterns have partial coverage. Downstream evaluators preserve
+evidence spans and report unresolved text where applicable.

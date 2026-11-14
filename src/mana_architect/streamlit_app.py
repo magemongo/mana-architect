@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from itertools import combinations
 from pathlib import Path
 
-import pandas as pd
 import streamlit as st
 from sqlalchemy import Engine, delete, or_, select
 from sqlalchemy.orm import Session
@@ -22,14 +21,7 @@ from mana_architect.commanders import CommanderOption, list_available_commanders
 from mana_architect.classification import CardClassificationInput, classify_card
 from mana_architect.classification_repository import (
     load_current_classifications,
-    load_commander_affinity_profile,
     reclassify_cards,
-    save_commander_affinity_profile,
-)
-from mana_architect.commander_affinity import (
-    CommanderAffinityProfile,
-    CommanderStrategyAffinity,
-    CommanderTagAffinity,
 )
 from mana_architect.database import create_database_engine, initialize_database
 from mana_architect.deckbuilding import (
@@ -691,155 +683,6 @@ def _render_deck_page(session: Session) -> None:
         st.markdown("**Deckbuilding Roles**")
         for role, quantity in analysis.role_counts.items():
             st.text(f"{role}: {quantity}")
-
-
-def _render_commander_affinity_editor(
-    session: Session,
-    commander_id: str,
-    catalog: StrategyCatalog,
-) -> None:
-    profile = load_commander_affinity_profile(session, commander_id, catalog)
-    existing = profile.strategy_affinities if profile else ()
-    names = {item.id: item.name for item in catalog.strategies}
-    labels = {
-        "primary": "Primary",
-        "secondary": "Secondary",
-        "complementary": "Complementary",
-    }
-    rows = [
-        {
-            "strategy_id": item.strategy_id,
-            "level": labels[item.level],
-            "strength": item.strength_score,
-            "rationale": item.rationale or "",
-        }
-        for item in existing
-    ]
-    with st.expander("Commander Affinities", expanded=True):
-        st.caption(
-            "Add multiple strategies and edit their affinity levels in one "
-            "table. Strength and levels are heuristic, not probabilities."
-        )
-        with st.form(f"commander_affinities_{commander_id}"):
-            affinity_rows = pd.DataFrame(
-                {
-                    "strategy_id": pd.Series(
-                        [row["strategy_id"] for row in rows], dtype="string"
-                    ),
-                    "level": pd.Series(
-                        [row["level"] for row in rows], dtype="string"
-                    ),
-                    "strength": pd.Series(
-                        [row["strength"] for row in rows], dtype="float64"
-                    ),
-                    "rationale": pd.Series(
-                        [row["rationale"] for row in rows], dtype="string"
-                    ),
-                }
-            )
-            edited = st.data_editor(
-                affinity_rows,
-                key=f"affinity_editor_{commander_id}",
-                num_rows="dynamic",
-                hide_index=True,
-                width="stretch",
-                column_config={
-                    "strategy_id": st.column_config.SelectboxColumn(
-                        "Strategy",
-                        options=[item.id for item in catalog.strategies],
-                        required=True,
-                        format_func=lambda value: names.get(value, value),
-                    ),
-                    "level": st.column_config.SelectboxColumn(
-                        "Level",
-                        options=list(labels.values()),
-                        required=True,
-                    ),
-                    "strength": st.column_config.NumberColumn(
-                        "Strength",
-                        min_value=0.0,
-                        max_value=1.0,
-                        step=0.05,
-                        format="%.2f",
-                    ),
-                    "rationale": st.column_config.TextColumn("Rationale"),
-                },
-            )
-            tag_names = {item.id: item.name for item in catalog.tags}
-            selected_tags = st.multiselect(
-                "Commander Tags",
-                options=[item.id for item in catalog.tags],
-                default=[item.tag_id for item in profile.tag_affinities] if profile else [],
-                format_func=lambda tag_id: tag_names[tag_id],
-                key=f"affinity_tags_{commander_id}",
-            )
-            submitted = st.form_submit_button(
-                "Save Affinities",
-                type="primary",
-                key=f"save_affinities_{commander_id}",
-            )
-        if submitted:
-            level_by_label = {label: level for level, label in labels.items()}
-            seen: set[str] = set()
-            strategy_affinities: list[CommanderStrategyAffinity] = []
-            previous = {item.strategy_id: item for item in existing}
-            try:
-                edited_rows = (
-                    edited.to_dict("records")
-                    if hasattr(edited, "to_dict")
-                    else edited
-                )
-                for row in edited_rows:
-                    strategy_id = row.get("strategy_id")
-                    if not strategy_id:
-                        continue
-                    if strategy_id in seen:
-                        raise ValueError("Each strategy can only appear once.")
-                    seen.add(strategy_id)
-                    strength = row.get("strength")
-                    if strength is None:
-                        strength = 0.5
-                    strategy_affinities.append(
-                        CommanderStrategyAffinity(
-                            strategy_id=strategy_id,
-                            level=level_by_label[row["level"]],
-                            strength_score=float(strength),
-                            evidence_ids=previous[strategy_id].evidence_ids
-                            if strategy_id in previous else (),
-                            rationale=row.get("rationale", "").strip() or None,
-                            source="manual",
-                        )
-                    )
-                previous_tags = {
-                    item.tag_id: item for item in profile.tag_affinities
-                } if profile else {}
-                tag_affinities = tuple(
-                    CommanderTagAffinity(
-                        tag_id=tag_id,
-                        evidence_ids=previous_tags[tag_id].evidence_ids
-                        if tag_id in previous_tags else (),
-                        rationale=previous_tags[tag_id].rationale
-                        if tag_id in previous_tags else None,
-                        source="manual",
-                    )
-                    for tag_id in selected_tags
-                )
-                session.rollback()
-                with session.begin():
-                    save_commander_affinity_profile(
-                        session,
-                        CommanderAffinityProfile(
-                            commander_oracle_id=commander_id,
-                            strategy_affinities=tuple(strategy_affinities),
-                            tag_affinities=tag_affinities,
-                        ),
-                        catalog,
-                    )
-            except (KeyError, TypeError, ValueError) as error:
-                st.error(f"Could not save affinities: {error}")
-            else:
-                st.session_state["suggestion_notice"] = "Commander affinities saved."
-                st.rerun()
 
 
 def _bump_catalog_version(data: dict[str, object], field: str) -> None:
