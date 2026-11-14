@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy.orm import Session
 
+from mana_architect.candidate_evaluation import rank_collection_candidates
 from mana_architect.catalog import DEFAULT_CATALOG_DIR, load_strategy_catalog
 from mana_architect.classification_repository import (
     reclassify_cards,
@@ -21,6 +22,7 @@ from mana_architect.suggestions import (
     suggest_collection_cards,
     suggest_collection_cards_by_identity,
 )
+from mana_architect.strategy_synergy import SelectedStrategy
 
 
 @pytest.fixture
@@ -188,6 +190,33 @@ def test_identity_suggestions_need_no_commander_and_filter_by_color_and_strategy
     assert [item.score for item in result.suggestions] == sorted(
         (item.score for item in result.suggestions), reverse=True
     )
+
+
+def test_commander_suggestions_use_same_synergy_as_candidate_ranking_without_saved_classifications(database, catalog):
+    with Session(database) as session, session.begin():
+        session.get(Card, "commander-id").oracle_text = "Whenever a creature token you control enters, draw a card."
+        session.get(Card, "token-card-id").oracle_text = "Create a 1/1 green Elf creature token."
+
+    with Session(database) as session:
+        weighted = (SelectedStrategy("tokens"), SelectedStrategy("aristocrats", 2))
+        cli = rank_collection_candidates(session, "commander-id", weighted)
+        suggestions = suggest_collection_cards_by_identity(
+            session, (), ("tokens", "aristocrats"), catalog, commander_identifier="commander-id",
+            strategy_priorities={"aristocrats": 2},
+        )
+        direct_only = suggest_collection_cards_by_identity(
+            session, (), (), catalog, commander_identifier="commander-id",
+        )
+
+    assert suggestions.color_identity == ("G",)
+    assert suggestions.unclassified_count == 2
+    assert [item.oracle_id for item in suggestions.suggestions] == ["token-card-id"]
+    item = suggestions.suggestions[0]
+    assert item.mechanical_synergy == cli.ranked[0].strategy_synergy
+    assert item.score == cli.ranked[0].strategy_synergy.scores.overall
+    assert item.mechanical_synergy.commander_synergy.score == 1
+    assert direct_only.suggestions[0].oracle_id == item.oracle_id
+    assert not direct_only.suggestions[0].strategy_scores
 
 
 def test_identity_suggestions_allow_colorless_and_optional_role_priorities(

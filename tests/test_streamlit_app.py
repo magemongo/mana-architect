@@ -280,6 +280,22 @@ def test_suggestions_page_filters_by_identity_and_strategy_without_corrections(
         assert app.metric[0].label == "Cards in color identity"
 
         with Session(get_engine()) as session, session.begin():
+            session.get(Card, "ui-commander").oracle_text = (
+                "Whenever a creature token you control enters, draw a card."
+            )
+            session.get(Card, "ui-token-card").oracle_text = "Create a 1/1 green Elf creature token."
+        app.selectbox(key="suggestion_commander_id").select("ui-commander")
+        app.multiselect(key="suggestion_strategy_ids").set_value(["tokens", "aristocrats"]).run()
+        app.number_input(key="suggestion_priority_aristocrats").set_value(2)
+        app.form_submit_button(key="search_collection_suggestions").click().run()
+        assert not app.exception
+        assert any("Token Spell" in item.value for item in app.markdown)
+        assert any("Commander 100%" in item.value for item in app.caption)
+        assert any("Whenever a creature token you control enters" in item.value for item in app.text)
+        app.selectbox(key="suggestion_commander_id").select(None).run()
+        app.selectbox(key="suggestion_color_identity").select(("G",))
+
+        with Session(get_engine()) as session, session.begin():
             card = session.get(Card, "ui-token-card")
             card.oracle_text = "Draw three cards."
             reclassify_cards(session, catalog, DEFAULT_CATALOG_DIR, ("ui-token-card",))

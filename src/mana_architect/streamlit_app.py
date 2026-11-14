@@ -55,6 +55,8 @@ from mana_architect.suggestions import (
     suggest_collection_cards_by_identity,
 )
 from mana_architect.strategy import load_strategy_profile
+from mana_architect.synergy_catalog import load_synergy_strategies
+from mana_architect.synergy_interactions import MatchStatus
 from mana_architect.validation import DeckCard
 
 
@@ -1477,32 +1479,66 @@ def _render_oracle_parser_inspector(
 def _render_collection_suggestions(session: Session) -> None:
     st.header("Card Suggestions")
     st.caption(
-        "Find Commander-legal cards in your collection by color identity, strategy, or core role."
+        "Find Commander-legal cards in your collection by commander, color identity, strategy, or core role."
     )
     catalog = load_strategy_catalog()
     color_options = _color_identity_options()
     strategies = tuple(item for item in catalog.strategies if item.active)
     strategy_names = {item.id: item.name for item in strategies}
     role_names = {item.id: item.name for item in catalog.roles}
+    commanders = {item.oracle_id: item for item in _load_commander_options(session)}
+    commander_id = st.selectbox(
+        "Commander (optional)",
+        options=[None, *commanders],
+        format_func=lambda value: commanders[value].name if value else "Search by color identity",
+        key="suggestion_commander_id",
+        help="Choose an owned commander to rank cards using its Oracle abilities and color identity.",
+    )
+    strategy_options = list(strategy_names)
+    if commander_id:
+        try:
+            mechanical_strategies = load_synergy_strategies(active_strategy_ids=frozenset(strategy_options))
+        except ValueError as error:
+            st.warning(str(error))
+            return
+        supported = {strategy.id for strategy in mechanical_strategies.strategies}
+        strategy_options = [strategy_id for strategy_id in strategy_options if strategy_id in supported]
+        previous = st.session_state.get("suggestion_strategy_ids", [])
+        compatible = [strategy_id for strategy_id in previous if strategy_id in supported]
+        if previous != compatible:
+            st.session_state["suggestion_strategy_ids"] = compatible
+    strategy_ids = tuple(
+        st.multiselect(
+            "Strategies",
+            options=strategy_options,
+            format_func=lambda value: strategy_names[value],
+            key="suggestion_strategy_ids",
+            placeholder="Choose strategies for synergy ranking",
+            help="When a scored core role is selected, synergy adds a ranking bonus.",
+        )
+    )
     with st.form("suggestion_filters"):
-        color_identity = st.selectbox(
-            "Color identity",
-            options=color_options,
-            index=0,
-            format_func=_format_identity,
-            key="suggestion_color_identity",
-            help="Colorless selects cards with no colors in their color identity.",
-        )
-        strategy_ids = tuple(
-            st.multiselect(
-                "Strategies",
-                options=[item.id for item in strategies],
-                format_func=lambda value: strategy_names[value],
-                key="suggestion_strategy_ids",
-                placeholder="Choose strategies for synergy ranking",
-                help="When a scored core role is selected, matching strategies add a ranking bonus.",
+        if commander_id:
+            color_identity = commanders[commander_id].color_identity
+            st.caption(f"Commander color identity · {_format_identity(color_identity)}")
+        else:
+            color_identity = st.selectbox(
+                "Color identity",
+                options=color_options,
+                index=0,
+                format_func=_format_identity,
+                key="suggestion_color_identity",
+                help="Colorless selects cards with no colors in their color identity.",
             )
-        )
+        priorities = {}
+        if commander_id and len(strategy_ids) > 1:
+            for strategy_id in strategy_ids:
+                priorities[strategy_id] = st.number_input(
+                    f"{strategy_names[strategy_id]} priority",
+                    min_value=1, value=1, step=1,
+                    key=f"suggestion_priority_{strategy_id}",
+                    help="A priority of 2 gives the strategy twice the weight in the weighted average.",
+                )
         selected_role_id = st.selectbox(
             "Core role (optional)",
             options=[None, *(item.id for item in catalog.roles)],
@@ -1523,10 +1559,11 @@ def _render_collection_suggestions(session: Session) -> None:
         if selected_role_id is not None and selected_role_id in INTERACTION_SUGGESTION_ROLES
         else None
     )
-    active_query = (tuple(color_identity), strategy_ids, role_ids)
+    active_query = (tuple(color_identity), strategy_ids, role_ids, commander_id, tuple(priorities.items()))
     if search_clicked:
         st.session_state["suggestion_query"] = active_query
         st.session_state["suggestion_visible_count"] = 20
+        st.session_state.pop("suggestion_commander_results", None)
 
     notice = st.session_state.pop("suggestion_notice", None)
     if notice:
@@ -1535,14 +1572,15 @@ def _render_collection_suggestions(session: Session) -> None:
     if saved_query != active_query:
         st.info("Choose the filters and click **Find suggestions**.")
         return
-    if not strategy_ids and selected_role_id not in STANDALONE_SUGGESTION_ROLES:
-        st.info("Choose a strategy or select a core role with its own ranking.")
+    if not commander_id and not strategy_ids and selected_role_id not in STANDALONE_SUGGESTION_ROLES:
+        st.info("Choose a commander, a strategy, or a core role with its own ranking.")
         return
 
     if st.button(
         "Reclassify collection cards",
         key="reclassify_collection_for_suggestions",
     ):
+        st.session_state.pop("suggestion_commander_results", None)
         oracle_ids = collection_oracle_ids(session)
         try:
             session.rollback()
@@ -1559,29 +1597,38 @@ def _render_collection_suggestions(session: Session) -> None:
         )
         st.rerun()
 
-    try:
-        batch = suggest_collection_cards_by_identity(
-            session,
-            tuple(color_identity),
-            strategy_ids,
-            catalog,
-            config_dir=DEFAULT_CATALOG_DIR,
-            prioritized_roles=role_ids,
-            limit=50,
-        )
-    except ValueError as error:
-        st.warning(str(error))
-        return
+    batch = st.session_state.get("suggestion_commander_results") if commander_id else None
+    if batch is None:
+        try:
+            batch = suggest_collection_cards_by_identity(
+                session,
+                tuple(color_identity),
+                strategy_ids,
+                catalog,
+                config_dir=DEFAULT_CATALOG_DIR,
+                prioritized_roles=role_ids,
+                limit=50,
+                commander_identifier=commander_id,
+                strategy_priorities=priorities,
+            )
+        except ValueError as error:
+            st.warning(str(error))
+            return
+        if commander_id:
+            st.session_state["suggestion_commander_results"] = batch
 
     metric_columns = st.columns(3)
     metric_columns[0].metric("Cards in color identity", batch.total_candidates)
     metric_columns[1].metric("Not currently classified", batch.unclassified_count)
     metric_columns[2].metric("Ineligible", batch.ineligible_count)
     if batch.unclassified_count:
-        st.info(
-            "Some cards do not have current classifications. Use "
-            "**Reclassify collection cards** to refresh them locally."
-        )
+        if commander_id:
+            st.caption("Commander synergy is evaluated live. Saved classification details may be missing.")
+        else:
+            st.info(
+                "Some cards do not have current classifications. Use "
+                "**Reclassify collection cards** to refresh them locally."
+            )
     if not batch.suggestions:
         st.info("No cards matched these filters.")
         return
@@ -1613,7 +1660,11 @@ def _render_collection_suggestions(session: Session) -> None:
             with st.container(key=row_key):
                 st.markdown(heading)
                 score_precision = 3 if selected_role_id in STANDALONE_SUGGESTION_ROLES else 1
-                ranking_label = f"Score {item.score:.{score_precision}f}"
+                ranking_label = (
+                    f"Synergy {item.score:.2f}/100"
+                    if item.mechanical_synergy and selected_role_id is None
+                    else f"Score {item.score:.{score_precision}f}"
+                )
                 ramp_line = item.ramp_profile.best_line if item.ramp_profile else None
                 interaction_variant = None
                 interaction_effects = ()
@@ -1656,8 +1707,11 @@ def _render_collection_suggestions(session: Session) -> None:
                     summary_parts.append("Strategies: " + ", ".join(strategy_labels))
                 if role_labels:
                     summary_parts.append("Roles: " + ", ".join(role_labels))
-                st.caption(" · ".join(summary_parts) if summary_parts else "No matched tags or roles")
-                with st.expander("Classification details"):
+                if summary_parts:
+                    st.caption(" · ".join(summary_parts))
+                with st.expander("Score details" if item.mechanical_synergy else "Classification details"):
+                    if item.mechanical_synergy:
+                        _render_mechanical_synergy_details(item)
                     if ramp_line is not None:
                         st.caption(f"Base ramp score {ramp_line.score:.3f}")
                         st.text(ramp_line.event.evidence.oracle_span)
@@ -1671,8 +1725,8 @@ def _render_collection_suggestions(session: Session) -> None:
                         for effect in interaction_effects:
                             st.text(effect.evidence.oracle_span)
                     if item.strategy_scores:
-                        st.markdown(
-                            "**Strategy scores:** "
+                        st.caption(
+                            ("Strategy affinity · " if item.mechanical_synergy else "Strategy scores · ")
                             + ", ".join(
                                 f"{strategy_names[key]} {value:.1f}"
                                 for key, value in item.strategy_scores.items()
@@ -1699,6 +1753,35 @@ def _render_collection_suggestions(session: Session) -> None:
             data={"visible_count": visible_count},
             on_loadMore_change=_load_more_suggestions,
         )
+
+
+def _render_mechanical_synergy_details(item: IdentityCollectionSuggestion) -> None:
+    profile = item.mechanical_synergy
+    if profile is None:
+        return
+    scores = profile.scores
+    if item.ramp_profile or item.interaction_profile or item.strict_card_advantage is not None:
+        st.caption("The core-role ranking uses synergy as a bonus.")
+    st.caption(
+        f"Synergy {scores.overall:.2f}/100 · Commander {scores.direct_commander_synergy:.0%} · "
+        f"Weighted affinity {scores.weighted_strategy_affinity:.0%} · Bridge {scores.cross_strategy_bridge:.0%} · "
+        f"Reliability {scores.interaction_reliability:.0%} · Coverage {scores.coverage_confidence:.0%}"
+    )
+    for evidence in profile.evidence:
+        if evidence.status not in {MatchStatus.VALIDATED, MatchStatus.CONDITIONAL, MatchStatus.POTENTIAL}:
+            continue
+        label = "Commander" if evidence.target_card_id else "Strategy"
+        st.caption(f"{label} · {evidence.status.value.capitalize()} · {evidence.explanation}")
+        st.text(evidence.source.evidence.oracle_span)
+        if evidence.target:
+            st.text(evidence.target.evidence.oracle_span)
+        if evidence.dependencies or evidence.missing_capabilities:
+            requirements = (*evidence.dependencies, *evidence.missing_capabilities)
+            st.caption("Requires " + ", ".join(value.replace("_", " ") for value in requirements))
+    if profile.unknowns or profile.commander_unknowns:
+        st.caption("Unresolved Oracle text")
+        for unknown in (*profile.unknowns, *profile.commander_unknowns):
+            st.text(unknown.oracle_span)
 
 
 def _render_deck_builder(session: Session) -> None:

@@ -52,7 +52,7 @@ their administration in the UI. That work is in progress:
 | In progress | Card Advantage module | Strict stock evaluator for fixed draw casts and self-enters draw, including evoke. Conditional engines, interactions, and ranking integration remain pending. |
 | In progress | [Ramp Evaluation Engine](./ramp_evaluation_engine_implementation_guide.md) | Suggestions ranks supported mana production, land development, and mana tokens with an optional strategy bonus. Broader mechanics, calibration, and persisted profiles remain pending. |
 | In progress | [Interaction Evaluation Engine](./interaction_evaluation_engine_implementation_guide.md) | The card-level API and Suggestions expose independent scores, source evidence, and execution variants. Pattern coverage and score calibration remain in progress. |
-| Implemented | [Strategy Synergy Engine MVP](./strategy_synergy_engine_implementation_guide.md) | CLI and Python API rank owned candidates before deck construction with typed Oracle evidence, all 15 built-in strategies, and independent functional evaluations. Oracle and rule coverage are partial and weights are heuristic. |
+| Implemented | [Strategy Synergy Engine MVP](./strategy_synergy_engine_implementation_guide.md) | Commander searches in Suggestions use the same mechanical score as the CLI and Python API, with optional weighted strategies, source evidence, and independent core-role scoring. Oracle and rule coverage are partial and weights are heuristic. |
 
 Items marked Later are not approved or scheduled. Current work should preserve
 catalog versioning and classification provenance.

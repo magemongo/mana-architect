@@ -31,8 +31,17 @@ The mechanical strategy definitions are in `config/strategy_synergy.json`.
 The rule and scoring defaults are versioned in Python. These values are
 heuristics. Supported Oracle forms and fixtures are documented in the
 [implementation guide](./strategy_synergy_engine_implementation_guide.md).
+In Suggestions, choose an owned commander to use the same score. The
+commander supplies the color identity. Strategies are optional, and selected
+strategies can have different priorities. The picker shows strategies defined
+in the mechanical catalog. Each card's score details show
+the components, matched abilities, dependencies, and unresolved Oracle text.
+Commander synergy is evaluated live and saved classifications are optional.
+When a core role is selected, its score remains the base and mechanical
+synergy supplies the bonus. Role exclusions still apply.
+
 The remainder of this reference covers the tag-based scorer used by
-Suggestions and catalog-guided deck generation.
+color-identity searches and catalog-guided deck generation.
 
 ## Formula
 

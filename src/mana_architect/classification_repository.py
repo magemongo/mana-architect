@@ -189,7 +189,7 @@ def reclassify_cards(
             skipped += 1
             continue
 
-        card_input = _classification_input(card)
+        card_input = card_classification_input(card)
         result = classify_card(card_input, catalog)
         run = ClassificationRun(
             run_id=str(uuid.uuid4()),
@@ -699,7 +699,7 @@ def _register_catalog_version(
     session.flush()
 
 
-def _classification_input(card: Card) -> CardClassificationInput:
+def card_classification_input(card: Card) -> CardClassificationInput:
     return CardClassificationInput(
         type_line=card.type_line,
         oracle_text=card.oracle_text,

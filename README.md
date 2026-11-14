@@ -170,10 +170,14 @@ incomplete. A `valid` result is conditional on synchronized data and does not
 guarantee the ban list is current today. Run `sync-scryfall` before validating.
 Two-commander partner decks are not supported yet.
 
-## Generate a Deck Draft
+## Rank Commander Candidates
 
-Use the mechanical candidate evaluator to rank owned cards for a commander
-before generating a draft:
+On **Suggestions**, select an owned commander to rank cards using its
+abilities and color identity. Select strategies and set their relative
+priorities if desired, then click **Find suggestions**. Expand **Score
+details** to see the score components, matched abilities, and conditions.
+
+The CLI provides the same synergy ranking before deck construction:
 
 ```powershell
 python -m mana_architect evaluate-candidates "Anowon, the Ruin Thief" --strategy tokens --strategy aristocrats=2 --limit 10
@@ -184,6 +188,8 @@ rejection reasons for ineligible cards, and independent Ramp, Card Advantage,
 and Interaction evaluations. Each `--strategy` accepts an optional priority.
 Omit the strategy options to rank by commander interactions. See the
 [mechanical scoring reference](docs/synergy-scoring.md#mechanical-candidate-evaluation).
+
+## Generate a Deck Draft
 
 ```powershell
 python -m mana_architect build-deck "Anowon, the Ruin Thief" --output .\data\decks\anowon.json
