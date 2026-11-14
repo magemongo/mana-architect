@@ -34,7 +34,7 @@ from mana_architect.synergy_interactions import (
     validate_interaction,
 )
 
-ENGINE_VERSION = "1.0.0"
+ENGINE_VERSION = "1.1.0"
 ELIGIBILITY_VERSION = "single-commander-snapshot-v1"
 
 
@@ -420,6 +420,7 @@ def evaluate_synergy(
         (label, cap.evidence.ability_id, cap.evidence.start)
         for label, profile in (("candidate", own), ("commander", leader))
         for cap in profile.capabilities
+        if cap.evidence.source_field == "oracle_text"
     }
     unresolved = len(own.unknowns) + len(leader.unknowns) + sum(
         item.status == MatchStatus.UNKNOWN for item in evidence.values()

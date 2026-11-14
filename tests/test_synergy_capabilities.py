@@ -6,7 +6,8 @@ def compile_card(text, **kwargs):
     result = extract_mechanical_capabilities(parse_oracle_text(text), **kwargs)
     for capability in result.capabilities:
         span = capability.evidence
-        assert text[span.start:span.end] == span.oracle_span
+        source = kwargs["type_line"] if span.source_field == "type_line" else text
+        assert source[span.start:span.end] == span.oracle_span
         assert capability.id in CAPABILITY_IDS
     return result
 
@@ -82,10 +83,11 @@ def test_self_reference_is_linked_without_shifting_unicode_offsets():
         "Whenever Café Hero enters the battlefield, you gain 2 life.",
         name="Café Hero", type_line="Legendary Creature — Human",
     )
-    trigger, gain = profile.capabilities
+    trigger, gain, creature = profile.capabilities
     assert trigger.object.reference == "self"
     assert gain.quantity.value == 2
     assert gain.evidence.oracle_span == "you gain 2 life"
+    assert creature.object.subtypes == ("human",)
 
 
 def test_inline_scryfall_face_separator_keeps_offsets_and_face_types():
@@ -99,3 +101,28 @@ def test_inline_scryfall_face_separator_keeps_offsets_and_face_types():
     assert mana.id == "add_mana" and mana.face_type_line == "land"
     assert mana.evidence.oracle_span == "{T}: Add {B}."
     assert profile.unknowns == ()
+
+
+def test_death_replacement_makes_tokens_only_if_the_event_occurs():
+    profile = compile_card(
+        "If a nontoken creature an opponent controls would die, instead exile that card "
+        "and create a 2/2 black Zombie creature token.",
+    )
+    creation, = profile.capabilities
+    assert creation.timing == "replacement"
+    assert creation.conditions == ("a nontoken creature an opponent controls would die",)
+    assert creation.object.subtypes == ("zombie",)
+    assert profile.unknowns == ()
+    assert "instead exile" in creation.evidence.oracle_span
+
+
+def test_token_subtypes_and_conditional_creation_preserve_their_own_scopes():
+    profile = compile_card(
+        "When this creature enters, if a creature died this turn, create a 2/2 blue and black "
+        "Zombie Rogue creature token. Create a 1/1 artifact creature token with flying.",
+    )
+    _, rogue, artifact = profile.capabilities
+    assert rogue.object.subtypes == ("rogue", "zombie")
+    assert rogue.conditions == ("this creature enters", "if a creature died this turn")
+    assert artifact.object.subtypes == ()
+    assert artifact.conditions == ("this creature enters",)

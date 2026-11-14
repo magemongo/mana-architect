@@ -6,7 +6,7 @@ import re
 
 from mana_architect.synergy_capabilities import MechanicalCapability, MechanicalObject
 
-INTERACTION_RULE_VERSION = "1.0.1"
+INTERACTION_RULE_VERSION = "1.1.0"
 
 
 class MatchStatus(StrEnum):
@@ -81,6 +81,21 @@ INTERACTION_RULES = (
                    "artifact"),
     MechanicalRule("token_etb_triggers_payoff", "create_token", "enter_payoff",
                    "directly_triggers", "enter", "The created token enters and satisfies the observed token or creature entry."),
+    MechanicalRule("creature_receives_tribal_buff", "creature_presence", "tribal_buff",
+                   "rewards", "battlefield_presence", "The creature has the subtype that receives the buff.",
+                   dependency="qualifying_creature_and_buff_source_in_play", weight=0.55),
+    MechanicalRule("token_receives_tribal_buff", "create_token", "tribal_buff",
+                   "rewards", "battlefield_presence", "The created creature token has the subtype that receives the buff.",
+                   dependency="created_token_and_buff_source_in_play", weight=0.8),
+    MechanicalRule("creature_enables_tribal_combat_payoff", "creature_presence", "combat_damage_payoff",
+                   "enables", "combat_damage", "The creature can supply the required subtype's combat damage.",
+                   dependency="qualifying_creature_deals_combat_damage_to_player", weight=0.6),
+    MechanicalRule("evasion_enables_tribal_combat_payoff", "self_evasion", "combat_damage_payoff",
+                   "enables", "combat_damage", "The creature has the required subtype and evasion to help it connect.",
+                   dependency="qualifying_creature_deals_combat_damage_to_player", weight=0.9),
+    MechanicalRule("token_enables_tribal_combat_payoff", "create_token", "combat_damage_payoff",
+                   "enables", "combat_damage", "The token has the required creature subtype and can supply combat damage.",
+                   dependency="created_token_deals_combat_damage_to_player", weight=0.85),
 )
 
 _REQUIRED_PAYOFF_TYPES = {
@@ -121,7 +136,7 @@ def _compatible_object(produced: MechanicalObject, required: MechanicalObject) -
         return RuleMatch(MatchStatus.UNKNOWN, "The object must have all listed types.")
     if needed and not available:
         return RuleMatch(MatchStatus.UNKNOWN, "The source does not specify the required object type.")
-    if required.subtypes and not set(required.subtypes) & set(produced.subtypes):
+    if required.subtypes and "*" not in produced.subtypes and not set(required.subtypes) & set(produced.subtypes):
         status = MatchStatus.INVALID if produced.subtypes else MatchStatus.UNKNOWN
         return RuleMatch(status, "The required object subtype is unresolved or incompatible.")
     if "nontoken" in required.restrictions and produced.kind == "token":
@@ -137,9 +152,10 @@ def _compatible_object(produced: MechanicalObject, required: MechanicalObject) -
 
 
 def _card_object(type_line: str, kind: str = "card") -> MechanicalObject:
+    type_line, _, subtypes = type_line.casefold().split(" // ")[0].partition(" — ")
     types = re.findall(r"\b(?:artifact|battle|creature|enchantment|instant|land|planeswalker|sorcery)\b",
-                       type_line.casefold().split(" // ")[0].split(" — ")[0])
-    return MechanicalObject(kind, tuple(sorted(set(types))), reference="self")
+                       type_line)
+    return MechanicalObject(kind, tuple(sorted(set(types))), tuple(sorted(set(subtypes.split()))), reference="self")
 
 
 def validate_interaction(
@@ -166,7 +182,22 @@ def validate_interaction(
     required_controller = observer.controller
     if producer.object.reference == "self" and producer.id != "resolve_spell":
         card = _card_object(target_type if producer is target else source_type, kind="permanent")
-        produced = replace(produced, types=card.types)
+        subtypes = produced.subtypes or card.subtypes
+        if producer.resolution == "changeling":
+            subtypes = ("*",)
+        # Keep the subtypes of non-tribal events (such as counter types) in
+        # their own domain.
+        if observer.id in {"tribal_buff", "combat_damage_payoff"}:
+            if "creature" not in card.types or not (
+                "*" in subtypes or set(required.subtypes).intersection(subtypes)
+            ):
+                return None
+            produced = replace(produced, types=card.types, subtypes=subtypes)
+        else:
+            produced = replace(produced, types=card.types)
+    if produced.kind == "token" and observer.id in {"tribal_buff", "combat_damage_payoff"}:
+        if not set(required.subtypes).intersection(produced.subtypes):
+            return None
     if rule.id == "spell_copy_amplifies_spell_effect":
         required_controller = source.resolution
     if rule.id == "equipment_enables_voltron":

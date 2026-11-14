@@ -33,8 +33,8 @@ def test_treasure_is_a_bridge_and_only_conditionally_triggers_sacrifice(context)
     candidate = card("treasure-maker", "Create two Treasure tokens.")
     result = run(context, commander, candidate, "tokens", "artifacts", "aristocrats")
     assert result.eligible
-    assert len(result.mechanical_capabilities) == 1
-    assert result.mechanical_capabilities[0].quantity.value == 2
+    creation, = [cap for cap in result.mechanical_capabilities if cap.id == "create_token"]
+    assert creation.quantity.value == 2
     direct = [item for item in result.evidence if item.id in result.commander_synergy.evidence_ids]
     assert [(item.rule_id, item.status) for item in direct] == [
         ("treasure_feeds_artifact_sacrifice", MatchStatus.CONDITIONAL),
@@ -109,3 +109,53 @@ def test_priority_validation_and_normalization(context):
             commander, candidate, (SelectedStrategy("tokens", float("nan")),),
             context, owned_quantity=1,
         )
+
+
+def test_anowon_rewards_actual_rogues_rogue_tokens_and_changelings(context):
+    commander = card(
+        "anowon",
+        "Other Rogues you control get +1/+1.\n"
+        "Whenever one or more Rogues you control deal combat damage to a player, "
+        "that player mills a card for each 1 damage dealt to them. "
+        "If the player mills at least one creature card this way, you draw a card.",
+        type_line="Legendary Creature — Vampire Rogue",
+    )
+    candidates = (
+        card("vanilla-rogue", "", type_line="Creature — Human Rogue"),
+        card("evasive-rogue", "This creature can't be blocked.", type_line="Creature — Human Rogue"),
+        card("rogue-tokens", "Create two 1/1 black Goblin Rogue creature tokens.", type_line="Sorcery"),
+        card("changeling", "Changeling\nThis creature can't be blocked.", type_line="Creature — Shapeshifter"),
+        card("zombie-tokens", "Create two 1/1 black Zombie creature tokens.", type_line="Sorcery"),
+        card("kindred-spell", "Draw a card.", type_line="Kindred Sorcery — Rogue"),
+    )
+    results = [run(context, commander, candidate, "tokens", "aristocrats") for candidate in candidates]
+    plain, evasive, tokens, changeling, zombies, spell = results
+    assert evasive.commander_synergy.score > plain.commander_synergy.score > 0
+    assert changeling.commander_synergy.score == evasive.commander_synergy.score
+    assert zombies.commander_synergy.score == spell.commander_synergy.score == 0
+    matches = [item for item in tokens.evidence if item.id in tokens.commander_synergy.evidence_ids]
+    assert {item.rule_id for item in matches} == {
+        "token_receives_tribal_buff", "token_enables_tribal_combat_payoff",
+    }
+    assert all(item.status == MatchStatus.CONDITIONAL for item in matches)
+    combat = next(item for item in matches if item.target.id == "combat_damage_payoff")
+    assert "created_token_deals_combat_damage_to_player" in combat.dependencies
+    assert "If the player mills at least one creature card" in combat.target.resolution
+    assert not tokens.commander_unknowns
+
+
+def test_kalitas_style_creation_is_discounted_and_earns_no_validated_bridge(context):
+    commander = card("commander", "")
+    candidate = card(
+        "kalitas",
+        "If a nontoken creature an opponent controls would die, instead exile that card "
+        "and create a 2/2 black Zombie creature token.",
+        type_line="Creature — Vampire Warrior",
+    )
+    result = run(context, commander, candidate, "tokens", "aristocrats")
+    affinity = next(affinity for affinity in result.strategy_affinities if affinity.strategy_id == "tokens")
+    assert affinity.score == pytest.approx(0.75 * context.scoring.conditional_discount)
+    assert not result.cross_strategy_bridges
+    intrinsic = next(item for item in result.evidence if item.rule_id == "tokens_create_token")
+    assert intrinsic.status == MatchStatus.CONDITIONAL
+    assert "a nontoken creature an opponent controls would die" in intrinsic.dependencies

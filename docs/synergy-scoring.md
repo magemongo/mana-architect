@@ -18,6 +18,15 @@ distinct objectives on the same event. Conditional and potential matches are
 discounted, and unsupported or incompatible matches contribute zero.
 Coverage reports unresolved Oracle clauses separately from strength.
 
+Subtype-specific commander abilities use creature type lines, printed token
+subtypes, and recognized changeling abilities. The evaluator treats a subtype
+buff as contingent on both permanents being in play. Combat-damage payoffs
+also require a qualifying creature to connect, with stronger evidence from
+recognized evasion such as flying or unconditional unblockability. The
+trigger's resolution text retains any additional condition for drawing cards.
+Token creation from a supported death replacement effect retains the required
+event, so it receives conditional affinity and earns no validated bridge.
+
 The mechanical strategy definitions are in `config/strategy_synergy.json`.
 The rule and scoring defaults are versioned in Python. These values are
 heuristics. Supported Oracle forms and fixtures are documented in the
