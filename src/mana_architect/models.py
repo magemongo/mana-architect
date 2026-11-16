@@ -31,6 +31,7 @@ class Card(Base):
     color_identity: Mapped[list[str] | None] = mapped_column(JSON)
     produced_mana: Mapped[list[str] | None] = mapped_column(JSON)
     type_line: Mapped[str | None] = mapped_column(String(255))
+    layout: Mapped[str | None] = mapped_column(String(40))
     oracle_text: Mapped[str | None] = mapped_column(Text)
     keywords: Mapped[list[str] | None] = mapped_column(JSON)
     legalities: Mapped[dict[str, str] | None] = mapped_column(JSON)

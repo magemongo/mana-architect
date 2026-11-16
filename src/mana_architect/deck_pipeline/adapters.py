@@ -75,12 +75,11 @@ class EvaluationAdapters:
         except ValueError as error:
             raise EvaluationError((ValidationIssue("invalid_strategy_preferences", str(error)),)) from error
 
-        assert gate.commander is not None
         self._gate = gate
         self._cards = {card.card_id: card for card in gate.snapshot.cards}
-        self._commander = _engine_card(gate.commander)
+        self._commanders = tuple(_engine_card(card) for card in gate.commanders)
         self._synergy_context = synergy_context
-        self._commander_parse = parse_synergy_oracle(self._commander, synergy_context)
+        self._commander_parses = tuple(parse_synergy_oracle(card, synergy_context) for card in self._commanders)
         self._preferences = preferences
         self.strategy_preferences = tuple(
             StrategyPreference(strategy_id, weight) for strategy_id, weight in priorities.items()
@@ -100,22 +99,27 @@ class EvaluationAdapters:
             raise EvaluationError(eligibility.violations)
         card = _engine_card(self._cards[card_id])
         parsed = parse_synergy_oracle(card, self._synergy_context)
-        synergy = evaluate_synergy(
-            self._commander, card, self._preferences, self._synergy_context,
-            owned_quantity=eligibility.available_quantity,
-            candidate_parse=parsed, commander_parse=self._commander_parse,
+        profiles = tuple(
+            evaluate_synergy(
+                commander, card, self._preferences, self._synergy_context,
+                owned_quantity=eligibility.available_quantity, candidate_parse=parsed,
+                commander_parse=commander_parse, deck_color_identity=self._gate.color_identity,
+            )
+            for commander, commander_parse in zip(self._commanders, self._commander_parses, strict=True)
         )
-        if not synergy.eligible:
+        rejected = sorted({reason for profile in profiles for reason in profile.rejection_reasons})
+        if rejected:
             raise EvaluationError(tuple(
                 ValidationIssue(reason, f"Strategy Synergy rejected {card.name} ({reason}).", card_id)
-                for reason in synergy.rejection_reasons
+                for reason in rejected
             ))
         return CardEvaluations(
             ramp=evaluate_ramp(
                 card_id, card.type_line, card.mana_cost, parsed,
-                colorless_identity=self._commander.color_identity == [],
+                colorless_identity=not self._gate.color_identity,
             ),
             card_advantage=compile_profile(card_id, card.type_line, card.mana_cost, parsed),
             interaction=classify_card_interaction(card, parsed),
-            strategy_synergy=synergy,
+            strategy_synergy=profiles[0],
+            partner_strategy_synergy=profiles[1] if len(profiles) == 2 else None,
         )

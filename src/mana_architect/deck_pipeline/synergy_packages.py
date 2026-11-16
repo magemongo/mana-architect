@@ -20,6 +20,7 @@ from mana_architect.deck_pipeline.contracts import (
     SynergyPackage,
     ValidationIssue,
     artifact_digest,
+    edge_fingerprint,
 )
 from mana_architect.deck_pipeline.eligibility import EligibilityGate
 from mana_architect.deck_pipeline.inventory import CardSnapshot
@@ -277,10 +278,10 @@ class SynergyPackageBuilder:
         abilities, edges = self._validate_inputs(gate, pool, analysis)
         provenance = PackageProvenance(
             gate.snapshot.snapshot_id, pool.pool_id, analysis.provenance.pool_fingerprint,
-            analysis.analysis_id, artifact_digest([asdict(edge) for edge in edges]),
+            analysis.analysis_id, edge_fingerprint(edges),
             analysis.rule_catalog_version, TEMPLATE_CATALOG_VERSION,
             artifact_digest([asdict(item) for item in self._templates]),
-            self._config.version, artifact_digest(asdict(self._config)),
+            self._config.version, artifact_digest(asdict(self._config)), self._config.include_reserve,
         )
         analysis_id = artifact_digest({
             "run_id": pool.run_id, "provenance": asdict(provenance),
@@ -483,13 +484,15 @@ class SynergyPackageBuilder:
                 base = _Path(((template.source_role, seed.source_card_id), (template.target_role, seed.target_card_id)),
                              (seed,), renewal=renewal, renewal_requirements=renewal_requirements)
                 if template.extension == "none":
-                    package = self._materialize(template, base, anchors)
-                    packages.setdefault(package.package_id, package)
+                    if base.card_ids - anchors:
+                        package = self._materialize(template, base, anchors)
+                        packages.setdefault(package.package_id, package)
                     continue
                 if template.extension == "food_recursion":
                     producer = abilities[(seed.event_ids[0], seed.source_capability)]
                     consumer = abilities[(seed.event_ids[1], seed.target_capability)]
-                    if path := _food_recursion(base, producer, consumer, outlets_by_card[seed.source_card_id]):
+                    path = _food_recursion(base, producer, consumer, outlets_by_card[seed.source_card_id])
+                    if path and path.card_ids - anchors:
                         package = self._materialize(template, path, anchors)
                         packages.setdefault(package.package_id, package)
                     else:
@@ -502,8 +505,9 @@ class SynergyPackageBuilder:
                             break
                         attempts[archetype] += 1
                         if path := _life_feedback(base, reverse, abilities):
-                            package = self._materialize(template, path, anchors)
-                            packages.setdefault(package.package_id, package)
+                            if path.card_ids - anchors:
+                                package = self._materialize(template, path, anchors)
+                                packages.setdefault(package.package_id, package)
                         else:
                             rejections["life_feedback_unresolved"] += 1
                     continue
@@ -549,10 +553,11 @@ class SynergyPackageBuilder:
                             )
                         else:
                             path = self._extend(base, token_edge, fodder, outlet)
-                        package = self._materialize(template, path, anchors)
-                        packages.setdefault(package.package_id, package)
-                        complete = True
-                if not complete:
+                        if path.card_ids - anchors:
+                            package = self._materialize(template, path, anchors)
+                            packages.setdefault(package.package_id, package)
+                            complete = True
+                if not complete and base.card_ids - anchors:
                     if examined and reason == "missing_fodder":
                         reason = "no_compatible_fodder"
                     members = tuple(sorted(base.card_ids - anchors))

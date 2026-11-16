@@ -43,6 +43,9 @@ def initialize_database(engine: Engine) -> None:
     if "produced_mana" not in columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE cards ADD COLUMN produced_mana JSON"))
+    if "layout" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE cards ADD COLUMN layout VARCHAR(40)"))
     run_columns = {column["name"] for column in inspect(engine).get_columns("classification_runs")}
     if "oracle_parse" not in run_columns:
         with engine.begin() as connection:

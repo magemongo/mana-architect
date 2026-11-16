@@ -1,5 +1,8 @@
 # Phase 0 decisions
 
+This record describes the original foundation. The [Phase 4 decisions](phase-4.md)
+document the current composer, Partner ruleset, and proposal serialization.
+
 ## Integration
 
 `deck_pipeline` sits alongside the existing Python modules. The CLI and Streamlit currently use `deckbuilding.build_deck`. The separate `candidate_evaluation.rank_collection_candidates` API orders by Strategy Synergy and applies a limit before evaluating the other roles. A later integration should use the eligibility gate and per-card adapters as its input boundary so that ranking policies can see every eligible card.

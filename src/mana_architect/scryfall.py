@@ -95,6 +95,7 @@ def _card_values(record: dict[str, Any], bulk_updated_at: str) -> dict[str, Any]
     keywords = record.get("keywords", [])
     legalities = record.get("legalities", {})
     cmc = record.get("cmc")
+    layout = record.get("layout")
     if not isinstance(colors, list) or not all(isinstance(item, str) for item in colors):
         raise ScryfallError(f"Campo colors inválido para {name}.")
     if not isinstance(color_identity, list) or not all(
@@ -130,6 +131,7 @@ def _card_values(record: dict[str, Any], bulk_updated_at: str) -> dict[str, Any]
         "color_identity": color_identity,
         "produced_mana": produced_mana,
         "type_line": type_line,
+        "layout": layout if isinstance(layout, str) else None,
         "oracle_text": oracle_text,
         "keywords": keywords,
         "legalities": legalities,
@@ -256,6 +258,7 @@ def sync_collection(
             SyncMetadata,
             "produced_mana_updated_at",
         )
+        previous_layout_sync = session.get(SyncMetadata, "layout_updated_at")
         bulk_changed = (
             previous_bulk_updated_at is None
             or previous_bulk_updated_at.value != bulk.updated_at
@@ -263,6 +266,8 @@ def sync_collection(
         refresh_all = bulk_changed or (
             previous_produced_mana_sync is None
             or previous_produced_mana_sync.value != bulk.updated_at
+            or previous_layout_sync is None
+            or previous_layout_sync.value != bulk.updated_at
         )
         if refresh_all:
             owned_scryfall_ids = set(
@@ -307,6 +312,7 @@ def sync_collection(
                         "color_identity",
                         "produced_mana",
                         "type_line",
+                        "layout",
                         "oracle_text",
                         "keywords",
                         "legalities",
@@ -334,6 +340,7 @@ def sync_collection(
         metadata = {
             "bulk_updated_at": bulk.updated_at,
             "produced_mana_updated_at": bulk.updated_at,
+            "layout_updated_at": bulk.updated_at,
             "last_synced_at": datetime.now(timezone.utc).isoformat(),
         }
         for key, value in metadata.items():

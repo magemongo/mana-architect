@@ -219,7 +219,10 @@ def normalize_priorities(selected: tuple[SelectedStrategy, ...], context: Synerg
     return {key: value / total for key, value in scaled.items()}
 
 
-def candidate_rejections(commander: Card, candidate: Card, owned_quantity: int) -> tuple[str, ...]:
+def candidate_rejections(
+    commander: Card, candidate: Card, owned_quantity: int,
+    *, deck_color_identity: frozenset[str] | None = None,
+) -> tuple[str, ...]:
     reasons = []
     if owned_quantity <= 0:
         reasons.append("candidate_not_owned")
@@ -231,8 +234,9 @@ def candidate_rejections(commander: Card, candidate: Card, owned_quantity: int) 
             reasons.append(f"{label}_{legality if legality in {'banned', 'restricted', 'not_legal'} else 'legality_unknown'}")
         if card.color_identity is None or not set(card.color_identity) <= VALID_COLORS:
             reasons.append(f"{label}_color_identity_unknown")
-    if commander.color_identity is not None and candidate.color_identity is not None:
-        if set(candidate.color_identity) - set(commander.color_identity):
+    identity = commander.color_identity if deck_color_identity is None else deck_color_identity
+    if identity is not None and candidate.color_identity is not None:
+        if set(candidate.color_identity) - set(identity):
             reasons.append("incompatible_color_identity")
     return tuple(reasons)
 
@@ -331,10 +335,11 @@ def evaluate_synergy(
     commander: Card, candidate: Card, selected_strategies: tuple[SelectedStrategy, ...],
     context: SynergyCatalogContext, *, owned_quantity: int,
     candidate_parse: OracleParse | None = None, commander_parse: OracleParse | None = None,
+    deck_color_identity: frozenset[str] | None = None,
 ) -> StrategySynergyProfile:
     """Return separate direct, strategy, and bridge scores for an owned candidate."""
     priorities = normalize_priorities(selected_strategies, context)
-    reasons = candidate_rejections(commander, candidate, owned_quantity)
+    reasons = candidate_rejections(commander, candidate, owned_quantity, deck_color_identity=deck_color_identity)
     versions = (
         ("capabilities", CAPABILITY_VERSION), ("strategies", context.strategies.version),
         ("interaction_rules", context.rule_version), ("scoring", context.scoring.version),

@@ -156,6 +156,22 @@ and Interaction evaluations. Each `--strategy` accepts an optional priority.
 Omit the strategy options to rank by commander interactions. See the
 [mechanical scoring reference](docs/synergy-scoring.md#mechanical-candidate-evaluation).
 
+## Compose a Preliminary Commander Deck
+
+~~~powershell
+python -m mana_architect compose "Anowon, the Ruin Thief" --strategy tokens --land-target 38
+python -m mana_architect compose "Keleth, Sunmane Familiar" --partner "Brinelin, the Moon Kraken" --output preliminary.json
+~~~
+
+The command discovers owned candidates, analyzes mechanical relationships and
+packages, and validates the resulting 100-card proposal against the collection
+snapshot. The JSON includes card and printing quantities, selection reasons,
+synergy evidence, reserves, and mana and role diagnostics. An infeasible run
+emits a proposal with violations and exits with status 1. Use `--lock ORACLE_ID`
+or `--exclude ORACLE_ID` for individual cards. Each option can be repeated.
+See the [preliminary composer guide](docs/deck-building/decisions/phase-4.md)
+for defaults and the Python API.
+
 ## Generate a Deck Draft
 
 ```powershell

@@ -39,7 +39,7 @@ class SynergyPackageBuilder(Protocol):
 class PreliminaryDeckComposer(Protocol):
     def compose(
         self, gate: EligibilityGate, pool: CandidatePool,
-        packages: tuple[SynergyPackage, ...],
+        pairwise: PairwiseSynergyAnalysis, packages: PackageAnalysis,
     ) -> DeckProposal: ...
 
 

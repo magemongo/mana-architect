@@ -107,7 +107,7 @@ def _interaction_membership(
 
 def _synergy_membership(evaluations: CardEvaluations) -> RoleMembership:
     role = Role.STRATEGY_SYNERGY
-    profile = evaluations.strategy_synergy
+    profile = min(evaluations.commander_profiles, key=lambda item: (-item.scores.overall, item.commander_id), default=None)
     if profile is None:
         return RoleMembership(role, False, EvaluationState.NOT_EVALUATED)
     supported_ids = {
@@ -140,9 +140,13 @@ def _land_membership(card: CardSnapshot) -> RoleMembership:
     role = Role.LANDS
     faces = tuple(set(face.partition("—")[0].split()) for face in (card.type_line or "").split(" // "))
     if "Land" not in faces[0]:
-        # Flattened metadata cannot distinguish a playable modal face from a transform face.
+        if card.layout == "modal_dfc" and any("Land" in types for types in faces[1:]):
+            return RoleMembership(
+                role, True, EvaluationState.EVALUATED, subtypes=("modal_land",),
+                evidence_ids=("type_line:1",), confidence="modal_face",
+            )
         state = (
-            EvaluationState.UNSUPPORTED if any("Land" in types for types in faces[1:])
+            EvaluationState.UNSUPPORTED if card.layout is None and any("Land" in types for types in faces[1:])
             else EvaluationState.EVALUATED
         )
         return RoleMembership(role, False, state)

@@ -70,6 +70,7 @@ class DeckBuildingContext(Artifact):
         if len({item.strategy_id for item in preferences}) != len(preferences):
             raise ValueError("Strategy preference IDs must be unique.")
         object.__setattr__(self, "strategy_preferences", preferences)
+        object.__setattr__(self, "commander_card_ids", tuple(sorted(self.commander_card_ids)))
 
     @property
     def main_deck_size(self) -> int:
@@ -175,13 +176,26 @@ class CardEvaluations(Artifact):
     card_advantage: CardAdvantageProfile | None
     interaction: InteractionProfile | None
     strategy_synergy: StrategySynergyProfile | None
+    partner_strategy_synergy: StrategySynergyProfile | None = None
 
     def __post_init__(self) -> None:
         super().__post_init__()
         ids = {profile.oracle_id for profile in (self.ramp, self.card_advantage) if profile is not None}
-        ids.update(profile.card_id for profile in (self.interaction, self.strategy_synergy) if profile is not None)
+        ids.update(profile.card_id for profile in (self.interaction, *self.commander_profiles) if profile is not None)
         if len(ids) != 1:
             raise ValueError("Evaluation bundles require at least one profile for a single card.")
+        if self.partner_strategy_synergy is not None and (
+            self.strategy_synergy is None
+            or self.strategy_synergy.commander_id == self.partner_strategy_synergy.commander_id
+        ):
+            raise ValueError("Partner profiles require two distinct commanders.")
+
+    @property
+    def commander_profiles(self) -> tuple[StrategySynergyProfile, ...]:
+        return tuple(
+            profile for profile in (self.strategy_synergy, self.partner_strategy_synergy)
+            if profile is not None
+        )
 
     @property
     def card_id(self) -> str:
@@ -384,6 +398,10 @@ class PairwiseSynergyEdge(Artifact):
             raise ValueError("Commander anchors must be edge endpoints.")
 
 
+def edge_fingerprint(edges: tuple[PairwiseSynergyEdge, ...]) -> str:
+    return artifact_digest([asdict(edge) for edge in sorted(edges, key=lambda item: item.edge_id)])
+
+
 @dataclass(frozen=True)
 class RuleMatchCount:
     rule_id: str
@@ -528,6 +546,7 @@ class PackageProvenance:
     template_fingerprint: str
     config_version: str
     config_fingerprint: str
+    include_reserve: bool = False
 
 
 @dataclass(frozen=True)
@@ -557,6 +576,81 @@ class DeckEntry:
     card_id: str
     quantity: int
     printings: tuple[PrintingAllocation, ...] = ()
+    name: str | None = None
+
+
+@dataclass(frozen=True)
+class CompositionProvenance:
+    collection_snapshot_id: str
+    ruleset_version: str
+    pool_fingerprint: str
+    pairwise_analysis_id: str
+    package_analysis_id: str
+    edge_fingerprint: str
+    package_fingerprint: str
+    config_version: str
+    config_fingerprint: str
+
+
+@dataclass(frozen=True)
+class CompositionCapacity:
+    required_main_deck_size: int
+    available_candidates: int
+    available_with_reserve: int
+    available_in_collection: int
+    land_target: int
+    attainable_land_count: int | None = None
+
+
+@dataclass(frozen=True)
+class ColorSources:
+    symbol: str
+    required_pips: int
+    target: int
+    direct: int
+    potentially_untapped: int
+    conditional: int
+    modal: int
+    fetch: int
+
+
+@dataclass(frozen=True)
+class PackageAssessment:
+    package_id: str | None
+    archetype: str
+    status: Literal["complete", "conditional", "incomplete"]
+    member_card_ids: tuple[str, ...]
+    commander_anchor_ids: tuple[str, ...]
+    edge_ids: tuple[str, ...]
+    missing_card_ids: tuple[str, ...] = ()
+    missing_roles: tuple[str, ...] = ()
+    requirements: tuple[str, ...] = ()
+    resource_requirements: tuple[str, ...] = ()
+    timing_constraints: tuple[str, ...] = ()
+    limitations: tuple[str, ...] = ()
+    benefit_event_ids: tuple[str, ...] = ()
+    explanation: str = ""
+    modeled_requirements_supported: bool = False
+    evidence: tuple[RuleEvidence, ...] = ()
+    repeatable: bool = False
+    self_sustaining: bool = False
+    infinite: bool = False
+
+
+@dataclass(frozen=True)
+class CompositionCardDecision:
+    card_id: str
+    status: CandidateStatus
+    quantity: int
+    roles: tuple[Role, ...]
+    reason_codes: tuple[str, ...]
+    evidence_ids: tuple[str, ...] = ()
+    edge_ids: tuple[str, ...] = ()
+    package_ids: tuple[str, ...] = ()
+    utility_delta: tuple[tuple[str, float], ...] = ()
+    assigned_role_credit: tuple[tuple[Role, float], ...] = ()
+    name: str | None = None
+    role_profiles: tuple[RoleMembership, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -574,3 +668,18 @@ class DeckProposal(Artifact):
         (ValidationIssue("unvalidated_proposal", "Run proposal validation."),), None,
     ))
     decision_log: tuple[DecisionRecord, ...] = ()
+    proposal_status: Literal["draft", "valid", "infeasible"] = "draft"
+    command_zone: tuple[DeckEntry, ...] = ()
+    provenance: CompositionProvenance | None = None
+    capacity: CompositionCapacity | None = None
+    utility_breakdown: tuple[tuple[str, float], ...] = ()
+    card_decisions: tuple[CompositionCardDecision, ...] = ()
+    package_assessments: tuple[PackageAssessment, ...] = ()
+    mana_sources: tuple[ColorSources, ...] = ()
+    unmet_objectives: tuple[Diagnostic, ...] = ()
+    supporting_edges: tuple[PairwiseSynergyEdge, ...] = ()
+
+    def to_json(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["validation"]["is_legal"] = self.validation.is_legal
+        return payload

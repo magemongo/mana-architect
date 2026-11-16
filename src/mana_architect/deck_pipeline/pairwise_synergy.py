@@ -358,7 +358,6 @@ class PairwiseSynergyAnalyzer:
     def _index(
         self, gate: EligibilityGate, candidates: tuple[CardCandidate, ...], priorities: dict[str, float],
     ) -> tuple[dict[str, list[_Endpoint]], tuple[Diagnostic, ...]]:
-        assert gate.commander is not None
         snapshots = {card.card_id: card for card in gate.snapshot.cards}
         relevant_ids = {name for rule in self._rules for name in (rule.source, rule.target)}
         index: dict[str, list[_Endpoint]] = defaultdict(list)
@@ -369,12 +368,12 @@ class PairwiseSynergyAnalyzer:
             "scoring": self._catalog.scoring.version,
         }
         profiles = {}
-        commander = gate.commander
-        commander_parse = parse_card_snapshot(commander, self._catalog)
-        leader = extract_mechanical_capabilities(
-            commander_parse, name=commander.name, type_line=commander.type_line or "",
-        )
-        profiles[commander.card_id] = (commander_parse, leader.capabilities, leader.unknowns)
+        for commander in gate.commanders:
+            commander_parse = parse_card_snapshot(commander, self._catalog)
+            leader = extract_mechanical_capabilities(
+                commander_parse, name=commander.name, type_line=commander.type_line or "",
+            )
+            profiles[commander.card_id] = (commander_parse, leader.capabilities, leader.unknowns)
         for candidate in candidates:
             profile = candidate.evaluations.strategy_synergy if candidate.evaluations else None
             if profile is None:
@@ -384,7 +383,7 @@ class PairwiseSynergyAnalyzer:
                 ))
                 continue
             if (
-                profile.commander_id != commander.card_id or not profile.eligible
+                profile.commander_id not in gate.context.commander_card_ids or not profile.eligible
                 or profile.engine_version != gate.context.engine_versions.strategy_synergy
                 or not expected.items() <= dict(profile.catalog_versions).items()
                 or {item.strategy_id: item.priority for item in profile.strategy_affinities} != priorities

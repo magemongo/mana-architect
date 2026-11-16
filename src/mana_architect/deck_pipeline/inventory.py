@@ -38,6 +38,7 @@ class CardSnapshot:
     keywords: tuple[str, ...]
     commander_legality: str | None
     colors: tuple[str, ...] | None = None
+    layout: str | None = None
 
 
 @dataclass(frozen=True)
@@ -82,7 +83,7 @@ def load_collection_snapshot(session: Session) -> CollectionSnapshot:
     )
     card_fields = Bundle(
         "card", Card.oracle_id, Card.name, Card.type_line, Card.oracle_text, Card.mana_cost,
-        Card.cmc, Card.color_identity, Card.produced_mana, Card.keywords, Card.legalities, Card.colors,
+        Card.cmc, Card.color_identity, Card.produced_mana, Card.keywords, Card.legalities, Card.colors, Card.layout,
     )
     statement = (
         select(printing_fields, card_fields, sync_date)
@@ -107,6 +108,7 @@ def load_collection_snapshot(session: Session) -> CollectionSnapshot:
                 tuple(card.produced_mana or ()), tuple(card.keywords or ()),
                 (card.legalities or {}).get("commander"),
                 tuple(sorted(card.colors)) if card.colors is not None else None,
+                card.layout,
             )
     if not printings:
         data_as_of = session.scalar(select(sync_date))

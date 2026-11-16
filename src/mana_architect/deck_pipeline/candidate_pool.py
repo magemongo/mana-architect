@@ -156,7 +156,9 @@ class _RoleChoice:
     @property
     def commander_score(self) -> float:
         profiles = self.card.evaluations
-        return profiles.strategy_synergy.commander_synergy.score if profiles and profiles.strategy_synergy else 0
+        if profiles is None:
+            return 0
+        return max((profile.commander_synergy.score for profile in profiles.commander_profiles), default=0)
 
     @property
     def quality_key(self) -> float:
@@ -165,11 +167,10 @@ class _RoleChoice:
     def evidence_ids(self, *, override: bool) -> tuple[str, ...]:
         if not override:
             return self.membership.evidence_ids
-        assert self.card.evaluations is not None and self.card.evaluations.strategy_synergy is not None
-        profile = self.card.evaluations.strategy_synergy
-        commander_ids = set(profile.commander_synergy.evidence_ids)
+        assert self.card.evaluations is not None
         return tuple(sorted(set(self.membership.evidence_ids) | {
-            item.id for item in profile.evidence if item.id in commander_ids and item.weight > 0
+            item.id for profile in self.card.evaluations.commander_profiles
+            for item in profile.evidence if item.id in profile.commander_synergy.evidence_ids and item.weight > 0
             and item.status in (MatchStatus.VALIDATED, MatchStatus.CONDITIONAL)
         }))
 
@@ -275,9 +276,10 @@ def _snapshot_issues(
         "scoring": catalog.scoring.version,
     }
     for profile in snapshot.profiles:
-        ramp, advantage, interaction, synergy = (
-            profile.ramp, profile.card_advantage, profile.interaction, profile.strategy_synergy,
+        ramp, advantage, interaction = (
+            profile.ramp, profile.card_advantage, profile.interaction,
         )
+        synergies = profile.commander_profiles
         if (
             (ramp is not None and (ramp.ramp_rules_version != versions.ramp
                                   or ramp.oracle_parser_version != PARSER_VERSION))
@@ -290,13 +292,14 @@ def _snapshot_issues(
                      or (interaction.scoring_version is not None
                          and interaction.scoring_version != versions.interaction.partition("/")[2]))
             )
-            or (
-                synergy is not None
-                and (synergy.engine_version != versions.strategy_synergy
+            or (bool(synergies) and tuple(sorted(item.commander_id for item in synergies)) != context.commander_card_ids)
+            or any(
+                (synergy.engine_version != versions.strategy_synergy
                      or not synergy_versions.items() <= dict(synergy.catalog_versions).items()
-                     or (synergy.commander_id,) != context.commander_card_ids or not synergy.eligible
+                     or not synergy.eligible
                      or tuple(StrategyPreference(item.strategy_id, item.priority)
                               for item in synergy.strategy_affinities) != strategy_preferences)
+                for synergy in synergies
             )
         ):
             issues.append(ValidationIssue(
@@ -342,7 +345,7 @@ def _role_coverage(
     )
 
 
-def _new_candidate(
+def make_card_candidate(
     gate: EligibilityGate, card: CardSnapshot, inventory: CardEligibility,
     profiles: CardEvaluations | None, locked: bool,
 ) -> CardCandidate:
@@ -413,11 +416,11 @@ def _pool_audit(
 
     capability_counts = Counter(capability for card in selected for capability in card.capabilities)
     for card in selected:
-        synergy = card.evaluations.strategy_synergy if card.evaluations else None
-        if synergy is None:
+        if card.evaluations is None:
             continue
         missing = {
-            capability for evidence in synergy.evidence for capability in evidence.missing_capabilities
+            capability for synergy in card.evaluations.commander_profiles
+            for evidence in synergy.evidence for capability in evidence.missing_capabilities
             if capability_counts[capability] <= int(capability in card.capabilities)
         }
         if missing:
@@ -484,7 +487,7 @@ class CandidatePoolBuilder:
         profiles = {item.card_id: item for item in evaluation_snapshot.profiles}
         locked_ids = set(constraints.locked_card_ids)
         candidates = [
-            _new_candidate(gate, card, inventory, profiles.get(card.card_id), card.card_id in locked_ids)
+            make_card_candidate(gate, card, inventory, profiles.get(card.card_id), card.card_id in locked_ids)
             for card, inventory in cards
         ]
         return self._select(gate, candidates, excluded, constraints, evaluation_snapshot)

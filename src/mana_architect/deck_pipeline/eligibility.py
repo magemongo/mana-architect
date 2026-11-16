@@ -7,7 +7,9 @@ import re
 from mana_architect.collection import VALID_COLORS
 from mana_architect.deck_pipeline.contracts import (
     DeckBuildingContext,
+    DeckEntry,
     DeckProposal,
+    PrintingAllocation,
     ValidationIssue,
     ValidationReport,
 )
@@ -16,6 +18,7 @@ from mana_architect.interaction_rules_catalog import mask_reminder_text
 from mana_architect.validation import deck_name_copy_limit, is_basic_land
 
 RULESET_VERSION = "commander-snapshot-v1"
+PARTNER_RULESET_VERSION = "commander-snapshot-v2"
 _BASIC_LAND_COLORS = dict(zip(
     ("plains", "island", "swamp", "mountain", "forest"), "WUBRG", strict=True,
 ))
@@ -59,7 +62,7 @@ def _card_issues(card: CardSnapshot) -> tuple[ValidationIssue, ...]:
 
 
 def _can_command(card: CardSnapshot) -> bool:
-    front_type = (card.type_line or "").split(" // ", 1)[0].partition("—")[0]
+    front_type = _front_type(card).partition("—")[0]
     if {"legendary", "creature"} <= set(front_type.casefold().split()):
         return True
     front_text = (card.oracle_text or "").split(" // ", 1)[0]
@@ -80,6 +83,10 @@ def _land_colors(type_line: str) -> set[str]:
     return colors
 
 
+def _front_type(card: CardSnapshot) -> str:
+    return (card.type_line or "").split(" // ", 1)[0]
+
+
 class EligibilityGate:
     def __init__(self, context: DeckBuildingContext, snapshot: CollectionSnapshot):
         self.context = context
@@ -90,35 +97,61 @@ class EligibilityGate:
         for row in snapshot.printings:
             if row.card_id is not None:
                 self._by_card[row.card_id].append(row)
-        self.commander, self.violations = self._validate_context()
+        self.commanders, self.violations = self._validate_context()
+        self.commander = self.commanders[0] if self.commanders else None
+        self.color_identity = frozenset(color for card in self.commanders for color in (card.color_identity or ()))
+        self._copy_limits: dict[str, int] = {}
+        for card in snapshot.cards:
+            if not is_basic_land(_front_type(card)):
+                key = card.name.casefold()
+                limit = deck_name_copy_limit(card.name, mask_reminder_text(card.oracle_text or ""))
+                self._copy_limits[key] = min(self._copy_limits.get(key, limit), limit)
 
-    def _validate_context(self) -> tuple[CardSnapshot | None, tuple[ValidationIssue, ...]]:
+    def _validate_context(self) -> tuple[tuple[CardSnapshot, ...], tuple[ValidationIssue, ...]]:
         issues = []
         if self.context.collection_snapshot_id != self.snapshot.snapshot_id:
             issues.append(ValidationIssue("snapshot_mismatch", "The context references a different collection."))
-        if self.context.format != "commander" or self.context.ruleset_version != RULESET_VERSION:
+        if self.context.format != "commander" or self.context.ruleset_version not in {
+            RULESET_VERSION, PARTNER_RULESET_VERSION,
+        }:
             issues.append(ValidationIssue("unsupported_ruleset", "The format or ruleset is unsupported."))
         if not self.snapshot.legality_data_as_of:
             issues.append(ValidationIssue("missing_sync_date", "The collection has no dated legality snapshot."))
         ids = self.context.commander_card_ids
         if not ids or len(ids) > 2 or len(set(ids)) != len(ids) or not all(ids):
             issues.append(ValidationIssue("invalid_commander_configuration", "Invalid commander IDs."))
-            return None, tuple(issues)
-        if len(ids) == 2:
+            return (), tuple(issues)
+        if len(ids) == 2 and self.context.ruleset_version == RULESET_VERSION:
             issues.append(ValidationIssue(
                 "unsupported_commander_configuration", "This ruleset adapter supports one commander.",
             ))
-            return None, tuple(issues)
-        commander = self._cards.get(ids[0])
-        if commander is None:
-            issues.append(ValidationIssue("commander_not_owned", "No linked owned commander.", ids[0]))
-            return None, tuple(issues)
-        issues.extend(_card_issues(commander))
-        if not _can_command(commander):
-            issues.append(ValidationIssue(
-                "ineligible_commander", f"{commander.name} cannot command this deck.", commander.card_id,
-            ))
-        return commander, tuple(issues)
+            return (), tuple(issues)
+        commanders = []
+        for card_id in ids:
+            commander = self._cards.get(card_id)
+            if commander is None:
+                issues.append(ValidationIssue("commander_not_owned", "No linked owned commander.", card_id))
+                continue
+            commanders.append(commander)
+            issues.extend(_card_issues(commander))
+            if not _can_command(commander):
+                issues.append(ValidationIssue(
+                    "ineligible_commander", f"{commander.name} cannot command this deck.", card_id,
+                ))
+            front = mask_reminder_text((commander.oracle_text or "").split(" // ", 1)[0])
+            abilities = {line.strip().casefold() for line in front.splitlines()}
+            if any(re.match(r"rulebreaker\s*[—–-]", line) for line in abilities):
+                issues.append(ValidationIssue(
+                    "unsupported_deckbuilding_rule", "This commander has an unmodeled Rulebreaker ability.", card_id,
+                ))
+            if len(ids) == 2 and "partner" not in abilities:
+                issues.append(ValidationIssue(
+                    "unsupported_commander_configuration",
+                    f"{commander.name} lacks the standalone Partner ability.", card_id,
+                ))
+        if len(commanders) == 2 and commanders[0].name.casefold() == commanders[1].name.casefold():
+            issues.append(ValidationIssue("copy_limit", "Both commanders share the same English name."))
+        return tuple(commanders), tuple(issues)
 
     @property
     def unlinked_printings(self) -> tuple[ValidationIssue, ...]:
@@ -142,30 +175,57 @@ class EligibilityGate:
             issues.extend(_card_issues(card))
             if card_id in self.context.commander_card_ids:
                 issues.append(ValidationIssue("card_is_commander", "The card is in the command zone.", card_id))
-            if self.commander and self.commander.color_identity is not None and card.color_identity is not None:
+            if self.commanders and all(c.color_identity is not None for c in self.commanders) and card.color_identity is not None:
                 colors = set(card.color_identity) | _land_colors(card.type_line or "")
-                excess = colors - set(self.commander.color_identity)
+                excess = colors - self.color_identity
                 if excess:
                     issues.append(ValidationIssue(
                         "outside_color_identity",
                         f"{card.name} requires colors outside the commander's identity: {', '.join(sorted(excess))}.",
                         card_id,
                     ))
-            if not is_basic_land(card.type_line):
-                copy_limit = deck_name_copy_limit(card.name, mask_reminder_text(card.oracle_text or ""))
+            copy_limit = self.copy_limit(card_id)
         return CardEligibility(card_id, tuple(row.printing_id for row in rows), owned, copy_limit, tuple(issues))
 
-    def validate_proposal(self, proposal: DeckProposal) -> ValidationReport:
+    def copy_limit(self, card_id: str) -> int | None:
+        return self._copy_limits.get(self._cards[card_id].name.casefold())
+
+    def allocate_entry(self, card_id: str, quantity: int) -> DeckEntry:
+        if type(quantity) is not int or quantity < 1:
+            raise ValueError("Quantity must be a positive integer.")
+        remaining = quantity
+        allocations = []
+        for row in self._by_card.get(card_id, ()):
+            allocated = min(row.quantity, remaining)
+            if allocated > 0:
+                allocations.append(PrintingAllocation(row.printing_id, allocated))
+                remaining -= allocated
+            if not remaining:
+                break
+        if remaining:
+            raise ValueError(f"Insufficient owned quantity for {card_id}.")
+        return DeckEntry(card_id, quantity, tuple(allocations), self._cards[card_id].name)
+
+    def validate_proposal(
+        self, proposal: DeckProposal, *, locked_card_ids: tuple[str, ...] = (),
+        excluded_card_ids: tuple[str, ...] = (), require_printings: bool = False,
+    ) -> ValidationReport:
+        require_printings = require_printings or self.context.ruleset_version == PARTNER_RULESET_VERSION
         issues = list(self.violations)
         if proposal.run_id != self.context.run_id or proposal.commander_card_ids != self.context.commander_card_ids:
             issues.append(ValidationIssue("proposal_context_mismatch", "Proposal run or commander IDs differ."))
         quantities: Counter[str] = Counter()
+        command_zone: Counter[str] = Counter()
         allocations: Counter[int] = Counter()
-        for entry in sorted(proposal.main_deck, key=lambda entry: entry.card_id):
+        entries = (
+            *((entry, quantities) for entry in proposal.main_deck),
+            *((entry, command_zone) for entry in proposal.command_zone),
+        )
+        for entry, zone in entries:
             if type(entry.quantity) is not int or entry.quantity < 1:
                 issues.append(ValidationIssue("invalid_quantity", "Quantity must be a positive integer.", entry.card_id))
                 continue
-            quantities[entry.card_id] += entry.quantity
+            zone[entry.card_id] += entry.quantity
             allocated = 0
             for item in sorted(entry.printings, key=lambda item: item.printing_id):
                 row = self._printings.get(item.printing_id)
@@ -183,7 +243,7 @@ class EligibilityGate:
                     continue
                 allocated += item.quantity
                 allocations[item.printing_id] += item.quantity
-            if entry.printings and allocated != entry.quantity:
+            if (entry.printings or require_printings) and allocated != entry.quantity:
                 issues.append(ValidationIssue(
                     "printing_allocation_mismatch", "Allocated printing quantities must equal the entry quantity.",
                     entry.card_id,
@@ -192,6 +252,12 @@ class EligibilityGate:
         expected = self.context.main_deck_size
         if sum(quantities.values()) != expected:
             issues.append(ValidationIssue("deck_size", f"Expected {expected} main-deck cards."))
+        if (proposal.command_zone or require_printings) and command_zone != Counter(self.context.commander_card_ids):
+            issues.append(ValidationIssue("invalid_command_zone", "Allocate one copy of each commander."))
+        for card_id in sorted(set(locked_card_ids) - quantities.keys()):
+            issues.append(ValidationIssue("missing_locked_card", "A locked card is missing.", card_id))
+        for card_id in sorted(set(excluded_card_ids) & (quantities.keys() | set(self.context.commander_card_ids))):
+            issues.append(ValidationIssue("user_excluded", "An excluded card was selected.", card_id))
         for printing_id, quantity in sorted(allocations.items()):
             row = self._printings[printing_id]
             if quantity > row.quantity:
@@ -200,9 +266,7 @@ class EligibilityGate:
                     row.card_id, printing_id,
                 ))
 
-        name_quantities: Counter[str] = Counter()
-        if self.commander is not None:
-            name_quantities[self.commander.name.casefold()] += 1
+        name_quantities = Counter(card.name.casefold() for card in self.commanders)
         copy_limits: dict[str, int] = {}
         for card_id, quantity in sorted(quantities.items()):
             result = self.check_card(card_id)

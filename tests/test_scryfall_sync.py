@@ -202,6 +202,30 @@ def test_initialize_database_adds_produced_mana_to_existing_cards_table(
 
     columns = {column["name"] for column in inspect(engine).get_columns("cards")}
     assert "produced_mana" in columns
+    assert "layout" in columns
+
+
+def test_sync_backfills_layout_from_existing_bulk_without_a_download(tmp_path: Path) -> None:
+    engine = create_database_engine(tmp_path / "collection.db")
+    initialize_database(engine)
+    with Session(engine) as session, session.begin():
+        add_printing(session, "owned-id", "Modal Card")
+
+    card_record = scryfall_record(name="Modal Card")
+    card_record["layout"] = "modal_dfc"
+    client = FakeScryfallClient(tmp_path / "cache", [card_record])
+    sync_collection(engine, client=client)
+    with Session(engine) as session, session.begin():
+        session.get(Card, "oracle-id").layout = None
+        session.delete(session.get(SyncMetadata, "layout_updated_at"))
+
+    summary = sync_collection(engine, client=client)
+    assert not summary.bulk_downloaded
+    assert client.download_count == 1
+    with Session(engine) as session:
+        assert session.get(Card, "oracle-id").layout == "modal_dfc"
+        assert session.get(SyncMetadata, "layout_updated_at").value == client.updated_at
+    engine.dispose()
 
 
 def test_sync_rejects_malformed_bulk_without_partial_database_updates(
