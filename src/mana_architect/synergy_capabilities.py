@@ -9,7 +9,7 @@ from mana_architect.mana_resource_extractor import extract_mana_resources
 from mana_architect.oracle_text import OracleParse
 from mana_architect.ramp_rules_catalog import NUMBER_WORDS
 
-CAPABILITY_VERSION = "1.4.0"
+CAPABILITY_VERSION = "1.4.1"
 
 # One event can satisfy multiple strategies through its object types. Creating a
 # Treasure therefore produces a single capability and a single quantity.
@@ -336,6 +336,7 @@ def _match_action(text: str) -> tuple[str, str, MechanicalObject, dict] | None:
         return ("return_from_graveyard" if battlefield else "recover_to_hand"), "return", obj, dict(
             event="zone_change", controller=controller, owner=owner, source_zone="graveyard",
             destination_zone="battlefield" if battlefield else "hand", quantity=_quantity("one"),
+            returns_tapped=battlefield and tail == "tapped",
             conditions=(tail,) if tail and tail not in {"under your control", "under its owner's control", "tapped"} else (),
         )
     if match := re.fullmatch(rf"(?:(?P<actor>you|target player|each player|each opponent|an opponent) )?gains? (?P<count>{_NUMBER}) life", text):

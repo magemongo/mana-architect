@@ -1,13 +1,15 @@
 """Read owned card inputs without requiring a commander."""
 
 from collections import defaultdict
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 
 from mana_architect.card_advantage import Profile, compile_profile
+from mana_architect.collection_playability.boundary_extraction import extract_crossing_activations
 from mana_architect.collection_playability.contracts import (
     Coverage, EvaluationStatus, EvidenceReference, PlayabilityContext,
     PlayabilityProfile, PlayabilityProvenance,
 )
+from mana_architect.collection_playability.mechanics import evaluate_mechanics
 from mana_architect.deck_pipeline.adapters import ENGINE_VERSIONS, parse_card_snapshot
 from mana_architect.deck_pipeline.contracts import PairwiseSynergyAnalysis, artifact_digest
 from mana_architect.deck_pipeline.inventory import CardSnapshot, CollectionSnapshot, OwnedPrinting
@@ -15,6 +17,7 @@ from mana_architect.deck_pipeline.pairwise_synergy import pairwise_catalog_finge
 from mana_architect.interaction_evaluation_engine import build_interaction_profile
 from mana_architect.interaction_profile import InteractionProfile
 from mana_architect.oracle_text import PARSER_VERSION
+from mana_architect.oracle_text import OracleParse
 from mana_architect.ramp_evaluator import RampProfile, evaluate_ramp
 from mana_architect.strategy_synergy import SynergyCatalogContext
 from mana_architect.synergy_capabilities import CAPABILITY_VERSION, MechanicalProfile, extract_mechanical_capabilities
@@ -33,6 +36,7 @@ class CollectionCardInputs:
     ramp: RampProfile | None = None
     card_advantage: Profile | None = None
     interaction: InteractionProfile | None = None
+    parsed: OracleParse | None = None
 
 
 class CollectionInputs:
@@ -72,6 +76,11 @@ class CollectionInputs:
     @property
     def unlinked_printings(self) -> tuple[OwnedPrinting, ...]:
         return tuple(self._printings.get(None, ()))
+
+    def analyze(self, card_id: str) -> CollectionCardInputs:
+        """Return native inputs together with Phase 1 mechanical and applicability findings."""
+        inputs = self.card(card_id)
+        return replace(inputs, profile=evaluate_mechanics(inputs, self._catalog.strategies))
 
     def _bind_pairwise(self, pairwise: PairwiseSynergyAnalysis) -> None:
         provenance = pairwise.provenance
@@ -132,12 +141,13 @@ class CollectionInputs:
             parsed = parse_card_snapshot(card, self._catalog)
             mechanics = extract_mechanical_capabilities(parsed, name=card.name, type_line=card.type_line)
             ramp = evaluate_ramp(card_id, card.type_line, card.mana_cost, parsed)
+            mechanics, ramp, scoped = extract_crossing_activations(card, parsed, mechanics, ramp, self._catalog.oracle)
             advantage = compile_profile(card_id, card.type_line, card.mana_cost, parsed)
             interaction = build_interaction_profile(
                 card_id, parsed, type_line=card.type_line, mana_cost=card.mana_cost,
                 mana_value=card.mana_value, oracle_keywords=card.keywords, layout=card.layout,
             )
-            evidence, coverage = self._coverage(card, mechanics, ramp, advantage, interaction)
+            evidence, coverage = self._coverage(card, mechanics, ramp, advantage, interaction, scoped)
         except Exception as error:
             profile = PlayabilityProfile(
                 card_id, self._context, EvaluationStatus.EVALUATION_FAILED,
@@ -148,15 +158,18 @@ class CollectionInputs:
         profile = PlayabilityProfile(
             card_id, self._context, coverage=coverage, provenance=provenance, evidence=evidence,
         )
-        return CollectionCardInputs(profile, card, printings, mechanics, ramp, advantage, interaction)
+        return CollectionCardInputs(profile, card, printings, mechanics, ramp, advantage, interaction, parsed)
 
-    def _coverage(self, card, mechanics, ramp, advantage, interaction):
+    def _coverage(self, card, mechanics, ramp, advantage, interaction, scoped):
         evidence = []
         coverage = []
 
         def record(source, version, spans, limitations=()):
             references = tuple(
-                EvidenceReference(card.card_id, source, version, record_id, field, start, end, text)
+                EvidenceReference(
+                    card.card_id, source, version, record_id, field, start, end, text,
+                    *scoped.get((source, record_id, start, end), (None, None)),
+                )
                 for record_id, field, start, end, text in spans
             )
             if any((getattr(card, item.source_field) or "")[item.start:item.end] != item.text for item in references):

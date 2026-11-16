@@ -245,8 +245,12 @@ def _evidence_id(*parts: str) -> str:
     return hashlib.sha256("\0".join(parts).encode("utf-8")).hexdigest()[:20]
 
 
-def _preference_matches(preference: CapabilityPreference, cap: MechanicalCapability, card: Card) -> bool:
+def matches_strategy_preference(
+    preference: CapabilityPreference, cap: MechanicalCapability, type_line: str | None,
+) -> bool:
     if preference.capability != cap.id:
+        return False
+    if preference.id == "burn_deal_noncombat_damage" and "self_player" in cap.object.subtypes:
         return False
     if preference.types and not cap.object_types.intersection(preference.types):
         return False
@@ -256,36 +260,41 @@ def _preference_matches(preference: CapabilityPreference, cap: MechanicalCapabil
         return False
     if cap.controller == "opponent" and cap.id in {"gain_life", "lifegain_payoff", "enter_payoff"}:
         return False
-    if cap.id == "add_mana" and "land" in (cap.face_type_line or card.type_line or "").casefold().split(" — ")[0].split():
+    if cap.id == "add_mana" and "land" in (cap.face_type_line or type_line or "").casefold().split(" — ")[0].split():
         return False
     return cap.quantity.value != 0
+
+
+def capability_requirements(cap: MechanicalCapability) -> tuple[str, ...]:
+    dependencies = set(cap.conditions)
+    if cap.modality == "optional":
+        dependencies.add("choose_optional_effect")
+    if cap.timing == "triggered":
+        dependencies.add("qualifying_trigger_event")
+    if cap.targeting == "target":
+        dependencies.add("legal_target_at_resolution")
+    if cap.costs or cap.additional_cast_costs:
+        dependencies.add("pay_ability_cost")
+    if cap.quantity.kind in {"up_to", "variable"}:
+        dependencies.add("positive_event_quantity")
+    if cap.action == "multiply":
+        dependencies.add(f"qualifying_{cap.event}")
+    return tuple(sorted(dependencies))
 
 
 def _affinity_evidence(card, caps, preferences, strategy_id):
     for cap in caps:
         for preference in preferences:
-            if not _preference_matches(preference, cap, card):
+            if not matches_strategy_preference(preference, cap, card.type_line):
                 continue
-            dependencies = set(cap.conditions)
-            if cap.modality == "optional":
-                dependencies.add("choose_optional_effect")
-            if cap.timing == "triggered":
-                dependencies.add("qualifying_trigger_event")
-            if cap.targeting == "target":
-                dependencies.add("legal_target_at_resolution")
-            if cap.costs or cap.additional_cast_costs:
-                dependencies.add("pay_ability_cost")
-            if cap.quantity.kind in {"up_to", "variable"}:
-                dependencies.add("positive_event_quantity")
-            if cap.action == "multiply":
-                dependencies.add(f"qualifying_{cap.event}")
+            dependencies = capability_requirements(cap)
             evidence = SynergyEvidence(
                 _evidence_id(card.oracle_id, preference.id, cap.event_key),
                 MatchStatus.CONDITIONAL if dependencies else MatchStatus.VALIDATED,
                 preference.id, "supports", cap.event,
                 f"{cap.id.replace('_', ' ').capitalize()} contributes as {preference.role} for {strategy_id.replace('_', ' ')}.",
                 card.oracle_id, cap, strategy_ids=(strategy_id,),
-                dependencies=tuple(sorted(dependencies)), weight=preference.weight,
+                dependencies=dependencies, weight=preference.weight,
             )
             yield evidence, preference.role
 

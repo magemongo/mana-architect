@@ -1,0 +1,9 @@
+# Ability boundary resolver
+
+The Oracle parser's `OracleAbility.id` identifies a paragraph separated by blank lines. Native profiles use that ID for source evidence. One paragraph can contain several abilities, and multiple spell paragraphs can form one resolving spell. Reinterpreting paragraph IDs would change existing engine contracts and saved evidence.
+
+`mana_architect.ability_boundaries.resolve_ability_boundaries` consumes an existing `OracleParse`, canonical card ID, and type line. It returns immutable `AbilityBoundary` records with a content-derived ID, face index, ability type, exact original source span, activation cost where recognized, overlapping parser paragraph IDs, and a resolved or ambiguous status. IDs include the resolver version, card identity, face, offsets, and exact source text. Changed Oracle text or shifted offsets changes the affected identities.
+
+`associate_evidence` binds an Oracle evidence span only when exactly one resolved boundary contains it. A span crossing boundaries, a modal boundary, or other ambiguous structure returns an explicit ambiguous result. The function reports unmatched spans separately. Type-line evidence is outside its Oracle-text scope.
+
+The resolver handles explicit newline and sentence-delimited activated and triggered abilities, simple static text, ordinary spell instructions, and separate faces. It joins plain spell paragraphs as one resolution and preserves modal choice spans without asserting mode-selection semantics. Quoted nested abilities, modal structures, and unrecognized face metadata are ambiguous. This conservative layer leaves the parser and existing native evidence IDs intact. The current CPA execution-unit adapter does not yet consume these boundaries. Ability boundaries describe source structure and do not themselves validate target legality or game rules.
