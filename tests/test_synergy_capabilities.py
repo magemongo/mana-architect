@@ -52,6 +52,36 @@ def test_cost_observation_and_effect_are_separate_with_original_offsets():
     assert profile.unknowns[0].oracle_span.startswith("{1}")
 
 
+def test_spell_additional_costs_follow_resolution_effects_without_becoming_activation_costs():
+    score = compile_card(
+        "As an additional cost to cast this spell, discard a card.\n"
+        'Draw two cards and create two Treasure tokens. (They have "{T}, Sacrifice this token: Add one mana.")',
+        type_line="Instant",
+    )
+    by_id = {item.id: item for item in score.capabilities}
+    assert set(by_id) == {"discard", "draw", "create_token", "resolve_spell"}
+    assert by_id["discard"].timing == "additional_cast_cost"
+    assert all(item.additional_cast_costs == ("discard a card",) and not item.costs
+               for item in by_id.values())
+    rites = compile_card(
+        "As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards.", type_line="Instant",
+    )
+    sacrifice = next(item for item in rites.capabilities if item.id == "sacrifice")
+    assert sacrifice.timing == "additional_cast_cost" and sacrifice.source_zone == "battlefield"
+    assert sacrifice.additional_cast_costs == ("sacrifice a creature",)
+
+
+def test_observer_keeps_the_event_subject_separate_from_its_resolution_target():
+    targeted, untargeted = (
+        compile_card(f"Whenever a creature dies, {effect}").capabilities[0]
+        for effect in ("target opponent loses 1 life.", "each opponent loses 1 life.")
+    )
+    assert targeted.object.types == untargeted.object.types == ("creature",)
+    assert targeted.targeting == "target"
+    assert targeted.resolution_targets == ("target opponent loses 1 life",)
+    assert untargeted.targeting == "none" and not untargeted.resolution_targets
+
+
 def test_replacement_and_blink_do_not_emit_their_hypothetical_actions():
     profile = compile_card(
         "If you would create one or more tokens, create twice that many of those tokens instead.\n"

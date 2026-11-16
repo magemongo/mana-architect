@@ -1,0 +1,1335 @@
+{
+  "cards": {
+    "aesi": {
+      "collector_number": "CMR-365",
+      "color_identity": [
+        "G",
+        "U"
+      ],
+      "colors": [
+        "G",
+        "U"
+      ],
+      "commander_legality": "legal",
+      "keywords": [
+        "Landfall"
+      ],
+      "mana_cost": "{4}{G}{U}",
+      "mana_value": 6.0,
+      "mechanics": "Extra land play; optional land-entry draw trigger.",
+      "name": "Aesi, Tyrant of Gyre Strait",
+      "oracle_id": "6511f317-bd38-46d0-b800-7125a3f420da",
+      "oracle_text": "You may play an additional land on each of your turns.\nLandfall — Whenever a land you control enters, you may draw a card.",
+      "printing_id": "197f1c07-e570-42f9-9cb1-bf67634d765d",
+      "produced_mana": [],
+      "set_code": "plst",
+      "source": "https://scryfall.com/card/plst/CMR-365/aesi-tyrant-of-gyre-strait",
+      "type_line": "Legendary Creature — Serpent"
+    },
+    "artist": {
+      "collector_number": "97",
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{1}{B}",
+      "mana_value": 2.0,
+      "mechanics": "Creature-death trigger; targeted life loss and controller life gain.",
+      "name": "Blood Artist",
+      "oracle_id": "310f141c-7f37-4729-aed6-dd9c09db448d",
+      "oracle_text": "Whenever this creature or another creature dies, target player loses 1 life and you gain 1 life.",
+      "printing_id": "036f387a-8dee-482e-b3e3-cf79b54c61e1",
+      "produced_mana": [],
+      "set_code": "inr",
+      "source": "https://scryfall.com/card/inr/97/blood-artist",
+      "type_line": "Creature — Vampire"
+    },
+    "ashnod": {
+      "collector_number": "4",
+      "color_identity": [],
+      "colors": [],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{3}",
+      "mana_value": 3.0,
+      "mechanics": "Sacrifice a creature for two colorless mana.",
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d",
+      "oracle_text": "Sacrifice a creature: Add {C}{C}.",
+      "printing_id": "0f2d0ee5-3173-4a03-be45-2fe9ea49cdc3",
+      "produced_mana": [
+        "C"
+      ],
+      "set_code": "brr",
+      "source": "https://scryfall.com/card/brr/4/ashnods-altar",
+      "type_line": "Artifact"
+    },
+    "ayara": {
+      "collector_number": "143z",
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{B}{B}{B}",
+      "mana_value": 3.0,
+      "mechanics": "Tap and sacrifice another black creature; black creature entry trigger.",
+      "name": "Ayara, First of Locthwain",
+      "oracle_id": "388168b3-ec68-4af2-b88c-6a5ec88c15f6",
+      "oracle_text": "Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life.\n{T}, Sacrifice another black creature: Draw a card.",
+      "printing_id": "06921700-6094-41e6-9f50-4d0e208d0ab2",
+      "produced_mana": [],
+      "set_code": "mul",
+      "source": "https://scryfall.com/card/mul/143z/ayara-first-of-locthwain",
+      "type_line": "Legendary Creature — Elf Noble"
+    },
+    "ballista": {
+      "collector_number": "238",
+      "color_identity": [],
+      "colors": [],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{X}{X}",
+      "mana_value": 0.0,
+      "mechanics": "Pays four mana to place a counter; removes a counter as a damage activation cost.",
+      "name": "Walking Ballista",
+      "oracle_id": "4b515bb0-f275-4400-8032-3173b799ab40",
+      "oracle_text": "This creature enters with X +1/+1 counters on it.\n{4}: Put a +1/+1 counter on this creature.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+      "printing_id": "0db963e2-38df-4036-a312-35854dc3521c",
+      "produced_mana": [],
+      "set_code": "mb2",
+      "source": "https://scryfall.com/card/mb2/238/walking-ballista",
+      "type_line": "Artifact Creature — Construct"
+    },
+    "bolt": {
+      "collector_number": "901",
+      "color_identity": [
+        "R"
+      ],
+      "colors": [
+        "R"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{R}",
+      "mana_value": 1.0,
+      "mechanics": "Targeted noncombat damage.",
+      "name": "Lightning Bolt",
+      "oracle_id": "4457ed35-7c10-48c8-9776-456485fdf070",
+      "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+      "printing_id": "0277c0b1-da97-49c1-a539-7fbaa1f77419",
+      "produced_mana": [],
+      "set_code": "sld",
+      "source": "https://scryfall.com/card/sld/901/lightning-bolt",
+      "type_line": "Instant"
+    },
+    "bond": {
+      "collector_number": "124",
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{3}{B}{B}",
+      "mana_value": 5.0,
+      "mechanics": "Your life gain triggers targeted opponent life loss.",
+      "name": "Sanguine Bond",
+      "oracle_id": "73089a39-a2f6-4aa2-a058-e6551475153d",
+      "oracle_text": "Whenever you gain life, target opponent loses that much life.",
+      "printing_id": "241a25c7-7205-46ee-8b08-845cdcc546bb",
+      "produced_mana": [],
+      "set_code": "c17",
+      "source": "https://scryfall.com/card/c17/124/sanguine-bond",
+      "type_line": "Enchantment"
+    },
+    "boots": {
+      "collector_number": "4",
+      "color_identity": [],
+      "colors": [],
+      "commander_legality": "legal",
+      "keywords": [
+        "Equip"
+      ],
+      "mana_cost": "{2}",
+      "mana_value": 2.0,
+      "mechanics": "Gives the equipped creature hexproof and haste.",
+      "name": "Swiftfoot Boots",
+      "oracle_id": "c8b143ad-43ec-4e0d-a440-e348daa31391",
+      "oracle_text": "Equipped creature has hexproof and haste. (It can't be the target of spells or abilities your opponents control. It can attack and {T} no matter when it came under your control.)\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+      "printing_id": "01ba455b-9cd4-4ba2-9bbf-d83b84dcc891",
+      "produced_mana": [],
+      "set_code": "pw22",
+      "source": "https://scryfall.com/card/pw22/4/swiftfoot-boots",
+      "type_line": "Artifact — Equipment"
+    },
+    "cloudshift": {
+      "collector_number": "7",
+      "color_identity": [
+        "W"
+      ],
+      "colors": [
+        "W"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{W}",
+      "mana_value": 1.0,
+      "mechanics": "Targets a creature you control; exile and immediate return under your control.",
+      "name": "Cloudshift",
+      "oracle_id": "6879f5ce-7a1b-4606-bad1-885779b0d456",
+      "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+      "printing_id": "12b1e18f-f781-498c-ba84-cdee49c24230",
+      "produced_mana": [],
+      "set_code": "a25",
+      "source": "https://scryfall.com/card/a25/7/cloudshift",
+      "type_line": "Instant"
+    },
+    "conscripts": {
+      "collector_number": "354",
+      "color_identity": [
+        "R"
+      ],
+      "colors": [
+        "R"
+      ],
+      "commander_legality": "legal",
+      "keywords": [
+        "Haste"
+      ],
+      "mana_cost": "{4}{R}",
+      "mana_value": 5.0,
+      "mechanics": "On entry target a permanent; control and untap it and give it haste.",
+      "name": "Zealous Conscripts",
+      "oracle_id": "1dae6f39-2cbd-485c-b190-017a26401fd4",
+      "oracle_text": "Haste\nWhen this creature enters, gain control of target permanent until end of turn. Untap that permanent. It gains haste until end of turn.",
+      "printing_id": "2576152c-d8c1-4412-89db-6e21295c9b18",
+      "produced_mana": [],
+      "set_code": "tsr",
+      "source": "https://scryfall.com/card/tsr/354/zealous-conscripts",
+      "type_line": "Creature — Human Warrior"
+    },
+    "displacer": {
+      "collector_number": "169",
+      "color_identity": [
+        "W"
+      ],
+      "colors": [],
+      "commander_legality": "legal",
+      "keywords": [
+        "Devoid"
+      ],
+      "mana_cost": "{2}{W}",
+      "mana_value": 3.0,
+      "mechanics": "Paid colorless blink of another target creature; returns tapped under its owner's control.",
+      "name": "Eldrazi Displacer",
+      "oracle_id": "9b1f552a-bddc-4fcb-ac67-b4a65b2f48ba",
+      "oracle_text": "Devoid (This card has no color.)\n{2}{C}: Exile another target creature, then return it to the battlefield tapped under its owner's control. ({C} represents colorless mana.)",
+      "printing_id": "0d87a0d9-13d5-46f2-b32a-acc080d8f480",
+      "produced_mana": [],
+      "set_code": "m3c",
+      "source": "https://scryfall.com/card/m3c/169/eldrazi-displacer",
+      "type_line": "Creature — Eldrazi"
+    },
+    "doublemajor": {
+      "collector_number": "90198",
+      "color_identity": [
+        "G",
+        "U"
+      ],
+      "colors": [
+        "G",
+        "U"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{G}{U}",
+      "mana_value": 2.0,
+      "mechanics": "Copies a controlled creature spell; copy becomes a token on resolution.",
+      "name": "Double Major",
+      "oracle_id": "ece44a82-dcf0-4439-bdd9-a09c99a6f159",
+      "oracle_text": "Copy target creature spell you control, except it isn't legendary if the spell is legendary. (A copy of a creature spell becomes a token.)",
+      "printing_id": "1788c5de-6e29-41b1-b9ff-9b5b281e19e6",
+      "produced_mana": [],
+      "set_code": "prm",
+      "source": "https://scryfall.com/card/prm/90198/double-major",
+      "type_line": "Instant"
+    },
+    "dragon": {
+      "collector_number": "65",
+      "color_identity": [
+        "R"
+      ],
+      "colors": [
+        "R"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{1}{R}",
+      "mana_value": 2.0,
+      "mechanics": "Creates two red Goblin creature tokens.",
+      "name": "Dragon Fodder",
+      "oracle_id": "d0d2c45b-b6e3-4999-bdab-976e8f0d6617",
+      "oracle_text": "Create two 1/1 red Goblin creature tokens.",
+      "printing_id": "037158e7-a3a4-4da5-967a-5096ae287061",
+      "produced_mana": [],
+      "set_code": "ddg",
+      "source": "https://scryfall.com/card/ddg/65/dragon-fodder",
+      "type_line": "Sorcery"
+    },
+    "emeritus": {
+      "collector_number": "150",
+      "color_identity": [
+        "U"
+      ],
+      "colors": [
+        "U"
+      ],
+      "commander_legality": "legal",
+      "keywords": [
+        "Magecraft"
+      ],
+      "mana_cost": "{2}{U}{U}",
+      "mana_value": 4.0,
+      "mechanics": "Instant/sorcery cast-or-copy trigger draws.",
+      "name": "Archmage Emeritus",
+      "oracle_id": "8305d576-21d8-4ce7-8eda-a7cd9793aca5",
+      "oracle_text": "Magecraft — Whenever you cast or copy an instant or sorcery spell, draw a card.",
+      "printing_id": "2ab5ba3a-22a5-4d79-af99-fe1ef6cc8676",
+      "produced_mana": [],
+      "set_code": "spg",
+      "source": "https://scryfall.com/card/spg/150/archmage-emeritus",
+      "type_line": "Creature — Human Wizard"
+    },
+    "ephemerate": {
+      "collector_number": "7",
+      "color_identity": [
+        "W"
+      ],
+      "colors": [
+        "W"
+      ],
+      "commander_legality": "legal",
+      "keywords": [
+        "Rebound"
+      ],
+      "mana_cost": "{W}",
+      "mana_value": 1.0,
+      "mechanics": "Targeted exile and return under ownership; rebound permits a later cast after successful hand cast.",
+      "name": "Ephemerate",
+      "oracle_id": "0fd57894-b917-41c8-a394-360d1d31b236",
+      "oracle_text": "Exile target creature you control, then return it to the battlefield under its owner's control.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
+      "printing_id": "2da5f3f8-5eef-498f-ba2c-2f3fbc3745aa",
+      "produced_mana": [],
+      "set_code": "mh1",
+      "source": "https://scryfall.com/card/mh1/7/ephemerate",
+      "type_line": "Instant"
+    },
+    "explore": {
+      "collector_number": "114",
+      "color_identity": [
+        "G"
+      ],
+      "colors": [
+        "G"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{1}{G}",
+      "mana_value": 2.0,
+      "mechanics": "Additional land play this turn and draw.",
+      "name": "Explore",
+      "oracle_id": "b8f566ea-8283-4afa-9ac8-737e26419283",
+      "oracle_text": "You may play an additional land this turn.\nDraw a card.",
+      "printing_id": "098e528a-bd6c-41f3-a246-cba986c54776",
+      "produced_mana": [],
+      "set_code": "sld",
+      "source": "https://scryfall.com/card/sld/114/explore",
+      "type_line": "Sorcery"
+    },
+    "exquisite": {
+      "collector_number": "195",
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{4}{B}",
+      "mana_value": 5.0,
+      "mechanics": "Life-loss trigger converts an opponent's loss into your life gain.",
+      "name": "Exquisite Blood",
+      "oracle_id": "8f933fae-6c0c-42d7-a817-14760d8285cd",
+      "oracle_text": "Whenever an opponent loses life, you gain that much life.",
+      "printing_id": "0e8ccfa7-4178-476a-a155-0ca1c98556c9",
+      "produced_mana": [],
+      "set_code": "lcc",
+      "source": "https://scryfall.com/card/lcc/195/exquisite-blood",
+      "type_line": "Enchantment"
+    },
+    "exsanguinate": {
+      "collector_number": "61",
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{X}{B}{B}",
+      "mana_value": 2.0,
+      "mechanics": "Direct life loss and proportional life gain; no damage event.",
+      "name": "Exsanguinate",
+      "oracle_id": "8164b1e8-3350-465e-8a17-75f57d326344",
+      "oracle_text": "Each opponent loses X life. You gain life equal to the life lost this way.",
+      "printing_id": "0878b541-a730-49db-b062-5a01656e269d",
+      "produced_mana": [],
+      "set_code": "som",
+      "source": "https://scryfall.com/card/som/61/exsanguinate",
+      "type_line": "Sorcery"
+    },
+    "familiar": {
+      "collector_number": "216",
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{B}",
+      "mana_value": 1.0,
+      "mechanics": "On entry drains opponents; activated return from graveyard costs one Food.",
+      "name": "Cauldron Familiar",
+      "oracle_id": "a7dc2e62-1c50-4ed7-b71f-2d782a447a5e",
+      "oracle_text": "When this creature enters, each opponent loses 1 life and you gain 1 life.\nSacrifice a Food: Return this card from your graveyard to the battlefield.",
+      "printing_id": "32cf273e-b8f7-434b-9d5d-883dfd6f7423",
+      "produced_mana": [],
+      "set_code": "jmp",
+      "source": "https://scryfall.com/card/jmp/216/cauldron-familiar",
+      "type_line": "Creature — Cat"
+    },
+    "fireweaver": {
+      "collector_number": "106",
+      "color_identity": [
+        "R"
+      ],
+      "colors": [
+        "R"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{1}{R}",
+      "mana_value": 2.0,
+      "mechanics": "Your artifact enters; deals damage to each opponent.",
+      "name": "Reckless Fireweaver",
+      "oracle_id": "180e1a7e-890d-477c-80a5-da8a5f2857b3",
+      "oracle_text": "Whenever an artifact you control enters, this creature deals 1 damage to each opponent.",
+      "printing_id": "3e626e3e-1d08-4d6c-b29b-71157e568b45",
+      "produced_mana": [],
+      "set_code": "drc",
+      "source": "https://scryfall.com/card/drc/106/reckless-fireweaver",
+      "type_line": "Creature — Human Artificer"
+    },
+    "fog": {
+      "collector_number": "172",
+      "color_identity": [
+        "G"
+      ],
+      "colors": [
+        "G"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{G}",
+      "mana_value": 1.0,
+      "mechanics": "Prevents combat damage only.",
+      "name": "Fog",
+      "oracle_id": "27e9db49-7af7-4bef-ad4c-bf5dfb92030d",
+      "oracle_text": "Prevent all combat damage that would be dealt this turn.",
+      "printing_id": "17d591ad-4f3d-4cc6-a888-e30b46ee0771",
+      "produced_mana": [],
+      "set_code": "m13",
+      "source": "https://scryfall.com/card/m13/172/fog",
+      "type_line": "Instant"
+    },
+    "gisa": {
+      "collector_number": "236",
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{3}{B}{B}",
+      "mana_value": 5.0,
+      "mechanics": "Black mana, tap and another creature as costs; creates Zombies based on sacrificed creature's power.",
+      "name": "Ghoulcaller Gisa",
+      "oracle_id": "0dd894cb-1968-471c-af08-ea7ec5ce8428",
+      "oracle_text": "{B}, {T}, Sacrifice another creature: Create X 2/2 black Zombie creature tokens, where X is the sacrificed creature's power.",
+      "printing_id": "0bcba8d3-725b-49f9-8281-eafac15208c5",
+      "produced_mana": [],
+      "set_code": "jmp",
+      "source": "https://scryfall.com/card/jmp/236/ghoulcaller-gisa",
+      "type_line": "Legendary Creature — Human Wizard"
+    },
+    "growth": {
+      "collector_number": "274",
+      "color_identity": [
+        "G"
+      ],
+      "colors": [
+        "G"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{1}{G}",
+      "mana_value": 2.0,
+      "mechanics": "Moves a searched basic land onto battlefield tapped.",
+      "name": "Rampant Growth",
+      "oracle_id": "8539f295-5d58-4436-a73a-b9277c4c7795",
+      "oracle_text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+      "printing_id": "01d56cde-e186-41e7-bcb2-80736a989678",
+      "produced_mana": [],
+      "set_code": "8ed",
+      "source": "https://scryfall.com/card/8ed/274/rampant-growth",
+      "type_line": "Sorcery"
+    },
+    "gutterbones": {
+      "collector_number": "76s",
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{B}",
+      "mana_value": 1.0,
+      "mechanics": "Paid conditional return to hand only, during your turn.",
+      "name": "Gutterbones",
+      "oracle_id": "76ae3779-c821-4cd3-8d0f-8c42d1206ce4",
+      "oracle_text": "This creature enters tapped.\n{1}{B}: Return this card from your graveyard to your hand. Activate only during your turn and only if an opponent lost life this turn.",
+      "printing_id": "5411cb1a-c4dd-479c-8283-393a97711b51",
+      "produced_mana": [],
+      "set_code": "prna",
+      "source": "https://scryfall.com/card/prna/76s/gutterbones",
+      "type_line": "Creature — Skeleton Warrior"
+    },
+    "kenrith": {
+      "collector_number": "515",
+      "color_identity": [
+        "B",
+        "G",
+        "R",
+        "U",
+        "W"
+      ],
+      "colors": [
+        "W"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{4}{W}",
+      "mana_value": 5.0,
+      "mechanics": "Activated abilities; default five-color commander.",
+      "name": "Kenrith, the Returned King",
+      "oracle_id": "d209b948-9afb-4fd1-a961-72c87282878c",
+      "oracle_text": "{R}: All creatures gain trample and haste until end of turn.\n{1}{G}: Put a +1/+1 counter on target creature.\n{2}{W}: Target player gains 5 life.\n{3}{U}: Target player draws a card.\n{4}{B}: Put target creature card from a graveyard onto the battlefield under its owner's control.",
+      "printing_id": "029ff21a-b175-4e81-8712-4dae185ad790",
+      "produced_mana": [],
+      "set_code": "ltc",
+      "source": "https://scryfall.com/card/ltc/515/kenrith-the-returned-king",
+      "type_line": "Legendary Creature — Human Noble"
+    },
+    "kiki": {
+      "collector_number": "79",
+      "color_identity": [
+        "R"
+      ],
+      "colors": [
+        "R"
+      ],
+      "commander_legality": "legal",
+      "keywords": [
+        "Haste"
+      ],
+      "mana_cost": "{2}{R}{R}{R}",
+      "mana_value": 5.0,
+      "mechanics": "Tap to make a hasty copy of a controlled nonlegendary creature; delayed sacrifice.",
+      "name": "Kiki-Jiki, Mirror Breaker",
+      "oracle_id": "a34b7416-cfe3-4a1e-a8c1-a3056b747519",
+      "oracle_text": "Haste\n{T}: Create a token that's a copy of target nonlegendary creature you control, except it has haste. Sacrifice it at the beginning of the next end step.",
+      "printing_id": "0e6fc996-17ba-4090-bf82-0c2eba93a81e",
+      "produced_mana": [],
+      "set_code": "j22",
+      "source": "https://scryfall.com/card/j22/79/kiki-jiki-mirror-breaker",
+      "type_line": "Legendary Creature — Goblin Shaman"
+    },
+    "lantern": {
+      "collector_number": "251",
+      "color_identity": [],
+      "colors": [],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{1}",
+      "mana_value": 1.0,
+      "mechanics": "Graveyard exile; separate self-sacrifice costs.",
+      "name": "Soul-Guide Lantern",
+      "oracle_id": "1b5e6560-ff2e-4475-96cb-63f64c8a86db",
+      "oracle_text": "When this artifact enters, exile target card from a graveyard.\n{T}, Sacrifice this artifact: Exile each opponent's graveyard.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+      "printing_id": "13571173-29e7-4915-af5f-05f13b463061",
+      "produced_mana": [],
+      "set_code": "woe",
+      "source": "https://scryfall.com/card/woe/251/soul-guide-lantern",
+      "type_line": "Artifact"
+    },
+    "lay": {
+      "collector_number": "183",
+      "color_identity": [
+        "G"
+      ],
+      "colors": [
+        "G"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{G}",
+      "mana_value": 1.0,
+      "mechanics": "Moves a searched basic land into hand.",
+      "name": "Lay of the Land",
+      "oracle_id": "cedc52eb-66a6-4b43-87f1-9bb9f4d4871e",
+      "oracle_text": "Search your library for a basic land card, reveal it, put it into your hand, then shuffle.",
+      "printing_id": "3bb3410b-d6c3-4e42-b3c9-fb557f9a16f0",
+      "produced_mana": [],
+      "set_code": "m14",
+      "source": "https://scryfall.com/card/m14/183/lay-of-the-land",
+      "type_line": "Sorcery"
+    },
+    "lives": {
+      "collector_number": "199",
+      "color_identity": [
+        "G"
+      ],
+      "colors": [
+        "G"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{3}{G}",
+      "mana_value": 4.0,
+      "mechanics": "Token-creation replacement for tokens under your control.",
+      "name": "Parallel Lives",
+      "oracle_id": "84dc94b2-95fb-4d53-aaa2-191cb645639f",
+      "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.",
+      "printing_id": "01033dae-fec1-41f2-b7f2-cc6a43331790",
+      "produced_mana": [],
+      "set_code": "isd",
+      "source": "https://scryfall.com/card/isd/199/parallel-lives",
+      "type_line": "Enchantment"
+    },
+    "lotus": {
+      "collector_number": "233",
+      "color_identity": [],
+      "colors": [],
+      "commander_legality": "banned",
+      "keywords": [],
+      "mana_cost": "{0}",
+      "mana_value": 0.0,
+      "mechanics": "Banned mana artifact; sacrifices itself for three mana.",
+      "name": "Black Lotus",
+      "oracle_id": "5089ec1a-f881-4d55-af14-5d996171203b",
+      "oracle_text": "{T}, Sacrifice this artifact: Add three mana of any one color.",
+      "printing_id": "0948e6dc-8af7-45d3-91de-a2aebee83e82",
+      "produced_mana": [
+        "B",
+        "G",
+        "R",
+        "U",
+        "W"
+      ],
+      "set_code": "ced",
+      "source": "https://scryfall.com/card/ced/233/black-lotus",
+      "type_line": "Artifact"
+    },
+    "morbid": {
+      "collector_number": "219",
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{2}{B}",
+      "mana_value": 3.0,
+      "mechanics": "Another creature dies; draw trigger limited to once each turn.",
+      "name": "Morbid Opportunist",
+      "oracle_id": "322f44f0-e6da-4ee0-b474-e7d5e9a461c5",
+      "oracle_text": "Whenever one or more other creatures die, draw a card. This ability triggers only once each turn.",
+      "printing_id": "08838865-a9b6-4323-96a2-0d3a7aba9d3d",
+      "produced_mana": [],
+      "set_code": "soc",
+      "source": "https://scryfall.com/card/soc/219/morbid-opportunist",
+      "type_line": "Creature — Human Rogue"
+    },
+    "opt": {
+      "collector_number": "101",
+      "color_identity": [
+        "U"
+      ],
+      "colors": [
+        "U"
+      ],
+      "commander_legality": "legal",
+      "keywords": [
+        "Scry"
+      ],
+      "mana_cost": "{U}",
+      "mana_value": 1.0,
+      "mechanics": "Instant spell; scry then draw on resolution.",
+      "name": "Opt",
+      "oracle_id": "713332c1-5bd8-400f-bfff-c1ca0697a043",
+      "oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+      "printing_id": "015e9da6-c704-4b00-b717-8c07ba2b2ff7",
+      "produced_mana": [],
+      "set_code": "woc",
+      "source": "https://scryfall.com/card/woc/101/opt",
+      "type_line": "Instant"
+    },
+    "orchard": {
+      "collector_number": "323",
+      "color_identity": [],
+      "colors": [],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "",
+      "mana_value": 0.0,
+      "mechanics": "Tapped land mana ability; separate trigger makes a target opponent create the Spirit.",
+      "name": "Forbidden Orchard",
+      "oracle_id": "cfd60d1f-9832-4408-b84e-0fd3018b015b",
+      "oracle_text": "{T}: Add one mana of any color.\nWhenever you tap this land for mana, target opponent creates a 1/1 colorless Spirit creature token.",
+      "printing_id": "17db644c-1acf-477d-9c20-f72221f1108a",
+      "produced_mana": [
+        "B",
+        "G",
+        "R",
+        "U",
+        "W"
+      ],
+      "set_code": "2x2",
+      "source": "https://scryfall.com/card/2x2/323/forbidden-orchard",
+      "type_line": "Land"
+    },
+    "oven": {
+      "collector_number": "237",
+      "color_identity": [],
+      "colors": [],
+      "commander_legality": "legal",
+      "keywords": [
+        "Food"
+      ],
+      "mana_cost": "{1}",
+      "mana_value": 1.0,
+      "mechanics": "Tap and sacrifice a creature to create Food; amount can depend on toughness.",
+      "name": "Witch's Oven",
+      "oracle_id": "8fa0fe02-2452-4386-8e0c-165757b0f0a3",
+      "oracle_text": "{T}, Sacrifice a creature: Create a Food token. If the sacrificed creature's toughness was 4 or greater, create two Food tokens instead. (They're artifacts with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
+      "printing_id": "04ef8493-d986-45f8-a718-617b028f7ad4",
+      "produced_mana": [],
+      "set_code": "eld",
+      "source": "https://scryfall.com/card/eld/237/witchs-oven",
+      "type_line": "Artifact"
+    },
+    "phyrexian": {
+      "collector_number": "396",
+      "color_identity": [],
+      "colors": [],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{3}",
+      "mana_value": 3.0,
+      "mechanics": "Sacrifice a creature for one mana of chosen color.",
+      "name": "Phyrexian Altar",
+      "oracle_id": "8d02b297-97c4-4379-9862-0a462400f66f",
+      "oracle_text": "Sacrifice a creature: Add one mana of any color.",
+      "printing_id": "043de2ce-9ee9-414f-9385-6e5260173988",
+      "produced_mana": [
+        "B",
+        "G",
+        "R",
+        "U",
+        "W"
+      ],
+      "set_code": "2x2",
+      "source": "https://scryfall.com/card/2x2/396/phyrexian-altar",
+      "type_line": "Artifact"
+    },
+    "plunderer": {
+      "collector_number": "476",
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "commander_legality": "legal",
+      "keywords": [
+        "Treasure"
+      ],
+      "mana_cost": "{3}{B}",
+      "mana_value": 4.0,
+      "mechanics": "Death of another creature you control yields a Treasure after the trigger resolves.",
+      "name": "Pitiless Plunderer",
+      "oracle_id": "a784481f-eccb-4112-bb38-04a659319660",
+      "oracle_text": "Whenever another creature you control dies, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+      "printing_id": "1ac61e84-94d6-4ff7-a00f-29de93f09a38",
+      "produced_mana": [
+        "B",
+        "G",
+        "R",
+        "U",
+        "W"
+      ],
+      "set_code": "j25",
+      "source": "https://scryfall.com/card/j25/476/pitiless-plunderer",
+      "type_line": "Creature — Human Pirate"
+    },
+    "priest": {
+      "collector_number": "83s",
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{1}{B}",
+      "mana_value": 2.0,
+      "mechanics": "Tap and two other creatures as activation costs; mana and card draw on resolution.",
+      "name": "Priest of Forgotten Gods",
+      "oracle_id": "2ad8ff62-d090-4835-9274-3b755ba0f8e6",
+      "oracle_text": "{T}, Sacrifice two other creatures: Any number of target players each lose 2 life and sacrifice a creature of their choice. You add {B}{B} and draw a card. (Activate only as an instant.)",
+      "printing_id": "036379e2-9248-4d67-8c95-d38e8dab11de",
+      "produced_mana": [
+        "B"
+      ],
+      "set_code": "prna",
+      "source": "https://scryfall.com/card/prna/83s/priest-of-forgotten-gods",
+      "type_line": "Creature — Human Cleric"
+    },
+    "procession": {
+      "collector_number": "2",
+      "color_identity": [
+        "W"
+      ],
+      "colors": [
+        "W"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{3}{W}",
+      "mana_value": 4.0,
+      "mechanics": "Token-creation replacement for tokens under your control.",
+      "name": "Anointed Procession",
+      "oracle_id": "7246d45b-2185-4cdd-981b-5419b7d52bce",
+      "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.",
+      "printing_id": "8e89f936-38ba-45f7-9c9b-d2d5055a4377",
+      "produced_mana": [],
+      "set_code": "akr",
+      "source": "https://scryfall.com/card/akr/2/anointed-procession",
+      "type_line": "Enchantment"
+    },
+    "pyro": {
+      "collector_number": "372",
+      "color_identity": [
+        "R"
+      ],
+      "colors": [
+        "R"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{1}{R}",
+      "mana_value": 2.0,
+      "mechanics": "Instant/sorcery cast trigger produces a creature token.",
+      "name": "Young Pyromancer",
+      "oracle_id": "5fac139a-07d3-4e6c-98e3-d98b199f7a6f",
+      "oracle_text": "Whenever you cast an instant or sorcery spell, create a 1/1 red Elemental creature token.",
+      "printing_id": "218af707-cc60-407e-af20-e21879a0e902",
+      "produced_mana": [],
+      "set_code": "jmp",
+      "source": "https://scryfall.com/card/jmp/372/young-pyromancer",
+      "type_line": "Creature — Human Shaman"
+    },
+    "raise": {
+      "collector_number": "8",
+      "color_identity": [
+        "W"
+      ],
+      "colors": [
+        "W"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{1}{W}",
+      "mana_value": 2.0,
+      "mechanics": "Creates two white Soldier creature tokens.",
+      "name": "Raise the Alarm",
+      "oracle_id": "5b2364d7-a811-4595-a1b4-224c70555ffa",
+      "oracle_text": "Create two 1/1 white Soldier creature tokens.",
+      "printing_id": "23a3e9e3-5ec1-4f4c-9bbd-84908fa09ed3",
+      "produced_mana": [],
+      "set_code": "md1",
+      "source": "https://scryfall.com/card/md1/8/raise-the-alarm",
+      "type_line": "Instant"
+    },
+    "rest": {
+      "collector_number": "77943",
+      "color_identity": [
+        "W"
+      ],
+      "colors": [
+        "W"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{1}{W}",
+      "mana_value": 2.0,
+      "mechanics": "Graveyard exile and mandatory replacement of graveyard moves.",
+      "name": "Rest in Peace",
+      "oracle_id": "087f9ad7-e74f-40e2-8102-1ed2925d0418",
+      "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+      "printing_id": "1859fca3-dc71-40a5-9a36-98468d551ca0",
+      "produced_mana": [],
+      "set_code": "prm",
+      "source": "https://scryfall.com/card/prm/77943/rest-in-peace",
+      "type_line": "Enchantment"
+    },
+    "reverberate": {
+      "collector_number": "20",
+      "color_identity": [
+        "R"
+      ],
+      "colors": [
+        "R"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{R}{R}",
+      "mana_value": 2.0,
+      "mechanics": "Targets and copies a spell already on the stack; may change copy targets.",
+      "name": "Reverberate",
+      "oracle_id": "a1f55890-31c5-4ed4-a2cd-7a4a9f05f8ca",
+      "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+      "printing_id": "02bc4956-32b4-48cd-af04-4f0ad0f893d3",
+      "produced_mana": [],
+      "set_code": "pd2",
+      "source": "https://scryfall.com/card/pd2/20/reverberate",
+      "type_line": "Instant"
+    },
+    "scales": {
+      "collector_number": "138",
+      "color_identity": [
+        "G"
+      ],
+      "colors": [
+        "G"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{G}",
+      "mana_value": 1.0,
+      "mechanics": "Adds one to a +1/+1 counter placement on a creature you control.",
+      "name": "Hardened Scales",
+      "oracle_id": "a1f3da21-af6d-450e-bf0b-985d158418e6",
+      "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+      "printing_id": "01c4a294-d8b5-4237-af09-f592029c917a",
+      "produced_mana": [],
+      "set_code": "cm2",
+      "source": "https://scryfall.com/card/cm2/138/hardened-scales",
+      "type_line": "Enchantment"
+    },
+    "score": {
+      "collector_number": "193",
+      "color_identity": [
+        "R"
+      ],
+      "colors": [
+        "R"
+      ],
+      "commander_legality": "legal",
+      "keywords": [
+        "Treasure"
+      ],
+      "mana_cost": "{3}{R}",
+      "mana_value": 4.0,
+      "mechanics": "Discard a card as additional casting cost; draw and create Treasures on resolution.",
+      "name": "Big Score",
+      "oracle_id": "a5cbd257-c836-493e-bb1a-76242619dea2",
+      "oracle_text": "As an additional cost to cast this spell, discard a card.\nDraw two cards and create two Treasure tokens. (They're artifacts with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+      "printing_id": "243b460e-e67a-40d7-a874-a61fdb011c5a",
+      "produced_mana": [
+        "B",
+        "G",
+        "R",
+        "U",
+        "W"
+      ],
+      "set_code": "blc",
+      "source": "https://scryfall.com/card/blc/193/big-score",
+      "type_line": "Instant"
+    },
+    "season": {
+      "collector_number": "438",
+      "color_identity": [
+        "G"
+      ],
+      "colors": [
+        "G"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{4}{G}",
+      "mana_value": 5.0,
+      "mechanics": "Separate replacements for token creation and counters placed by effects.",
+      "name": "Doubling Season",
+      "oracle_id": "01546b7d-a233-4176-8843-d732074dc5b6",
+      "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+      "printing_id": "0d5bf249-3773-404f-9e46-d7745d3826e8",
+      "produced_mana": [],
+      "set_code": "fdn",
+      "source": "https://scryfall.com/card/fdn/438/doubling-season",
+      "type_line": "Enchantment"
+    },
+    "seer": {
+      "collector_number": "M11-120",
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "commander_legality": "legal",
+      "keywords": [
+        "Scry"
+      ],
+      "mana_cost": "{B}",
+      "mana_value": 1.0,
+      "mechanics": "Activated single-creature sacrifice cost; scry.",
+      "name": "Viscera Seer",
+      "oracle_id": "f82a4e85-526d-4456-b700-7760043a31be",
+      "oracle_text": "Sacrifice a creature: Scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
+      "printing_id": "24277de8-7412-496c-bd44-61d9629a3473",
+      "produced_mana": [],
+      "set_code": "plst",
+      "source": "https://scryfall.com/card/plst/M11-120/viscera-seer",
+      "type_line": "Creature — Vampire Wizard"
+    },
+    "skeleton": {
+      "collector_number": "183",
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{1}{B}",
+      "mana_value": 2.0,
+      "mechanics": "Paid activated self-return from own graveyard to battlefield tapped.",
+      "name": "Reassembling Skeleton",
+      "oracle_id": "9dbc3530-b278-4c8d-b2cc-a09dfac9d5e5",
+      "oracle_text": "{1}{B}: Return this card from your graveyard to the battlefield tapped.",
+      "printing_id": "00566375-e976-4e96-b751-cf0430452c9c",
+      "produced_mana": [],
+      "set_code": "cmm",
+      "source": "https://scryfall.com/card/cmm/183/reassembling-skeleton",
+      "type_line": "Creature — Skeleton Warrior"
+    },
+    "strike": {
+      "collector_number": "143",
+      "color_identity": [
+        "R"
+      ],
+      "colors": [
+        "R"
+      ],
+      "commander_legality": "legal",
+      "keywords": [
+        "Treasure",
+        "Flashback"
+      ],
+      "mana_cost": "{R}",
+      "mana_value": 1.0,
+      "mechanics": "Creates one Treasure; can later be cast via flashback.",
+      "name": "Strike It Rich",
+      "oracle_id": "c34c17c7-3827-49a2-be25-67f44fdfe150",
+      "oracle_text": "Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nFlashback {2}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+      "printing_id": "1c7c2814-a617-4123-acdf-1b01b2768210",
+      "produced_mana": [
+        "B",
+        "G",
+        "R",
+        "U",
+        "W"
+      ],
+      "set_code": "mh2",
+      "source": "https://scryfall.com/card/mh2/143/strike-it-rich",
+      "type_line": "Sorcery"
+    },
+    "surge": {
+      "collector_number": "673",
+      "color_identity": [
+        "G"
+      ],
+      "colors": [
+        "G"
+      ],
+      "commander_legality": "legal",
+      "keywords": [
+        "Double"
+      ],
+      "mana_cost": "{2}{G}",
+      "mana_value": 3.0,
+      "mechanics": "Separately places a counter, then places enough to double the existing number.",
+      "name": "Invigorating Surge",
+      "oracle_id": "5daac63a-1534-4194-8cb7-506508e364f4",
+      "oracle_text": "Put a +1/+1 counter on target creature you control, then double the number of +1/+1 counters on that creature.",
+      "printing_id": "472ff365-4c52-42be-9024-c3569014e25d",
+      "produced_mana": [],
+      "set_code": "j25",
+      "source": "https://scryfall.com/card/j25/673/invigorating-surge",
+      "type_line": "Instant"
+    },
+    "swords": {
+      "collector_number": "ml52",
+      "color_identity": [
+        "W"
+      ],
+      "colors": [
+        "W"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{W}",
+      "mana_value": 1.0,
+      "mechanics": "Targeted exile and compensating life gain; no death.",
+      "name": "Swords to Plowshares",
+      "oracle_id": "b1544f21-7e98-461b-aed5-e748b0168c52",
+      "oracle_text": "Exile target creature. Its controller gains life equal to its power.",
+      "printing_id": "04e0738b-b856-401e-8b41-096e2c48cf96",
+      "produced_mana": [],
+      "set_code": "ptc",
+      "source": "https://scryfall.com/card/ptc/ml52/swords-to-plowshares",
+      "type_line": "Instant"
+    },
+    "teysa": {
+      "collector_number": "212p",
+      "color_identity": [
+        "B",
+        "W"
+      ],
+      "colors": [
+        "B",
+        "W"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{2}{W}{B}",
+      "mana_value": 4.0,
+      "mechanics": "Additional death-trigger instance and static token abilities.",
+      "name": "Teysa Karlov",
+      "oracle_id": "644eeefd-e684-4ca8-8aef-a892ca130c07",
+      "oracle_text": "If a creature dying causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.\nCreature tokens you control have vigilance and lifelink.",
+      "printing_id": "247de9ae-802f-4f3d-a33e-7bc9af24b8c8",
+      "produced_mana": [],
+      "set_code": "prna",
+      "source": "https://scryfall.com/card/prna/212p/teysa-karlov",
+      "type_line": "Legendary Creature — Human Advisor"
+    },
+    "wall": {
+      "collector_number": "4",
+      "color_identity": [
+        "W"
+      ],
+      "colors": [
+        "W"
+      ],
+      "commander_legality": "legal",
+      "keywords": [
+        "Defender"
+      ],
+      "mana_cost": "{1}{W}",
+      "mana_value": 2.0,
+      "mechanics": "Self entry trigger draws a card.",
+      "name": "Wall of Omens",
+      "oracle_id": "5f601f48-d24b-4883-9fde-b3f620e7c9ea",
+      "oracle_text": "Defender\nWhen this creature enters, draw a card.",
+      "printing_id": "0596155d-8f83-40ca-be31-9a0df1ced65e",
+      "produced_mana": [],
+      "set_code": "ddk",
+      "source": "https://scryfall.com/card/ddk/4/wall-of-omens",
+      "type_line": "Creature — Wall"
+    },
+    "wanderer": {
+      "collector_number": "WAR-37",
+      "color_identity": [
+        "W"
+      ],
+      "colors": [
+        "W"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{3}{W}",
+      "mana_value": 4.0,
+      "mechanics": "Prevents noncombat damage to you and other permanents you control.",
+      "name": "The Wanderer",
+      "oracle_id": "4c2196e5-6ed7-4cd2-b8e7-f01aff236569",
+      "oracle_text": "Prevent all noncombat damage that would be dealt to you and other permanents you control.\n−2: Exile target creature with power 4 or greater.",
+      "printing_id": "229e74fc-31b3-42f9-aba3-0028351aca30",
+      "produced_mana": [],
+      "set_code": "plst",
+      "source": "https://scryfall.com/card/plst/WAR-37/the-wanderer",
+      "type_line": "Legendary Planeswalker"
+    },
+    "warden": {
+      "collector_number": "bh21",
+      "color_identity": [
+        "W"
+      ],
+      "colors": [
+        "W"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{W}",
+      "mana_value": 1.0,
+      "mechanics": "Triggers on another creature entering; gains one life.",
+      "name": "Soul Warden",
+      "oracle_id": "f3fad295-1af2-4ecc-8546-b121ad6be27b",
+      "oracle_text": "Whenever another creature enters, you gain 1 life.",
+      "printing_id": "122cfae7-ab44-4458-9f1d-ca43f9766777",
+      "produced_mana": [],
+      "set_code": "wc98",
+      "source": "https://scryfall.com/card/wc98/bh21/soul-warden",
+      "type_line": "Creature — Human Cleric"
+    },
+    "waste": {
+      "collector_number": "122",
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{1}{B}",
+      "mana_value": 2.0,
+      "mechanics": "Several distinct opponent-discard triggers.",
+      "name": "Waste Not",
+      "oracle_id": "00fdcc19-88ed-46c3-91f0-095806228105",
+      "oracle_text": "Whenever an opponent discards a creature card, create a 2/2 black Zombie creature token.\nWhenever an opponent discards a land card, add {B}{B}.\nWhenever an opponent discards a noncreature, nonland card, draw a card.",
+      "printing_id": "241d8f7d-3981-47c1-b7b8-748277fa452f",
+      "produced_mana": [
+        "B"
+      ],
+      "set_code": "m15",
+      "source": "https://scryfall.com/card/m15/122/waste-not",
+      "type_line": "Enchantment"
+    },
+    "whisperer": {
+      "collector_number": "167",
+      "color_identity": [
+        "G"
+      ],
+      "colors": [
+        "G"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{2}{G}{G}",
+      "mana_value": 4.0,
+      "mechanics": "Creature-spell cast trigger; entering alone is insufficient.",
+      "name": "Beast Whisperer",
+      "oracle_id": "5da7eea8-bb9e-47ce-a554-8a1ee058bd7a",
+      "oracle_text": "Whenever you cast a creature spell, draw a card.",
+      "printing_id": "0aa99539-0002-4661-85b2-a3d770ff004c",
+      "produced_mana": [],
+      "set_code": "c20",
+      "source": "https://scryfall.com/card/c20/167/beast-whisperer",
+      "type_line": "Creature — Elf Druid"
+    },
+    "woe": {
+      "collector_number": "317",
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "commander_legality": "legal",
+      "keywords": [
+        "Escape",
+        "Scry"
+      ],
+      "mana_cost": "{2}{B}",
+      "mana_value": 3.0,
+      "mechanics": "Own entry creates Goat; activated outlet sacrifices a different creature; escape.",
+      "name": "Woe Strider",
+      "oracle_id": "3adbd963-e85d-4569-963a-4472594f06f9",
+      "oracle_text": "When this creature enters, create a 0/1 white Goat creature token.\nSacrifice another creature: Scry 1.\nEscape—{3}{B}{B}, Exile four other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)\nThis creature escapes with two +1/+1 counters on it.",
+      "printing_id": "05500b14-d36d-49b3-82b0-d0c533d4ec00",
+      "produced_mana": [],
+      "set_code": "thb",
+      "source": "https://scryfall.com/card/thb/317/woe-strider",
+      "type_line": "Creature — Horror"
+    },
+    "wrath": {
+      "collector_number": "58",
+      "color_identity": [
+        "W"
+      ],
+      "colors": [
+        "W"
+      ],
+      "commander_legality": "legal",
+      "keywords": [],
+      "mana_cost": "{2}{W}{W}",
+      "mana_value": 4.0,
+      "mechanics": "Destroys all creatures with no targets; regeneration is prohibited.",
+      "name": "Wrath of God",
+      "oracle_id": "34515b16-c9a4-4f98-8c77-416a7a523407",
+      "oracle_text": "Destroy all creatures. They can't be regenerated.",
+      "printing_id": "0619d670-7b53-4185-a25d-2fab5db1aab5",
+      "produced_mana": [],
+      "set_code": "8ed",
+      "source": "https://scryfall.com/card/8ed/58/wrath-of-god",
+      "type_line": "Sorcery"
+    }
+  },
+  "legality_data_as_of": "2026-11-11",
+  "snapshot_sha256": "d190c5ed83e3487daab01a69ff5f50c1d4ee55e1e83f0b08bfe295e2b9477672",
+  "source": "Scryfall Default Cards bulk cache captured 2026-11-11"
+}

@@ -269,7 +269,7 @@ def _affinity_evidence(card, caps, preferences, strategy_id):
                 dependencies.add("qualifying_trigger_event")
             if cap.targeting == "target":
                 dependencies.add("legal_target_at_resolution")
-            if cap.costs:
+            if cap.costs or cap.additional_cast_costs:
                 dependencies.add("pay_ability_cost")
             if cap.quantity.kind in {"up_to", "variable"}:
                 dependencies.add("positive_event_quantity")

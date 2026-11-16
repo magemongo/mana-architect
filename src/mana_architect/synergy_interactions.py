@@ -6,7 +6,7 @@ import re
 
 from mana_architect.synergy_capabilities import MechanicalCapability, MechanicalObject
 
-INTERACTION_RULE_VERSION = "1.2.0"
+INTERACTION_RULE_VERSION = "1.3.0"
 
 
 class MatchStatus(StrEnum):
@@ -46,6 +46,12 @@ INTERACTION_RULES = (
                    "amplifies", "token_creation", "The replacement applies to this token creation event."),
     MechanicalRule("counter_multiplier_amplifies_placement", "multiply_counter_placement", "put_counters",
                    "amplifies", "counter_placement", "The replacement applies to the qualifying counter placement."),
+    MechanicalRule("counter_multiplier_amplifies_doubling", "multiply_counter_placement", "double_existing_counters",
+                   "amplifies", "counter_placement", "Doubling places counters, so the replacement applies."),
+    MechanicalRule("counter_increase_amplifies_placement", "increase_counter_placement", "put_counters",
+                   "amplifies", "counter_placement", "The replacement adds counters to the qualifying placement."),
+    MechanicalRule("counter_increase_amplifies_doubling", "increase_counter_placement", "double_existing_counters",
+                   "amplifies", "counter_placement", "The replacement adds counters to the placement used to double them."),
     MechanicalRule("counter_placement_triggers_payoff", "put_counters", "counter_payoff",
                    "directly_triggers", "counter_placement", "The payoff observes the qualifying counters being placed."),
     MechanicalRule("creature_receives_typal_entry_counters", "typal_entry_counters", "creature_presence",
@@ -82,6 +88,11 @@ INTERACTION_RULES = (
                    dependency="spell_is_cast"),
     MechanicalRule("lifegain_triggers_payoff", "gain_life", "lifegain_payoff",
                    "directly_triggers", "life_gain", "The payoff observes the qualifying player gaining life."),
+    MechanicalRule("lifeloss_triggers_payoff", "life_loss_opponent", "lifeloss_payoff",
+                   "directly_triggers", "life_loss", "The payoff observes the opponent losing life."),
+    MechanicalRule("food_enables_self_return", "create_token", "return_from_graveyard",
+                   "enables", "food_availability", "The Food can pay the card's graveyard activation cost.",
+                   dependency="food_available_to_sacrifice"),
     MechanicalRule("equipment_enables_voltron", "equip", "single_attacker_payoff",
                    "enables", "attack_alone", "Equipment can support the qualifying attacker after a legal equip activation.",
                    "creature", "equip_then_attack_alone"),
@@ -145,6 +156,11 @@ def _compatible_object(produced: MechanicalObject, required: MechanicalObject) -
         return RuleMatch(MatchStatus.UNKNOWN, "The object must have all listed types.")
     if needed and not available:
         return RuleMatch(MatchStatus.UNKNOWN, "The source does not specify the required object type.")
+    if required.colors:
+        if not produced.colors:
+            return RuleMatch(MatchStatus.UNKNOWN, "The source does not establish the required color.")
+        if not set(required.colors).intersection(produced.colors):
+            return RuleMatch(MatchStatus.INVALID, "The object colors are incompatible.")
     if required.subtypes and "*" not in produced.subtypes and not set(required.subtypes) & set(produced.subtypes):
         status = MatchStatus.INVALID if produced.subtypes else MatchStatus.UNKNOWN
         return RuleMatch(status, "The required object subtype is unresolved or incompatible.")
@@ -192,6 +208,16 @@ def validate_interaction(
     produced, required = producer.object, observer.object
     controller = producer.controller
     required_controller = observer.controller
+    if rule.id == "food_enables_self_return":
+        if (
+            "food" not in produced.subtypes or target.object.reference != "self"
+            or target.source_zone != "graveyard" or target.destination_zone != "battlefield"
+            or target.owner != "you" or target.controller != "you"
+            or target.timing not in {"activated", "sorcery_speed"}
+            or tuple(cost.casefold() for cost in target.costs) != ("sacrifice a food",)
+        ):
+            return None
+        required = MechanicalObject("token", subtypes=("food",))
     if producer.object.reference == "self" and producer.id != "resolve_spell":
         card = _card_object(target_type if producer is target else source_type, kind="permanent")
         subtypes = produced.subtypes or card.subtypes
@@ -294,7 +320,11 @@ def validate_interaction(
         dependencies.add("legal_copy_target")
     if source.targeting == "target" or target.targeting == "target":
         dependencies.add("legal_target_at_resolution")
-    if source.costs or target.costs:
+    for label, capability in (("source", source), ("target", target)):
+        dependencies.update(f"{label}:legal_resolution_target:{text}" for text in capability.resolution_targets)
+    if source.costs or target.costs or source.additional_cast_costs or (
+        target.additional_cast_costs and rule.id != "spell_copy_amplifies_spell_effect"
+    ):
         dependencies.add("pay_ability_cost")
     if (source.timing == "sorcery_speed" and source.costs
             or target.timing == "sorcery_speed" and target.costs):

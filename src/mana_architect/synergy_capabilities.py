@@ -9,14 +9,14 @@ from mana_architect.mana_resource_extractor import extract_mana_resources
 from mana_architect.oracle_text import OracleParse
 from mana_architect.ramp_rules_catalog import NUMBER_WORDS
 
-CAPABILITY_VERSION = "1.3.0"
+CAPABILITY_VERSION = "1.4.0"
 
 # One event can satisfy multiple strategies through its object types. Creating a
 # Treasure therefore produces a single capability and a single quantity.
 CAPABILITY_IDS = frozenset({
     "create_token", "multiply_token_creation", "sacrifice", "death_payoff",
     "sacrifice_payoff", "enter_payoff", "put_counters", "multiply_counter_placement",
-    "double_existing_counters", "counter_payoff", "proliferate", "blink",
+    "double_existing_counters", "increase_counter_placement", "counter_payoff", "proliferate", "blink",
     "return_from_graveyard", "recover_to_hand", "self_mill", "discard",
     "extra_land_play", "put_land", "add_mana", "gain_life", "lifegain_payoff",
     "copy_spell", "cast_payoff", "cast_or_copy_payoff", "reduce_spell_cost",
@@ -29,6 +29,7 @@ CAPABILITY_IDS = frozenset({
     "creature_presence", "self_evasion", "mill_opponent", "force_discard",
     "copy_permanent", "extra_turn", "mass_combat_buff", "goad", "take_control",
     "life_loss_opponent", "protect_from_attacks", "keyword_ability",
+    "lifeloss_payoff",
     "permanent_bounce", "investigate", "venture", "become_monarch",
     "gain_energy", "modified_payoff", "unblockable", "printed_subtype", "printed_supertype",
     "printed_type", "scry", "surveil", "creature_mana",
@@ -48,6 +49,7 @@ _TOKEN_TYPES = {
     "gold": "artifact", "junk": "artifact", "map": "artifact",
     "powerstone": "artifact", "treasure": "artifact", "incubator": "artifact",
 }
+_COLORS = dict(zip(("white", "blue", "black", "red", "green"), "WUBRG", strict=True))
 _THEME_KEYWORDS = re.compile(
     r"(?P<keyword>affinity|annihilator|cascade|convoke|crew|cycling|deathtouch|defender|dredge|"
     r"evoke|exploit|firebending|flash|flashback|flying|foretell|haste|improvise|indestructible|"
@@ -65,6 +67,12 @@ _LIFE_DRAIN = re.compile(
     rf"(?:,? and you gain|\.\s*you gain) (?P<gain>{_NUMBER}) life\.?"
 )
 _SELF = r"(?:this (?:creature|permanent|artifact|enchantment|spell|card|land|planeswalker)|@self)"
+_SACRIFICE = re.compile(
+    rf"sacrifice (?:(?P<count>{_SACRIFICE_COUNT}) )?"
+    rf"(?P<object>(?:another |other |a |an )?(?:(?:{'|'.join(_COLORS)}) )?"
+    rf"(?:artifact|creature|enchantment|land|permanent|token)(?:s| or (?:artifact|creature|land|permanent))?"
+    rf"(?: you control)?|{_SELF})"
+)
 _BASIC_LANDS = frozenset({"plains", "island", "swamp", "mountain", "forest", "wastes"})
 _QUANTITY_WORDS = {"a": 1, "an": 1, **NUMBER_WORDS}
 _TRIGGER = re.compile(r"^(?:[^,.:]+? — )?(?:when(?:ever)?|at) (?P<event>[^,]+),\s*", _FLAGS)
@@ -79,6 +87,16 @@ _DEATH_REPLACEMENT = re.compile(
     r"(?P<creation>create [^.]+?)(?P<instead> instead)?\.?$",
 )
 _EFFECT_CONDITION = re.compile(r"^(?P<condition>if [^,]+|for each [^,]+),\s+")
+_ADDITIONAL_CAST_COST = re.compile(r"as an additional cost to cast (?:this spell|@self), (.+?)\.?$")
+_RESOLUTION_TARGET = re.compile(r"\b(?:any target\b|target (?!of\b|for\b)[^,.;\n]+)")
+_DOUBLE_COUNTERS = re.compile(
+    r"double the number of (?:(?P<kind>\+1/\+1|[-−]1/[-−]1|[a-z]+) )?counters on (?P<object>.+)"
+)
+_ADDITIVE_COUNTERS = re.compile(
+    r"if one or more (?P<kind>\+1/\+1|[-−]1/[-−]1) counters would be put on (?P<object>[^,]+), "
+    r"that many plus (?P<extra>one|two|three|\d+) (?P=kind) counters are put on "
+    r"(?:it|that permanent|that creature) instead\."
+)
 _TRIBAL_GROUP = (
     r"(?:(?:one or more|a|an|each) )?(?P<other>other )?"
     r"(?!(?:artifacts?|battles?|creatures?|enchantments?|lands?|permanents?|planeswalkers?|tokens?) )"
@@ -117,6 +135,7 @@ class MechanicalObject:
     subtypes: tuple[str, ...] = ()
     reference: str = "any"
     restrictions: tuple[str, ...] = ()
+    colors: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -147,6 +166,9 @@ class MechanicalCapability:
     modality: str = "mandatory"
     resolution: str = "unknown"
     face_type_line: str = ""
+    additional_cast_costs: tuple[str, ...] = ()
+    resolution_targets: tuple[str, ...] = ()
+    returns_tapped: bool = False
 
     @property
     def event_key(self) -> str:
@@ -200,7 +222,7 @@ def _object(text: str, *, kind: str = "permanent") -> MechanicalObject:
          "another", "other", "permanent", "card", "spell", "token", "you", "control",
          "controls", "own", "opponent", "opponents", "this", "self", "noncreature",
          "nontoken", "nonland", "basic", "one", "more", "up", "to", "of", "your"}
-        | _TYPES | set(subtypes)
+        | _TYPES | set(subtypes) | _COLORS.keys()
     )
     restrictions = set()
     if reference != "self":
@@ -208,7 +230,8 @@ def _object(text: str, *, kind: str = "permanent") -> MechanicalObject:
     restrictions.update(words & {"nontoken", "noncreature", "nonland", "basic"})
     if "and" in words and len(types) > 1:
         restrictions.add("all_listed_types")
-    return MechanicalObject(kind, types, subtypes, reference, tuple(sorted(restrictions)))
+    colors = tuple(sorted(_COLORS[word] for word in words & _COLORS.keys()))
+    return MechanicalObject(kind, types, subtypes, reference, tuple(sorted(restrictions)), colors)
 
 
 def _controller(text: str, default: str = "unknown") -> str:
@@ -277,23 +300,31 @@ def _match_action(text: str) -> tuple[str, str, MechanicalObject, dict] | None:
             subtypes.update(set(characteristics["subtypes"].split()) - _TYPES)
         tail = match["tail"].strip()
         conditions = () if tail in {"", "with flying", "with haste", "with lifelink", "with vigilance"} else (tail,)
-        token = MechanicalObject("token", token.types, tuple(sorted(subtypes)))
+        token = MechanicalObject("token", token.types, tuple(sorted(subtypes)), colors=token.colors)
         return "create_token", "create", token, dict(
             event="token_creation", destination_zone="battlefield",
             controller="you", owner="you", quantity=_quantity(match["count"], up_to=bool(match["up_to"])),
             conditions=conditions,
         )
-    if match := re.fullmatch(rf"sacrifice (?:(?P<count>{_SACRIFICE_COUNT}) )?(?P<object>(?:another |a |an )?(?:artifact|creature|enchantment|land|permanent|token)(?:s| or (?:artifact|creature|land|permanent))?(?: you control)?|{_SELF})", text):
+    if match := _SACRIFICE.fullmatch(text):
         return "sacrifice", "sacrifice", _object(match["object"]), dict(
             event="sacrifice", controller="you", source_zone="battlefield", destination_zone="graveyard",
             quantity=_quantity(match["count"] or "one"),
         )
     if match := re.fullmatch(rf"put (?P<count>{_NUMBER}) (?P<counter>\+1/\+1|[-−]1/[-−]1|[a-z]+) counters? on (?P<object>.+)", text):
         obj = _object(match["object"])
-        return "put_counters", "put", MechanicalObject(
-            obj.kind, obj.types, (match["counter"],), obj.reference, obj.restrictions,
-        ), dict(event="counter_placement", controller=_controller(text, "you" if obj.reference == "self" else "any"),
+        return "put_counters", "put", replace(obj, subtypes=(match["counter"],)), dict(
+                event="counter_placement", controller=_controller(text, "you" if obj.reference == "self" else "any"),
                 source_zone="battlefield", destination_zone="battlefield", quantity=_quantity(match["count"]))
+    if match := _DOUBLE_COUNTERS.fullmatch(text):
+        obj = _object(match["object"])
+        return "double_existing_counters", "double", replace(
+            obj, subtypes=(match["kind"],) if match["kind"] else (),
+        ), dict(
+            event="counter_placement", controller=_controller(text, "you" if obj.reference == "self" else "any"),
+            source_zone="battlefield", destination_zone="battlefield",
+            quantity=MechanicalQuantity("variable", expression="existing_counter_count"),
+        )
     if match := re.fullmatch(r"return (?P<object>.+? card) from (?P<owner>your|a|an opponent's) graveyard (?:to|onto) (?P<zone>the battlefield|your hand|its owner's hand)(?: (?P<tail>.+))?", text):
         battlefield = match["zone"] == "the battlefield"
         owner = {"your": "you", "an opponent's": "opponent"}.get(match["owner"], "any")
@@ -312,6 +343,11 @@ def _match_action(text: str) -> tuple[str, str, MechanicalObject, dict] | None:
             event="life_gain", controller={None: "you", "you": "you", "each opponent": "opponent",
                                            "an opponent": "opponent", "each player": "any"}.get(match["actor"], "unknown"),
             quantity=_quantity(match["count"]),
+        )
+    if match := re.fullmatch(rf"(?:target opponent|each opponent|that opponent) loses? (?P<count>{_NUMBER}) life", text):
+        subtypes = ("each_opponent",) if text.startswith("each opponent ") else ()
+        return "life_loss_opponent", "lose", MechanicalObject("player", subtypes=subtypes), dict(
+            event="life_loss", controller="opponent", quantity=_quantity(match["count"]),
         )
     if match := re.fullmatch(r"copy (?P<object>(?:target|that) (?:instant or sorcery spell|instant spell|sorcery spell|spell)(?: you control)?)", text):
         return "copy_spell", "copy", _object(match["object"]), dict(
@@ -336,8 +372,6 @@ def _match_action(text: str) -> tuple[str, str, MechanicalObject, dict] | None:
                 "draw": "card", "discard": "card", "self_mill": "card",
             }.get(capability_id, "unknown"))
             subtype = fields.get("subtype")
-            if subtype is None and capability_id == "life_loss_opponent" and text.startswith("each opponent "):
-                subtype = "each_opponent"
             if subtype:
                 obj = replace(obj, subtypes=(subtype,))
             return capability_id, action, obj, dict(
@@ -362,7 +396,6 @@ _SIMPLE_EFFECTS = tuple(
         ("artifact_count_payoff", "scale", r".+ (?:for each|equal to the number of) artifacts you control"),
         ("land_count_payoff", "scale", r".+ (?:for each|equal to the number of) lands you control"),
         ("token_count_payoff", "scale", r".+ (?:for each|equal to the number of) (?:creature )?tokens you control"),
-        ("double_existing_counters", "double", r"double the number of (?:\+1/\+1 )?counters on (?P<object>.+)"),
         ("untap", "untap", r"untap (?P<object>target .+|all .+|this .+)"),
         ("counter_spell", "counter", r"counter (?P<object>target (?:.+ )?spell)"),
         ("remove_permanent", "remove", r"(?:destroy|exile) (?P<object>(?:target|all|each) (?:nonland )?(?:artifact|creature|enchantment|land|permanent|planeswalker)s?(?: (?:an opponent|you) controls?)?)"),
@@ -379,7 +412,6 @@ _SIMPLE_EFFECTS = tuple(
         ("extra_turn", "permit", r"(?:you )?take an extra turn after this one"),
         ("goad", "goad", r"goad (?P<object>target creature|that creature|each creature(?: an opponent controls)?|all creatures(?: target opponent controls)?)"),
         ("take_control", "gain_control", r"gain control of (?P<object>target (?:creature|artifact|enchantment|permanent|planeswalker)(?: an opponent controls)?)(?: until end of turn)?"),
-        ("life_loss_opponent", "lose", rf"(?:each opponent|target opponent|that opponent) loses? (?P<count>{_NUMBER}) life"),
         ("protect_from_attacks", "restrict", r"creatures can't attack you(?: or planeswalkers you control)? unless .+"),
         ("investigate", "investigate", r"investigate"),
         ("venture", "venture", r"venture into (?:the dungeon|undercity)"),
@@ -401,6 +433,7 @@ _OBSERVERS = tuple(
         ("enter_payoff", "enter", r"(?P<object>.+?) enters?(?: the battlefield)?(?P<tail>.*)"),
         ("sacrifice_payoff", "sacrifice", r"(?P<actor>you|a player|an opponent) sacrifices? (?P<object>.+)"),
         ("lifegain_payoff", "life_gain", r"(?P<actor>you|a player|an opponent) gains? life"),
+        ("lifeloss_payoff", "life_loss", r"(?P<actor>you|a player|an opponent) loses? life"),
         ("cast_or_copy_payoff", "cast_or_copy", r"(?P<actor>you|a player|an opponent) casts? or (?:copy|copies) (?P<object>.+ spell)"),
         ("cast_payoff", "cast", r"(?P<actor>you|a player|an opponent) casts? (?P<object>.+ spell)"),
         ("counter_payoff", "counter_placement", r"(?:one or more )?(?P<counter>\+1/\+1) counters? (?:is|are) put on (?P<object>.+)"),
@@ -423,7 +456,7 @@ _REPLACEMENTS = (
 
 _BLINK = re.compile(
     r"exile (?P<object>(?:target|another) [^.,]+?)\s*(?:\.\s+(?:then )?|,?\s+then )return (?:it|that card) to the battlefield "
-    r"under (?P<owner>its owner's|your) control(?P<tail>[^.]*)\.?"
+    r"(?P<tapped>tapped )?under (?P<owner>its owner's|your) control(?P<tail>[^.]*)\.?"
 )
 
 
@@ -455,6 +488,8 @@ def extract_mechanical_capabilities(
     changeling = bool(_CHANGELING.search(parsed.oracle_text.split(" // ", 1)[0]))
     face = 0
     spell_faces = set()
+    additional_costs: dict[int, list[str]] = {}
+    spell_effects: dict[int, list[int]] = {}
     for ability in parsed.abilities:
         for line in _FACE_OR_LINE.finditer(ability.text):
             if line[0].strip() == "//":
@@ -476,6 +511,12 @@ def extract_mechanical_capabilities(
                 name_pattern = r"(?<![\w@])" + re.escape(names[face]) + r"(?!\w)"
                 normalized = re.sub(name_pattern, lambda m: "@self".ljust(len(m[0])), normalized)
             face_type = face_types[min(face, len(face_types) - 1)]
+            compact = " ".join(normalized.split())
+            declared_cost = _ADDITIONAL_CAST_COST.fullmatch(compact)
+            if declared_cost:
+                original_cost = masked.partition(",")[2].strip().removesuffix(".")
+                additional_costs.setdefault(face, []).append(original_cost)
+            first_capability = len(capabilities)
             extracted, incomplete = _compile_line(
                 parsed, evidence, normalized, face_type, resource_events.get(start, ()),
             )
@@ -499,6 +540,15 @@ def extract_mechanical_capabilities(
                 ))
             if incomplete:
                 unknowns.append(evidence)
+            if spell_type or declared_cost:
+                spell_effects.setdefault(face, []).extend(
+                    index for index in range(first_capability, len(capabilities))
+                    if capabilities[index].timing in {"instant_speed", "sorcery_speed", "additional_cast_cost"}
+                    and capabilities[index].repeatability != "repeatable"
+                )
+    for face, costs in additional_costs.items():
+        for index in spell_effects.get(face, ()):
+            capabilities[index] = replace(capabilities[index], additional_cast_costs=tuple(costs))
     first_face = face_types[0]
     card_types, _, subtypes = first_face.partition(" — ")
     if "creature" in card_types.split():
@@ -593,6 +643,13 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
             return capabilities, False
         return [], True
 
+    if additive := _ADDITIVE_COUNTERS.fullmatch(compact):
+        obj = replace(_object(additive["object"]), subtypes=(additive["kind"],))
+        emit("increase_counter_placement", "increase", obj, timing="replacement", repeatability="repeatable",
+             event="counter_placement", controller=_controller(additive["object"], "any"), targeting="none",
+             quantity=_quantity(additive["extra"]))
+        return capabilities, False
+
     if replacement := _REPLACEMENT.fullmatch(compact):
         effect = replacement["effect"]
         multiplier = re.search(r"\b(?:twice|double|triple|three times)\b", effect)
@@ -618,7 +675,7 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
                 counter = fields.get("counter") or fields.get("passive")
                 if counter and counter not in {"one or more", "a", "any number of"}:
                     counter_type = counter.split()[-1]
-                    obj = MechanicalObject(obj.kind, obj.types, (counter_type,), obj.reference, obj.restrictions)
+                    obj = replace(obj, subtypes=(counter_type,))
                 default = {"you": "you", "an opponent": "opponent", "a player": "any"}.get(
                     fields.get("actor"), "any" if fields.get("passive_object") else "unknown",
                 )
@@ -635,12 +692,14 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
         timing, repeatability = "triggered", "repeatable"
         observed = " ".join(trigger["event"].split())
         remainder_start = len(text) - len(text.lstrip()) + trigger.end()
+        resolution = evidence.oracle_span[remainder_start:].strip()
+        targets = tuple(match[0].strip() for match in _RESOLUTION_TARGET.finditer(text[remainder_start:]))
+        targeting = "target" if targets else "none"
         conditions = (observed,)
         if group := _TRIBAL_COMBAT.fullmatch(observed):
-            resolution = evidence.oracle_span[remainder_start:].strip()
             emit(
                 "combat_damage_payoff", "observe", _tribal_group(group), event="combat_damage",
-                controller="you", targeting="none", resolution=resolution,
+                controller="you", targeting=targeting, resolution=resolution, resolution_targets=targets,
             )
             # Recognize the initial mill while keeping subsequent conditions
             # for drawing cards on the full observer resolution.
@@ -659,27 +718,27 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
                 object_text = fields.get("object") or ""
                 obj = _object(object_text) if object_text else MechanicalObject("player")
                 if fields.get("counter"):
-                    obj = MechanicalObject(obj.kind, obj.types, (fields["counter"],), obj.reference, obj.restrictions)
+                    obj = replace(obj, subtypes=(fields["counter"],))
                 controller = _controller(object_text, {"you": "you", "an opponent": "opponent", "a player": "any"}.get(fields.get("actor"), "you" if obj.reference == "self" else "any"))
                 zone = {"enter": "battlefield", "death": "graveyard", "sacrifice": "graveyard",
                         "cast": "stack", "cast_or_copy": "stack"}.get(event, "unknown")
                 source = "battlefield" if event in {"death", "sacrifice"} else "unknown"
                 tail = (fields.get("tail") or "").strip()
                 if tail:
-                    obj = MechanicalObject(obj.kind, obj.types, obj.subtypes, obj.reference, obj.restrictions + (tail,))
+                    obj = replace(obj, restrictions=(*obj.restrictions, tail))
                     controller = _controller(tail, controller)
                 conditions = ()
                 if _CONDITION.search(text[remainder_start:]):
                     conditions = (evidence.oracle_span[remainder_start:].strip(),)
                 emit(capability_id, "observe", obj, event=event, controller=controller,
-                     source_zone=source, destination_zone=zone, targeting="none",
-                     resolution=evidence.oracle_span[remainder_start:].strip())
+                     source_zone=source, destination_zone=zone, targeting=targeting,
+                     resolution=resolution, resolution_targets=targets)
                 conditions = (observed,)
                 break
-    elif match := re.fullmatch(r"as an additional cost to cast (?:this spell|@self), (.+?)\.?", compact):
+    elif match := _ADDITIONAL_CAST_COST.fullmatch(compact):
         if result := _match_action(match[1]):
             capability_id, action, obj, fields = result
-            emit(capability_id, action, obj, costs=(match[1],), **fields)
+            emit(capability_id, action, obj, timing="additional_cast_cost", **fields)
             return capabilities, False
         return [], True
     elif ":" in text and not text.lstrip().startswith(("choose", "if ")):
@@ -715,7 +774,8 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
         emit("blink", "exile_and_return", obj, event="zone_change", source_zone="battlefield",
              destination_zone="battlefield", controller=_controller(blink["object"]),
              owner="you" if "you own" in blink["object"] else "unknown",
-             resolution=blink["owner"], conditions=(blink["tail"].strip(),) if blink["tail"].strip() else ())
+             resolution=blink["owner"], returns_tapped=bool(blink["tapped"]),
+             conditions=(blink["tail"].strip(),) if blink["tail"].strip() else ())
         return capabilities, False
 
     if stripped.startswith("choose ") or re.search(r"\bor (?:you may )?(?:create|gain|put|draw|exile|return)\b", stripped):
@@ -765,8 +825,9 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
             continue
         # Parse a common compound of independent imperative effects while
         # retaining each event's original span.
-        parts = re.split(r"(?:\s+and |,?\s+then )(?=(?:create|draw|gain|put|sacrifice|untap|discard)\b)", effect)
+        parts = re.split(r"(?:\s+and |,?\s+then )(?=(?:create|draw|gain|put|sacrifice|untap|discard|double)\b)", effect)
         cursor = 0
+        prior_placement = None
         for part in parts:
             part = part.strip()
             if result := _match_action(part):
@@ -795,7 +856,16 @@ def _compile_line(parsed, evidence, text, type_line, resource_events):
                     obj = MechanicalObject("permanent", ("creature",))
                 if capability_id == "attach_aura":
                     fields.update(targeting="target", source_zone="stack", destination_zone="battlefield")
+                if capability_id == "double_existing_counters" and prior_placement is not None and re.fullmatch(
+                    r"double .+ on (?:it|that (?:creature|permanent))", part,
+                ):
+                    previous = prior_placement
+                    obj = replace(previous.object, subtypes=obj.subtypes)
+                    fields.update(controller=previous.controller, targeting=previous.targeting)
+                    fields["conditions"] = (*fields.get("conditions", ()), "after_prior_counter_placement")
                 emit(capability_id, action, obj, span, **fields)
+                if capability_id == "put_counters":
+                    prior_placement = capabilities[-1]
                 if capability_id == "mass_combat_buff":
                     emit("combat_buff", action, obj, span, **fields)
                 if capability_id == "permanent_bounce":
