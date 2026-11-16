@@ -2,13 +2,13 @@
 
 from collections import Counter, defaultdict
 from collections.abc import Set
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from itertools import islice
 from math import fsum
 
 from mana_architect.deck_pipeline.adapters import EvaluationError
 from mana_architect.deck_pipeline.candidate_pool import (
-    CandidatePoolBuilder, PoolBuildError, PoolConstraints, make_card_candidate,
+    CandidatePoolBuilder, CandidatePoolConfig, PoolBuildError, PoolConstraints, make_card_candidate,
 )
 from mana_architect.deck_pipeline.composition_constraints import OwnedCapacity, check_artifacts, pool_constraints
 from mana_architect.deck_pipeline.composition_utility import (
@@ -16,14 +16,14 @@ from mana_architect.deck_pipeline.composition_utility import (
 )
 from mana_architect.deck_pipeline.contracts import (
     CandidatePool, CandidateStatus, CardCandidate, CompositionCapacity, CompositionCardDecision, CompositionProvenance,
-    DecisionRecord, DeckProposal, Diagnostic, PackageAnalysis, PackageAssessment, PairwiseSynergyAnalysis,
+    DecisionRecord, DeckEntry, DeckProposal, Diagnostic, PackageAnalysis, PackageAssessment, PairwiseSynergyAnalysis,
     PairwiseSynergyEdge, Role, SelectionReason, ValidationIssue, ValidationReport, artifact_digest,
 )
 from mana_architect.deck_pipeline.eligibility import CardEligibility, EligibilityGate
 from mana_architect.deck_pipeline.inventory import CardSnapshot
 from mana_architect.deck_pipeline.mana_base import ManaBase, is_front_land
-from mana_architect.deck_pipeline.pairwise_synergy import PairwiseAnalysisError, PairwiseSynergyAnalyzer
-from mana_architect.deck_pipeline.synergy_packages import PackageBuildError, SynergyPackageBuilder
+from mana_architect.deck_pipeline.pairwise_synergy import PairwiseAnalysisError, PairwiseConfig, PairwiseSynergyAnalyzer
+from mana_architect.deck_pipeline.synergy_packages import PackageBuildError, PackageConfig, SynergyPackageBuilder
 from mana_architect.strategy_synergy import SynergyCatalogContext, load_synergy_context
 
 
@@ -105,7 +105,7 @@ def _shortfalls(
         for role, target in config.role_targets if roles[role] < target
     ]
     if mana.land_count != config.land_target:
-        gaps.append(Diagnostic("land_target_adjusted", "Owned deck capacity required a different land count.",
+        gaps.append(Diagnostic("land_target_adjusted", "Selected land count differs from the configured target.",
                                Role.LANDS, mana.land_count - config.land_target))
     for row in mana.sources:
         dependable = 0.65 * row.direct + 0.35 * row.potentially_untapped
@@ -115,18 +115,25 @@ def _shortfalls(
     return tuple(gaps)
 
 
-class _Selection:
+class DeckSelection:
     """An in-memory decision trace and the current deck utility."""
 
-    def __init__(self, utility: CompositionUtility, land_count: int, cards: dict[str, CardCandidate]) -> None:
+    def __init__(
+        self, utility: CompositionUtility, land_count: int, cards: dict[str, CardCandidate], *,
+        starting_deck: Counter[str] | None = None, source: str = "preliminary_composer",
+    ) -> None:
         self.utility = utility
         self.land_count = land_count
-        self.deck: Counter[str] = Counter()
+        self.deck = Counter(starting_deck)
+        self.source = source
         self.result = utility.evaluate(self.deck, land_count)
         self.log: list[DecisionRecord] = []
         self.reasons: dict[str, set[str]] = defaultdict(set)
         self.deltas: dict[str, Counter[str]] = defaultdict(Counter)
         self.statuses = {card_id: card.status for card_id, card in cards.items()}
+        for card_id in self.deck:
+            self.statuses[card_id] = CandidateStatus.SELECTED
+            self.reasons[card_id].add("retained_from_preliminary_deck")
 
     def commit(self, card_id: str, quantity: int, reason: str, *, evidence: tuple[str, ...] = ()) -> None:
         previous = self.statuses[card_id]
@@ -140,7 +147,7 @@ class _Selection:
         self.result = after
         self.reasons[card_id].add(reason)
         self.log.append(DecisionRecord(
-            len(self.log) + 1, card_id, "preliminary_composer", previous, status,
+            len(self.log) + 1, card_id, self.source, previous, status,
             SelectionReason(reason, evidence_ids=evidence), reason != "locked_card",
         ))
 
@@ -216,6 +223,27 @@ class _Selection:
             self.commit(incoming, 1, "composition_repair_added")
 
 
+@dataclass(frozen=True)
+class PreparedComposition:
+    gate: EligibilityGate
+    pool: CandidatePool
+    packages: PackageAnalysis
+    edges: tuple[PairwiseSynergyEdge, ...]
+    constraints: PoolConstraints
+    cards: dict[str, CardCandidate]
+    capacity: OwnedCapacity
+    diagnostics: CompositionCapacity
+    active: set[str]
+    land_fallback: set[str]
+    provenance: CompositionProvenance
+    utility: CompositionUtility
+    land_count: int
+
+
+def proposal_identity(gate: EligibilityGate, provenance: CompositionProvenance, deck: Counter[str]) -> str:
+    return artifact_digest((gate.context.run_id, asdict(provenance), sorted(deck.items())))
+
+
 class PreliminaryDeckComposer:
     def __init__(
         self, config: CompositionConfig = CompositionConfig(), *, synergy_context: SynergyCatalogContext | None = None,
@@ -226,6 +254,30 @@ class PreliminaryDeckComposer:
     def compose(
         self, gate: EligibilityGate, pool: CandidatePool, pairwise: PairwiseSynergyAnalysis, packages: PackageAnalysis,
     ) -> DeckProposal:
+        prepared = self.prepare(gate, pool, pairwise, packages)
+        if isinstance(prepared, DeckProposal):
+            return prepared
+        selection = DeckSelection(prepared.utility, prepared.land_count, prepared.cards)
+        for card_id in prepared.constraints.locked_card_ids:
+            selection.commit(card_id, 1, "locked_card")
+        members = (
+            package for package in prepared.utility.scorable_packages
+            if prepared.active.issuperset(package.member_card_ids)
+        )
+        seeds = tuple(package.member_card_ids for package in islice(
+            sorted(members, key=lambda item: (-item.score, item.package_id)), self.config.package_seed_limit,
+        ))
+        if not selection.fill(prepared.capacity, gate.context.main_deck_size, seeds):
+            return _failure(gate, (ValidationIssue("selection_stalled", "Unable to fill the reserved deck slots."),),
+                            provenance=prepared.provenance, capacity=prepared.diagnostics)
+        roles = self._coverage(selection.deck, prepared.cards, selection.result)
+        if _shortfalls(self.config, roles, selection.result):
+            selection.repair(prepared.capacity, self.config.repair_budget, set(prepared.constraints.locked_card_ids))
+        return self.describe(prepared, selection)
+
+    def prepare(
+        self, gate: EligibilityGate, pool: CandidatePool, pairwise: PairwiseSynergyAnalysis, packages: PackageAnalysis,
+    ) -> PreparedComposition | DeckProposal:
         if gate.violations:
             return _failure(gate, gate.violations)
         edges, issues = check_artifacts(gate, pool, pairwise, packages, self.catalog)
@@ -309,21 +361,9 @@ class PreliminaryDeckComposer:
             gate.context.commander_card_ids, gate.color_identity,
         )
         utility = CompositionUtility(self.config, cards, mana, edges, packages.packages)
-        selection = _Selection(utility, land_count, cards)
-        for card_id in constraints.locked_card_ids:
-            selection.commit(card_id, 1, "locked_card")
-        members = (package for package in utility.scorable_packages if active.issuperset(package.member_card_ids))
-        seeds = tuple(package.member_card_ids for package in islice(
-            sorted(members, key=lambda item: (-item.score, item.package_id)), self.config.package_seed_limit,
-        ))
-        if not selection.fill(capacity, size, seeds):
-            return _failure(gate, (ValidationIssue("selection_stalled", "Unable to fill the reserved deck slots."),),
-                            provenance=provenance, capacity=diagnostics)
-        roles = self._coverage(selection.deck, cards, selection.result)
-        if _shortfalls(self.config, roles, selection.result):
-            selection.repair(capacity, self.config.repair_budget, locked)
-        return self._finalize(
-            gate, pool, packages, edges, constraints, cards, selection, provenance, diagnostics, land_fallback, active,
+        return PreparedComposition(
+            gate, pool, packages, edges, constraints, cards, capacity, diagnostics, active, land_fallback,
+            provenance, utility, land_count,
         )
 
     @staticmethod
@@ -348,30 +388,42 @@ class PreliminaryDeckComposer:
         coverage[Role.LANDS] = result.mana.land_count
         return coverage
 
-    def _finalize(
-        self, gate: EligibilityGate, pool: CandidatePool, packages: PackageAnalysis, edges: tuple[PairwiseSynergyEdge, ...],
-        constraints: PoolConstraints, cards: dict[str, CardCandidate], selection: _Selection,
-        provenance: CompositionProvenance, diagnostics: CompositionCapacity, land_fallback: set[str],
-        active: set[str],
+    def describe(
+        self, prepared: PreparedComposition, selection: DeckSelection, *,
+        entries: tuple[DeckEntry, ...] | None = None, command_zone: tuple[DeckEntry, ...] | None = None,
+        constraints: PoolConstraints | None = None,
     ) -> DeckProposal:
+        gate, pool, packages = prepared.gate, prepared.pool, prepared.packages
+        constraints = constraints if constraints is not None else prepared.constraints
+        cards = prepared.cards
+        excluded = set(constraints.exclude_card_ids)
         deck = selection.deck
         selected = set(deck)
-        reserves = tuple(sorted(cards.keys() - selected))
+        reserves = tuple(sorted(cards.keys() - selected - excluded))
         assessments = _package_assessments(packages, deck, selection.utility)
         ready_packages = tuple(item for item in assessments if item.package_id is not None and not item.missing_card_ids)
         present = selected | set(gate.context.commander_card_ids)
         supported_edges = tuple(
-            edge for edge in edges if {edge.source_card_id, edge.target_card_id} <= present
+            edge for edge in prepared.edges if {edge.source_card_id, edge.target_card_id} <= present
         )
         decisions = []
+        decision_log = list(selection.log)
         for card_id, card in sorted(cards.items()):
+            if card_id in excluded:
+                decisions.append(CompositionCardDecision(
+                    card_id, CandidateStatus.EXCLUDED, 0, (), ("user_excluded",), name=card.name,
+                ))
+                continue
             status = CandidateStatus.SELECTED if card_id in deck else CandidateStatus.RESERVE
             reasons = set(selection.reasons[card_id])
             if status is CandidateStatus.RESERVE:
-                reserve_reason = "not_selected" if card_id in active else "reserve_fallback_not_needed"
+                reserve_reason = (
+                    "not_selected" if card_id in prepared.active or selection.source == "deck_refinement"
+                    else "reserve_fallback_not_needed"
+                )
                 reasons.add(reserve_reason)
                 reasons.update(reason.code for reason in card.selection_reasons)
-            elif card_id in land_fallback:
+            elif card_id in prepared.land_fallback:
                 reasons.add("owned_land_fallback")
             elif card.status is CandidateStatus.RESERVE:
                 reasons.add("owned_reserve_fallback")
@@ -386,8 +438,8 @@ class PreliminaryDeckComposer:
                 if deltas["joint_synergy"] > 0:
                     reasons.add("joint_synergy")
             if status is CandidateStatus.RESERVE:
-                selection.log.append(DecisionRecord(
-                    len(selection.log) + 1, card_id, "preliminary_composer", selection.statuses[card_id],
+                decision_log.append(DecisionRecord(
+                    len(decision_log) + 1, card_id, selection.source, selection.statuses[card_id],
                     status, SelectionReason(reserve_reason), True,
                 ))
             evidence = {event for profile in card.role_profiles if profile.qualifies for event in profile.evidence_ids}
@@ -419,14 +471,18 @@ class PreliminaryDeckComposer:
             gaps.append(Diagnostic("upstream_search_limited", "The upstream synergy search reached a configured work limit."))
         if any(item.status == "conditional" and not item.modeled_requirements_supported for item in ready_packages):
             gaps.append(Diagnostic("unresolved_package_prerequisites", "Conditional packages retain their timing and resource requirements."))
-        commanders = tuple(gate.allocate_entry(card_id, 1) for card_id in gate.context.commander_card_ids)
-        main_deck = tuple(gate.allocate_entry(card_id, quantity) for card_id, quantity in sorted(deck.items()))
+        commanders = command_zone if command_zone is not None else tuple(
+            gate.allocate_entry(card_id, 1) for card_id in gate.context.commander_card_ids
+        )
+        main_deck = entries if entries is not None else tuple(
+            gate.allocate_entry(card_id, quantity) for card_id, quantity in sorted(deck.items())
+        )
         proposal = DeckProposal(
-            artifact_digest((gate.context.run_id, asdict(provenance), sorted(deck.items()))),
+            proposal_identity(gate, prepared.provenance, deck),
             gate.context.run_id, gate.context.commander_card_ids, main_deck, reserves,
             tuple(item.package_id for item in ready_packages), tuple(sorted(roles.items())), result.mana.curve,
-            selection.utility.mana.diagnostics(deck, result.mana), decision_log=tuple(selection.log),
-            command_zone=commanders, provenance=provenance, capacity=diagnostics,
+            selection.utility.mana.diagnostics(deck, result.mana), decision_log=tuple(decision_log),
+            command_zone=commanders, provenance=prepared.provenance, capacity=prepared.diagnostics,
             utility_breakdown=tuple((name, round(value, 6)) for name, value in result.components),
             card_decisions=tuple(sorted(decisions, key=lambda item: item.card_id)), package_assessments=assessments,
             mana_sources=result.mana.sources, unmet_objectives=tuple(gaps),
@@ -439,17 +495,28 @@ class PreliminaryDeckComposer:
         return replace(proposal, validation=validation, proposal_status="valid" if validation.is_legal else "infeasible")
 
 
+def build_preliminary_artifacts(
+    gate: EligibilityGate, catalog: SynergyCatalogContext, *, constraints: PoolConstraints = PoolConstraints(),
+    pool_config: CandidatePoolConfig = CandidatePoolConfig(), pairwise_config: PairwiseConfig = PairwiseConfig(),
+    package_config: PackageConfig = PackageConfig(),
+) -> tuple[CandidatePool, PairwiseSynergyAnalysis, PackageAnalysis] | DeckProposal:
+    if gate.violations:
+        return _failure(gate, gate.violations)
+    try:
+        pool = CandidatePoolBuilder(pool_config, synergy_context=catalog).build(gate, constraints=constraints)
+        pairwise = PairwiseSynergyAnalyzer(pairwise_config, synergy_context=catalog).analyze(gate, pool)
+        packages = SynergyPackageBuilder(package_config, synergy_context=catalog).build(gate, pool, pairwise)
+    except (PoolBuildError, EvaluationError, PairwiseAnalysisError, PackageBuildError) as error:
+        return _failure(gate, error.violations)
+    return pool, pairwise, packages
+
+
 def run_preliminary_pipeline(
     gate: EligibilityGate, *, constraints: PoolConstraints = PoolConstraints(),
     config: CompositionConfig = CompositionConfig(), synergy_context: SynergyCatalogContext | None = None,
 ) -> DeckProposal:
-    if gate.violations:
-        return _failure(gate, gate.violations)
     catalog = synergy_context or load_synergy_context()
-    try:
-        pool = CandidatePoolBuilder(synergy_context=catalog).build(gate, constraints=constraints)
-        pairwise = PairwiseSynergyAnalyzer(synergy_context=catalog).analyze(gate, pool)
-        packages = SynergyPackageBuilder(synergy_context=catalog).build(gate, pool, pairwise)
-    except (PoolBuildError, EvaluationError, PairwiseAnalysisError, PackageBuildError) as error:
-        return _failure(gate, error.violations)
-    return PreliminaryDeckComposer(config, synergy_context=catalog).compose(gate, pool, pairwise, packages)
+    artifacts = build_preliminary_artifacts(gate, catalog, constraints=constraints)
+    if isinstance(artifacts, DeckProposal):
+        return artifacts
+    return PreliminaryDeckComposer(config, synergy_context=catalog).compose(gate, *artifacts)

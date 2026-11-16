@@ -18,7 +18,9 @@ constraints=PoolConstraints(...), config=CompositionConfig(...))`. When the
 upstream artifacts already exist, call
 `PreliminaryDeckComposer(config).compose(gate, pool, pairwise, packages)`.
 Both entry points return the shared `DeckProposal`. The proposal and the
-original artifacts can be passed to future deck refinement.
+original artifacts can be passed to deck refinement. The CLI includes replay
+inputs in valid proposals for the saved-deck workflow.
+[Refinement guide](phase-5.md)
 
 ## Legality and inventory
 

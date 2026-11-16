@@ -21,18 +21,32 @@ from mana_architect.database import (
 )
 from mana_architect.deck_pipeline.adapters import ENGINE_VERSIONS
 from mana_architect.deck_pipeline.candidate_pool import CandidatePoolConfig, PoolConstraints
+from mana_architect.deck_pipeline.composition_replay import CompositionReplay, ReplayError, read_saved_proposal
 from mana_architect.deck_pipeline.composition_utility import CompositionConfig
-from mana_architect.deck_pipeline.contracts import DeckBuildingContext, StrategyPreference, artifact_digest
+from mana_architect.deck_pipeline.contracts import (
+    DeckBuildingContext, DeckProposal, StrategyPreference, ValidationIssue, artifact_digest,
+)
 from mana_architect.deck_pipeline.eligibility import EligibilityGate, PARTNER_RULESET_VERSION
 from mana_architect.deck_pipeline.inventory import CollectionSnapshot, load_collection_snapshot
-from mana_architect.deck_pipeline.preliminary_composer import run_preliminary_pipeline
+from mana_architect.deck_pipeline.preliminary_composer import PreliminaryDeckComposer
+from mana_architect.deck_pipeline.refinement import DeckRefinementEngine, RefinementConfig, RefinementResult
 from mana_architect.importer import import_manabox_csv
 from mana_architect.manabox import ImportFormatError
 from mana_architect.models import SyncMetadata
 from mana_architect.roles import classify_card_roles
 from mana_architect.scryfall import ScryfallError, sync_collection
-from mana_architect.strategy_synergy import SelectedStrategy
+from mana_architect.strategy_synergy import SelectedStrategy, load_synergy_context
 from mana_architect.validation import load_deck_file, validate_deck
+
+
+def _composition_options(command: argparse.ArgumentParser) -> None:
+    command.add_argument("--partner", help="Exact name or Oracle ID of the second Partner commander.")
+    command.add_argument("--strategy", action="append", default=[], metavar="ID[=PRIORITY]")
+    command.add_argument("--land-target", type=int, help="Soft target for front-face lands (default: 38).")
+    command.add_argument("--lock", action="append", default=[], metavar="ORACLE_ID")
+    command.add_argument("--exclude", action="append", default=[], metavar="ORACLE_ID")
+    command.add_argument("--output", type=Path, help="Write the JSON result to a file.")
+    command.add_argument("--overwrite", action="store_true")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -155,14 +169,18 @@ def build_parser() -> argparse.ArgumentParser:
         "compose", help="Compose and validate a preliminary Commander deck from owned cards.",
     )
     compose_command.add_argument("commander", help="Exact name or Oracle ID of an owned commander.")
-    compose_command.add_argument("--partner", help="Exact name or Oracle ID of the second Partner commander.")
-    compose_command.add_argument("--strategy", action="append", default=[], metavar="ID[=PRIORITY]")
-    compose_command.add_argument("--land-target", type=int, default=CompositionConfig().land_target,
-                                 help="Soft target for front-face lands.")
-    compose_command.add_argument("--lock", action="append", default=[], metavar="ORACLE_ID")
-    compose_command.add_argument("--exclude", action="append", default=[], metavar="ORACLE_ID")
-    compose_command.add_argument("--output", type=Path, help="Write the proposal JSON to a file.")
-    compose_command.add_argument("--overwrite", action="store_true")
+    _composition_options(compose_command)
+
+    refine_command = commands.add_parser("refine", help="Improve an owned Commander deck through bounded legal swaps.")
+    refine_command.add_argument("commander", nargs="?", help="Compose and refine a deck for an owned commander.")
+    refine_command.add_argument("--proposal", type=Path, help="Refine the exact deck in a saved proposal JSON file.")
+    _composition_options(refine_command)
+    refine_command.add_argument("--prefer", action="append", default=[], metavar="ORACLE_ID")
+    limits = RefinementConfig()
+    refine_command.add_argument("--max-swaps", type=int, default=limits.max_swaps)
+    refine_command.add_argument("--attempts-per-iteration", type=int, default=limits.attempts_per_iteration)
+    refine_command.add_argument("--max-attempts", type=int, default=limits.max_attempts)
+    refine_command.add_argument("--min-improvement", type=float, default=limits.min_improvement)
 
     search_command.add_argument(
         "--color",
@@ -194,7 +212,7 @@ def _snapshot_oracle_id(snapshot: CollectionSnapshot, identifier: str) -> str:
     return matches[0] if matches else value
 
 
-def _compose(args: argparse.Namespace, snapshot: CollectionSnapshot) -> int:
+def _composition_inputs(args: argparse.Namespace, snapshot: CollectionSnapshot) -> CompositionReplay:
     commander_ids = tuple(sorted(
         _snapshot_oracle_id(snapshot, value) for value in (args.commander, args.partner) if value is not None
     ))
@@ -204,7 +222,7 @@ def _compose(args: argparse.Namespace, snapshot: CollectionSnapshot) -> int:
         preferences.append(StrategyPreference(strategy_id, float(priority) if separator else 1.0))
     strategies = tuple(sorted(preferences, key=lambda item: item.strategy_id))
     pool_config = CandidatePoolConfig()
-    config = CompositionConfig(land_target=args.land_target)
+    config = CompositionConfig() if args.land_target is None else CompositionConfig(land_target=args.land_target)
     constraints = PoolConstraints(tuple(args.exclude), tuple(args.lock))
     run_id = artifact_digest((
         snapshot.snapshot_id, commander_ids, [(item.strategy_id, item.weight) for item in strategies],
@@ -214,14 +232,83 @@ def _compose(args: argparse.Namespace, snapshot: CollectionSnapshot) -> int:
         run_id, commander_ids, snapshot.snapshot_id, PARTNER_RULESET_VERSION,
         ENGINE_VERSIONS, pool_config.version, strategies,
     )
-    result = run_preliminary_pipeline(EligibilityGate(context, snapshot), constraints=constraints, config=config)
-    payload = json.dumps(result.to_json(), sort_keys=True, indent=2, ensure_ascii=True, allow_nan=False)
+    return CompositionReplay(context, constraints, config, pool_config)
+
+
+def _write_json(args: argparse.Namespace, data: dict[str, object]) -> None:
+    payload = json.dumps(data, sort_keys=True, indent=2, ensure_ascii=True, allow_nan=False)
     if args.output is None:
         print(payload)
     else:
         with args.output.open("w" if args.overwrite else "x", encoding="utf-8", newline="\n") as output:
             output.write(payload + "\n")
+
+
+def _compose(args: argparse.Namespace, snapshot: CollectionSnapshot) -> int:
+    replay = _composition_inputs(args, snapshot)
+    gate = EligibilityGate(replay.context, snapshot)
+    catalog = load_synergy_context()
+    artifacts = replay.build(gate, catalog)
+    if isinstance(artifacts, DeckProposal):
+        result = artifacts
+    else:
+        result = PreliminaryDeckComposer(replay.composition_config, synergy_context=catalog).compose(gate, *artifacts)
+    payload = result.to_json()
+    if result.proposal_status == "valid":
+        payload["replay"] = replay.manifest(result)
+    _write_json(args, payload)
     return 0 if result.proposal_status == "valid" else 1
+
+
+def _run_refinement(
+    args: argparse.Namespace, snapshot: CollectionSnapshot,
+) -> tuple[RefinementResult, CompositionReplay]:
+    if (args.proposal is None) == (args.commander is None):
+        raise ReplayError("conflicting_refine_inputs", "Provide either a commander or --proposal.")
+    if args.proposal is not None:
+        if args.partner is not None or args.strategy or args.land_target is not None:
+            raise ReplayError("conflicting_refine_inputs", "The saved proposal supplies the partner, strategy, and land target.")
+        proposal, replay = read_saved_proposal(args.proposal)
+        if replay.context.collection_snapshot_id != snapshot.snapshot_id:
+            raise ReplayError("stale_collection_snapshot", "The collection snapshot changed. Compose a new proposal.")
+        extra_constraints = PoolConstraints(tuple(args.exclude), tuple(args.lock))
+    else:
+        proposal = None
+        replay = _composition_inputs(args, snapshot)
+        extra_constraints = PoolConstraints()
+
+    search = RefinementConfig(args.max_swaps, args.attempts_per_iteration, args.max_attempts, args.min_improvement)
+    catalog = load_synergy_context()
+    gate = EligibilityGate(replay.context, snapshot)
+    artifacts = replay.build(gate, catalog)
+    if isinstance(artifacts, DeckProposal):
+        return RefinementResult.failure(*artifacts.validation.violations), replay
+    engine = DeckRefinementEngine(
+        search, composition_config=replay.composition_config, constraints=extra_constraints,
+        preferred_card_ids=tuple(args.prefer), synergy_context=catalog,
+    )
+    if proposal is None:
+        proposal = engine.composer.compose(gate, *artifacts)
+        if proposal.validation.violations:
+            return RefinementResult.failure(*proposal.validation.violations), replay
+    return engine.refine(gate, proposal, *artifacts), replay
+
+
+def _refine(args: argparse.Namespace, snapshot: CollectionSnapshot) -> int:
+    try:
+        result, replay = _run_refinement(args, snapshot)
+    except ReplayError as error:
+        result, replay = RefinementResult.failure(error.issue), None
+    except ValueError as error:
+        result, replay = RefinementResult.failure(ValidationIssue("invalid_refinement_inputs", str(error))), None
+
+    payload = result.to_json()
+    if replay is not None and result.proposal is not None:
+        for state, snapshot in zip(payload["snapshots"], result.snapshots, strict=True):
+            state["proposal"]["replay"] = replay.manifest(snapshot.proposal)
+        payload["proposal"] = payload["snapshots"][-1]["proposal"]
+    _write_json(args, payload)
+    return 1 if result.status == "invalid_input" else 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -294,11 +381,11 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result.to_json(), indent=2, allow_nan=False))
             return 0
 
-        if args.command == "compose":
+        if args.command in {"compose", "refine"}:
             session_factory = create_session_factory(engine)
             with session_factory() as session:
                 snapshot = load_collection_snapshot(session)
-            return _compose(args, snapshot)
+            return _compose(args, snapshot) if args.command == "compose" else _refine(args, snapshot)
 
         if args.command == "validate-deck":
             commander_identifier, deck_cards = load_deck_file(args.path)

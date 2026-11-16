@@ -172,6 +172,19 @@ or `--exclude ORACLE_ID` for individual cards. Each option can be repeated.
 See the [preliminary composer guide](docs/deck-building/decisions/phase-4.md)
 for defaults and the Python API.
 
+## Refine a Commander Deck
+
+```powershell
+python -m mana_architect refine "Anowon, the Ruin Thief" --strategy tokens --output refined.json
+python -m mana_architect refine --proposal preliminary.json --output refined.json
+```
+
+Refinement tries bounded one-card swaps using the same utility as composition
+and validates each accepted deck. The report includes every attempted swap and
+the starting and accepted deck snapshots. Saved proposals require a replay
+manifest and the collection snapshot used for composition.
+[Refinement guide](docs/deck-building/decisions/phase-5.md)
+
 ## Generate a Deck Draft
 
 ```powershell

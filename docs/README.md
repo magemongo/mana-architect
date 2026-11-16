@@ -9,6 +9,7 @@
 - [Synergy Package Builder](deck-building/decisions/phase-3.md) documents package discovery, closure, and the Phase 4 handoff.
 - [Phase 2 to Phase 3 validation](deck-building/phase-2-3-validation.md) records the golden scenarios, measured release gates, and recommended fixes.
 - [Preliminary Deck Composer](deck-building/decisions/phase-4.md) documents composition, validation, and the CLI and Python APIs.
+- [Deck Refinement Engine](deck-building/decisions/phase-5.md) documents swap search, replay, and the refinement audit.
 - [Synergy and role scoring](synergy-scoring.md) describes candidate ranking and scoring evidence.
 - [EDHREC theme coverage](edhrec-themes.md) lists scored strategies and reference themes.
 - [Oracle text parser](oracle-text-parser.md) describes the parser contract, downstream evaluators, and inspector.

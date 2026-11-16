@@ -9,10 +9,9 @@ from mana_architect.deck_pipeline.contracts import (
     DeckProposal,
     PackageAnalysis,
     PairwiseSynergyAnalysis,
-    PairwiseSynergyEdge,
-    SynergyPackage,
 )
 from mana_architect.deck_pipeline.eligibility import EligibilityGate
+from mana_architect.deck_pipeline.refinement import RefinementResult
 
 
 class CandidatePoolBuilder(Protocol):
@@ -45,6 +44,6 @@ class PreliminaryDeckComposer(Protocol):
 
 class DeckRefinementEngine(Protocol):
     def refine(
-        self, gate: EligibilityGate, pool: CandidatePool, edges: tuple[PairwiseSynergyEdge, ...],
-        packages: tuple[SynergyPackage, ...], proposal: DeckProposal,
-    ) -> DeckProposal: ...
+        self, gate: EligibilityGate, proposal: DeckProposal, pool: CandidatePool,
+        pairwise: PairwiseSynergyAnalysis, packages: PackageAnalysis,
+    ) -> RefinementResult: ...
