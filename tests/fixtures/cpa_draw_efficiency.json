@@ -1,0 +1,111 @@
+{
+  "source": "Scryfall default-cards local snapshot",
+  "snapshot_sha256": "d190c5ed83e3487daab01a69ff5f50c1d4ee55e1e83f0b08bfe295e2b9477672",
+  "expectations_source": "Independently reviewed fixed printed effects and CPA guide section 5.3; no evaluator-derived labels.",
+  "cards": {
+    "Opportunity": {
+      "oracle_id": "1f544a9f-c238-4858-be19-d6cd7d023dcc",
+      "name": "Opportunity",
+      "oracle_text": "Target player draws four cards.",
+      "mana_cost": "{4}{U}{U}",
+      "cmc": 6.0,
+      "type_line": "Instant",
+      "color_identity": [
+        "U"
+      ],
+      "scryfall_uri": "https://scryfall.com/card/brb/47/opportunity?utm_source=api",
+      "commander_legality": "legal"
+    },
+    "Brilliant Plan": {
+      "oracle_id": "d83e1a42-11d1-412a-b66c-850c7a528777",
+      "name": "Brilliant Plan",
+      "oracle_text": "Draw three cards.",
+      "mana_cost": "{4}{U}",
+      "cmc": 5.0,
+      "type_line": "Sorcery",
+      "color_identity": [
+        "U"
+      ],
+      "scryfall_uri": "https://scryfall.com/card/gs1/17/brilliant-plan?utm_source=api",
+      "commander_legality": "legal"
+    },
+    "Divination": {
+      "oracle_id": "273b339c-964b-4a18-8eb5-ceb8abcdfd9e",
+      "name": "Divination",
+      "oracle_text": "Draw two cards.",
+      "mana_cost": "{2}{U}",
+      "cmc": 3.0,
+      "type_line": "Sorcery",
+      "color_identity": [
+        "U"
+      ],
+      "scryfall_uri": "https://scryfall.com/card/m12/50/divination?utm_source=api",
+      "commander_legality": "legal"
+    },
+    "Concentrate": {
+      "oracle_id": "a3d287ec-1a39-4f91-acf1-7c1d2c00ed89",
+      "name": "Concentrate",
+      "oracle_text": "Draw three cards.",
+      "mana_cost": "{2}{U}{U}",
+      "cmc": 4.0,
+      "type_line": "Sorcery",
+      "color_identity": [
+        "U"
+      ],
+      "scryfall_uri": "https://scryfall.com/card/pca/16/concentrate?utm_source=api",
+      "commander_legality": "legal"
+    },
+    "Inspiration": {
+      "oracle_id": "8f32ceb2-92c2-4dde-bf73-40bb79c3fcef",
+      "name": "Inspiration",
+      "oracle_text": "Target player draws two cards.",
+      "mana_cost": "{3}{U}",
+      "cmc": 4.0,
+      "type_line": "Instant",
+      "color_identity": [
+        "U"
+      ],
+      "scryfall_uri": "https://scryfall.com/card/6ed/76/inspiration?utm_source=api",
+      "commander_legality": "legal"
+    },
+    "Painful Truths": {
+      "oracle_id": "58a2d15f-1b4b-4303-b524-8cc0d1b3e7d2",
+      "name": "Painful Truths",
+      "oracle_text": "Converge — You draw X cards and lose X life, where X is the number of colors of mana spent to cast this spell.",
+      "mana_cost": "{2}{B}",
+      "cmc": 3.0,
+      "type_line": "Sorcery",
+      "color_identity": [
+        "B"
+      ],
+      "scryfall_uri": "https://scryfall.com/card/moc/262/painful-truths?utm_source=api",
+      "commander_legality": "legal"
+    },
+    "Time Stretch": {
+      "oracle_id": "72e56963-a9dd-44dc-a4d3-992b4d89dd28",
+      "name": "Time Stretch",
+      "oracle_text": "Target player takes two extra turns after this one.",
+      "mana_cost": "{8}{U}{U}",
+      "cmc": 10.0,
+      "type_line": "Sorcery",
+      "color_identity": [
+        "U"
+      ],
+      "scryfall_uri": "https://scryfall.com/card/sld/2701/time-stretch?utm_source=api",
+      "commander_legality": "legal"
+    },
+    "Thassa's Bounty": {
+      "oracle_id": "c43425c1-ad01-4088-a061-f691fa2f6c20",
+      "name": "Thassa's Bounty",
+      "oracle_text": "Draw three cards. Target player mills three cards.",
+      "mana_cost": "{5}{U}",
+      "cmc": 6.0,
+      "type_line": "Sorcery",
+      "color_identity": [
+        "U"
+      ],
+      "scryfall_uri": "https://scryfall.com/card/ths/67/thassas-bounty?utm_source=api",
+      "commander_legality": "legal"
+    }
+  }
+}

@@ -10,6 +10,7 @@ from mana_architect.collection_playability.contracts import (
     PlayabilityProfile, PlayabilityProvenance,
 )
 from mana_architect.collection_playability.mechanics import evaluate_mechanics
+from mana_architect.collection_playability.efficiency import MAX_PEERS, evaluate_efficiency, supports_efficiency_search
 from mana_architect.deck_pipeline.adapters import ENGINE_VERSIONS, parse_card_snapshot
 from mana_architect.deck_pipeline.contracts import PairwiseSynergyAnalysis, artifact_digest
 from mana_architect.deck_pipeline.inventory import CardSnapshot, CollectionSnapshot, OwnedPrinting
@@ -78,9 +79,36 @@ class CollectionInputs:
         return tuple(self._printings.get(None, ()))
 
     def analyze(self, card_id: str) -> CollectionCardInputs:
-        """Return native inputs together with Phase 1 mechanical and applicability findings."""
+        """Return native inputs, mechanical findings and bounded efficiency evidence."""
         inputs = self.card(card_id)
-        return replace(inputs, profile=evaluate_mechanics(inputs, self._catalog.strategies))
+        inputs = replace(inputs, profile=evaluate_mechanics(inputs, self._catalog.strategies))
+        if not supports_efficiency_search(inputs):
+            return replace(inputs, profile=replace(inputs.profile, coverage=(*inputs.profile.coverage,
+                Coverage("effect_efficiency", EvaluationStatus.UNSUPPORTED,
+                         limitations=("outside_verified_fixed_draw_spell_model",)))))
+        # This cheap prefilter bounds native extraction; compatibility is checked later.
+        candidates = []
+        truncated = False
+        for card in self._snapshot.cards:
+            if (card.card_id == card_id or card.type_line != "Sorcery" or not card.oracle_text
+                    or not card.oracle_text.strip().casefold().startswith("draw ")):
+                continue
+            if len(candidates) == MAX_PEERS:
+                truncated = True
+                break
+            candidates.append(card)
+        peers = []
+        for card in candidates:
+            peer = self.card(card.card_id)
+            peers.append(replace(peer, profile=evaluate_mechanics(peer, self._catalog.strategies)))
+        profile = evaluate_efficiency(inputs, peers)
+        evaluated = any(item.assessment != "unknown" for item in profile.efficiency_findings)
+        profile = replace(profile, coverage=(*profile.coverage, Coverage(
+            "effect_efficiency", EvaluationStatus.EVALUATED if evaluated else EvaluationStatus.INSUFFICIENT_EVIDENCE,
+            limitations=("fixed_draw_component_only", "owned_peer_search_bounded_to_64",
+                         "not_a_whole_spell_or_global_assessment",
+                         *(("peer_search_truncated",) if truncated else ())))))
+        return replace(inputs, profile=profile)
 
     def _bind_pairwise(self, pairwise: PairwiseSynergyAnalysis) -> None:
         provenance = pairwise.provenance

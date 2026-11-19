@@ -203,6 +203,28 @@ class MechanicalUse:
 
 
 @dataclass(frozen=True)
+class EfficiencyFinding:
+    role_id: str
+    execution_unit_id: str
+    assessment: Literal["higher_mana_for_same_draw", "unknown"]
+    evidence_ids: tuple[str, ...]
+    peer_card_id: str | None = None
+    conditions: tuple[str, ...] = ()
+    explanation: tuple[str, ...] = ()
+    model_version: str = "cpa-efficiency-v1"
+
+    def __post_init__(self) -> None:
+        if not self.role_id or not self.execution_unit_id or not self.evidence_ids:
+            raise ValueError("Efficiency findings require a role, execution unit and evidence.")
+        if self.assessment not in {"higher_mana_for_same_draw", "unknown"}:
+            raise ValueError("Unknown efficiency assessment.")
+        if self.assessment == "higher_mana_for_same_draw" and not self.peer_card_id:
+            raise ValueError("Relative efficiency requires a peer.")
+        for name in ("evidence_ids", "conditions", "explanation"):
+            object.__setattr__(self, name, tuple(sorted(set(getattr(self, name)))))
+
+
+@dataclass(frozen=True)
 class ExecutionUnit:
     unit_id: str
     card_id: str
@@ -331,6 +353,7 @@ class PlayabilityProfile(Artifact):
     execution_units: tuple[ExecutionUnit, ...] = ()
     boundary_coverage: tuple[BoundaryCoverage, ...] = ()
     card_dependencies: tuple[CardDependency, ...] = ()
+    efficiency_findings: tuple[EfficiencyFinding, ...] = ()
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -387,6 +410,20 @@ class PlayabilityProfile(Artifact):
                 raise ValueError("Execution unit target evidence must belong to the unit.")
         if any(use.execution_unit_id and use.execution_unit_id not in unit_ids for use in self.mechanical_uses):
             raise ValueError("Mechanical use references an unknown execution unit.")
+        for finding in self.efficiency_findings:
+            if finding.execution_unit_id not in unit_ids or set(finding.evidence_ids) - evidence.keys():
+                raise ValueError("Efficiency findings require resolved units and evidence.")
+            refs = [evidence[key] for key in finding.evidence_ids]
+            if not any(ref.card_id == self.card_id for ref in refs):
+                raise ValueError("Efficiency finding requires subject evidence.")
+            if finding.peer_card_id and (finding.peer_card_id == self.card_id or
+                    {ref.card_id for ref in refs} != {self.card_id, finding.peer_card_id}):
+                raise ValueError("Efficiency peer findings require evidence from both cards.")
+            if finding.assessment != "unknown" and not any(
+                use.role_id == finding.role_id and use.execution_unit_id == finding.execution_unit_id
+                and use.safety != "unsupported" for use in self.mechanical_uses
+            ):
+                raise ValueError("Positive efficiency findings require a supported use.")
         for item in self.coverage:
             references = [evidence[key] for key in item.evidence_ids]
             if any(ref.source != item.source for ref in references):
@@ -411,7 +448,7 @@ class PlayabilityProfile(Artifact):
         object.__setattr__(self, "evidence", tuple(evidence[key] for key in sorted(evidence)))
         for name in ("dimensions", "preservation_flags", "reasons"):
             object.__setattr__(self, name, tuple(sorted(set(getattr(self, name)))))
-        for name in ("coverage", "viable_contexts", "comparisons", "mechanical_uses", "execution_units", "boundary_coverage", "card_dependencies"):
+        for name in ("coverage", "viable_contexts", "comparisons", "mechanical_uses", "execution_units", "boundary_coverage", "card_dependencies", "efficiency_findings"):
             object.__setattr__(self, name, tuple(sorted(getattr(self, name), key=lambda item: artifact_digest(asdict(item)))))
 
     def to_json(self) -> dict[str, object]:

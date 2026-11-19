@@ -1,0 +1,171 @@
+{
+  "source": "Local Scryfall default-cards cache; file timestamp is not an upstream publication date",
+  "snapshot_sha256": "d190c5ed83e3487daab01a69ff5f50c1d4ee55e1e83f0b08bfe295e2b9477672",
+  "file_last_modified_utc": "2026-11-11T15:00:09Z",
+  "expectations": "Manually authored from Oracle text before inspecting CPA probe output; bounded rules interpretation.",
+  "cards": {
+    "Mind Stone": {
+      "oracle_id": "c97361b5-af16-4a7b-af85-a429dbaf4ad2",
+      "name": "Mind Stone",
+      "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+      "mana_cost": "{2}",
+      "cmc": 2.0,
+      "type_line": "Artifact",
+      "color_identity": [],
+      "scryfall_uri": "https://scryfall.com/card/afc/211/mind-stone?utm_source=api",
+      "produced_mana": [
+        "C"
+      ],
+      "keywords": [],
+      "colors": [],
+      "layout": "normal",
+      "commander_legality": "legal",
+      "expected": {
+        "activation_cost": "{1}, {T}, Sacrifice this artifact",
+        "effect": "Draw a card.",
+        "requirements": [
+          "mana 1",
+          "tap source",
+          "sacrifice source"
+        ],
+        "repeatability": "not repeatable with the same object without external resources",
+        "uncertainty": "The separate mana ability and sacrifice tradeoff matter."
+      }
+    },
+    "Tome of Legends": {
+      "oracle_id": "cada2a1c-5db2-4702-9a57-cbe7da1bf208",
+      "name": "Tome of Legends",
+      "oracle_text": "This artifact enters with a page counter on it.\nWhenever your commander enters or attacks, put a page counter on this artifact.\n{1}, {T}, Remove a page counter from this artifact: Draw a card.",
+      "mana_cost": "{2}",
+      "cmc": 2.0,
+      "type_line": "Artifact — Book",
+      "color_identity": [],
+      "scryfall_uri": "https://scryfall.com/card/eld/332/tome-of-legends?utm_source=api",
+      "produced_mana": null,
+      "keywords": [],
+      "colors": [],
+      "layout": "normal",
+      "commander_legality": "legal",
+      "expected": {
+        "activation_cost": "{1}, {T}, Remove a page counter from this artifact",
+        "effect": "Draw a card.",
+        "requirements": [
+          "mana 1",
+          "tap source",
+          "remove page counter"
+        ],
+        "repeatability": "conditional on counters and ability to tap",
+        "uncertainty": "Counter replenishment depends on commander events."
+      }
+    },
+    "Jayemdae Tome": {
+      "oracle_id": "39ee576a-0803-4063-9c84-f2b537e4d44c",
+      "name": "Jayemdae Tome",
+      "oracle_text": "{4}, {T}: Draw a card.",
+      "mana_cost": "{4}",
+      "cmc": 4.0,
+      "type_line": "Artifact — Book",
+      "color_identity": [],
+      "scryfall_uri": "https://scryfall.com/card/5ed/384/jayemdae-tome?utm_source=api",
+      "produced_mana": null,
+      "keywords": [],
+      "colors": [],
+      "layout": "normal",
+      "commander_legality": "legal",
+      "expected": {
+        "activation_cost": "{4}, {T}",
+        "effect": "Draw a card.",
+        "requirements": [
+          "mana 4",
+          "tap source"
+        ],
+        "repeatability": "conditional on being able to pay and tap again",
+        "uncertainty": "No unconditional repeatability or efficiency conclusion."
+      }
+    },
+    "Arch of Orazca": {
+      "oracle_id": "3bb518ff-399b-4ce7-b9ad-a1d563dd7792",
+      "name": "Arch of Orazca",
+      "oracle_text": "Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\n{T}: Add {C}.\n{5}, {T}: Draw a card. Activate only if you have the city's blessing.",
+      "mana_cost": "",
+      "cmc": 0.0,
+      "type_line": "Land",
+      "color_identity": [],
+      "scryfall_uri": "https://scryfall.com/card/cmm/986/arch-of-orazca?utm_source=api",
+      "produced_mana": [
+        "C"
+      ],
+      "keywords": [
+        "Ascend"
+      ],
+      "colors": [],
+      "layout": "normal",
+      "commander_legality": "legal",
+      "expected": {
+        "activation_cost": "{5}, {T}",
+        "effect": "Draw a card.",
+        "requirements": [
+          "mana 5",
+          "tap source",
+          "city blessing"
+        ],
+        "repeatability": "conditional on timing, blessing and ability to tap",
+        "uncertainty": "Ascend and blessing semantics need separate verification."
+      }
+    },
+    "Greed": {
+      "oracle_id": "1ff62220-be95-4901-b8d8-812b9a1a1b0a",
+      "name": "Greed",
+      "oracle_text": "{B}, Pay 2 life: Draw a card.",
+      "mana_cost": "{3}{B}",
+      "cmc": 4.0,
+      "type_line": "Enchantment",
+      "color_identity": [
+        "B"
+      ],
+      "scryfall_uri": "https://scryfall.com/card/leg/101/greed?utm_source=api",
+      "produced_mana": null,
+      "keywords": [],
+      "colors": [
+        "B"
+      ],
+      "layout": "normal",
+      "commander_legality": "legal",
+      "expected": {
+        "activation_cost": "{B}, Pay 2 life",
+        "effect": "Draw a card.",
+        "requirements": [
+          "black mana",
+          "pay 2 life"
+        ],
+        "repeatability": "conditional on paying each activation",
+        "uncertainty": "Life and mana are distinct resources."
+      }
+    },
+    "Jalum Tome": {
+      "oracle_id": "32d9fd98-142b-41d2-b8f0-40ae1d4cb991",
+      "name": "Jalum Tome",
+      "oracle_text": "{2}, {T}: Draw a card, then discard a card.",
+      "mana_cost": "{3}",
+      "cmc": 3.0,
+      "type_line": "Artifact — Book",
+      "color_identity": [],
+      "scryfall_uri": "https://scryfall.com/card/cmr/318/jalum-tome?utm_source=api",
+      "produced_mana": null,
+      "keywords": [],
+      "colors": [],
+      "layout": "normal",
+      "commander_legality": "legal",
+      "expected": {
+        "activation_cost": "{2}, {T}",
+        "effect": "Draw a card, then discard a card.",
+        "requirements": [
+          "mana 2",
+          "tap source"
+        ],
+        "repeatability": "conditional on ability to tap and pay",
+        "uncertainty": "Discard is a resolution effect, not an activation cost."
+      }
+    }
+  }
+}
