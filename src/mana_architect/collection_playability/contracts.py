@@ -2,11 +2,13 @@
 
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
+import re
 from typing import Literal
 
 from mana_architect.deck_pipeline.contracts import Artifact, EngineVersions, artifact_digest
 
 Scope = Literal["collection", "global", "deck"]
+MANA_AND_TAP_COST = re.compile(r"(?:\{(?:[0-9]+|[WUBRGCX])\})+,[ \t]*\{T\}")
 
 
 class EvaluationStatus(StrEnum):
@@ -333,6 +335,72 @@ class ComparisonEvidence(Artifact):
 
 
 @dataclass(frozen=True)
+class TargetedMillAssessment:
+    execution_unit_id: str
+    mill_evidence_ids: tuple[str, ...]
+    target_evidence_ids: tuple[str, ...]
+    mill_contribution: Literal["unknown", "conditional_benefit"] = "unknown"
+    target_legality: Literal["unassessed"] = "unassessed"
+    bundle_efficiency: Literal["unknown"] = "unknown"
+    strategy_id: str | None = None
+    preference_id: str | None = None
+    catalog_fingerprint: str | None = None
+    model_version: str = "cpa-draw-targeted-mill-v1"
+    explanation: tuple[str, ...] = (
+        "Both effects require the spell to resolve. If its sole target is illegal at resolution, neither effect occurs.",
+        "Actual target legality is unassessed.",
+    )
+
+    def __post_init__(self) -> None:
+        if (not self.execution_unit_id or not self.mill_evidence_ids or not self.target_evidence_ids
+                or self.mill_contribution not in {"unknown", "conditional_benefit"}
+                or self.target_legality != "unassessed" or self.bundle_efficiency != "unknown"
+                or self.model_version != "cpa-draw-targeted-mill-v1"):
+            raise ValueError("Invalid targeted mill assessment.")
+        basis = (self.strategy_id, self.preference_id, self.catalog_fingerprint)
+        if self.mill_contribution == "conditional_benefit":
+            if self.strategy_id != "mill" or self.preference_id != "mill_theme_mill_opponent" or not self.catalog_fingerprint:
+                raise ValueError("Conditional mill benefit requires an explicit strategy and catalog basis.")
+        elif any(value is not None for value in basis):
+            raise ValueError("Unknown mill contribution cannot assert a strategy basis.")
+        for name in ("mill_evidence_ids", "target_evidence_ids", "explanation"):
+            object.__setattr__(self, name, tuple(sorted(set(getattr(self, name)))))
+
+
+@dataclass(frozen=True)
+class TapCostCitation:
+    boundary_id: str
+    start: int
+    end: int
+    text: str
+
+    def __post_init__(self) -> None:
+        if not self.boundary_id or not 0 <= self.start < self.end or self.end - self.start != len(self.text):
+            raise ValueError("Tap cost requires an exact Oracle span and boundary ID.")
+        if not MANA_AND_TAP_COST.fullmatch(self.text):
+            raise ValueError("Tap cost requires supported mana symbols and a mandatory tap payment.")
+
+
+@dataclass(frozen=True)
+class SharedTapPrerequisite:
+    card_id: str
+    face_index: int
+    costs: tuple[TapCostCitation, ...]
+
+    def __post_init__(self) -> None:
+        if not self.card_id or self.face_index != 0:
+            raise ValueError("Shared tap requires a card on the supported single face.")
+        by_boundary = {}
+        for cost in self.costs:
+            if by_boundary.setdefault(cost.boundary_id, cost) != cost:
+                raise ValueError("Conflicting tap cost citations for the same boundary.")
+        costs = tuple(sorted(by_boundary.values(), key=lambda cost: (cost.start, cost.end, cost.boundary_id)))
+        if len(costs) < 2 or any(left.end > right.start for left, right in zip(costs, costs[1:])):
+            raise ValueError("Shared tap requires two or more nonoverlapping tap cost citations.")
+        object.__setattr__(self, "costs", costs)
+
+
+@dataclass(frozen=True)
 class PlayabilityProfile(Artifact):
     card_id: str
     context: PlayabilityContext
@@ -354,6 +422,8 @@ class PlayabilityProfile(Artifact):
     boundary_coverage: tuple[BoundaryCoverage, ...] = ()
     card_dependencies: tuple[CardDependency, ...] = ()
     efficiency_findings: tuple[EfficiencyFinding, ...] = ()
+    shared_tap_prerequisites: tuple[SharedTapPrerequisite, ...] = ()
+    targeted_mill_assessment: TargetedMillAssessment | None = None
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -392,6 +462,31 @@ class PlayabilityProfile(Artifact):
         for item in self.boundary_coverage:
             if item.card_id != self.card_id or set(item.recognized_evidence_ids) - evidence.keys():
                 raise ValueError("Boundary coverage evidence must resolve for the profile card.")
+        if self.shared_tap_prerequisites and len(boundaries) != len(self.boundary_coverage):
+            raise ValueError("Shared tap requires unambiguous boundary IDs.")
+        groups = {}
+        for group in self.shared_tap_prerequisites:
+            if group.card_id != self.card_id or any(boundary.face_index != group.face_index for boundary in boundaries.values()):
+                raise ValueError("Shared tap must match the profile card and single face.")
+            if groups.setdefault((group.card_id, group.face_index), group) != group:
+                raise ValueError("Conflicting shared tap groups for the same card and face.")
+            verified_draw = False
+            for cost in group.costs:
+                boundary = boundaries.get(cost.boundary_id)
+                if (boundary is None or cost.start != boundary.source_start or cost.end >= boundary.source_end
+                        or cost.text != boundary.activation_cost
+                        or not boundary.source_text.startswith(cost.text + ":")):
+                    raise ValueError("Tap cost must match the exact pre-colon source span of its boundary.")
+                if boundary.state == SemanticCoverageState.VERIFIED:
+                    verified_draw |= any(
+                        ref.card_id == self.card_id and ref.source == "mechanical" and ref.record_id == "draw"
+                        and ref.source_field == "oracle_text" and cost.end < ref.start < ref.end <= boundary.source_end
+                        and ref.text == boundary.source_text[ref.start - boundary.source_start:ref.end - boundary.source_start]
+                        for ref in (evidence[key] for key in boundary.recognized_evidence_ids)
+                    )
+            if not verified_draw:
+                raise ValueError("Shared tap requires at least one locally verified draw boundary.")
+        object.__setattr__(self, "shared_tap_prerequisites", tuple(groups[key] for key in sorted(groups)))
         for item in (*self.coverage, *self.viable_contexts, *self.comparisons, *self.mechanical_uses):
             if set(item.evidence_ids) - evidence.keys():
                 raise ValueError("Profile contains an unresolved evidence reference.")
@@ -410,6 +505,32 @@ class PlayabilityProfile(Artifact):
                 raise ValueError("Execution unit target evidence must belong to the unit.")
         if any(use.execution_unit_id and use.execution_unit_id not in unit_ids for use in self.mechanical_uses):
             raise ValueError("Mechanical use references an unknown execution unit.")
+        assessment = self.targeted_mill_assessment
+        if assessment is not None:
+            unit = next((u for u in self.execution_units if u.unit_id == assessment.execution_unit_id), None)
+            refs = [evidence[key] for key in assessment.mill_evidence_ids if key in evidence]
+            if (unit is None or unit.kind != "spell" or len(refs) != 1
+                    or assessment.mill_evidence_ids != assessment.target_evidence_ids
+                    or unit.target_evidence_ids != assessment.target_evidence_ids
+                    or "at_least_one_target_legal" not in unit.requirements
+                    or not set(assessment.mill_evidence_ids) <= set(unit.evidence_ids)
+                    or any(ref.card_id != self.card_id or ref.source != "mechanical" or ref.record_id != "mill_opponent"
+                           or ref.source_field != "oracle_text" or not ref.text.startswith("Target player mills ") for ref in refs)
+                    or not all(any(use.execution_unit_id == unit.unit_id and use.role_id == role
+                                   and use.safety != "unsupported" and "legal_target_at_resolution" in use.requirements
+                                   and (role != "mill_opponent" or use.evidence_ids == assessment.mill_evidence_ids)
+                                   for use in self.mechanical_uses) for role in ("draw", "mill_opponent"))
+                    or not any(b.state == SemanticCoverageState.VERIFIED
+                               and set(assessment.mill_evidence_ids) <= set(b.recognized_evidence_ids)
+                               and all(b.source_start <= ref.start < ref.end <= b.source_end
+                                       and ref.text == b.source_text[ref.start-b.source_start:ref.end-b.source_start] for ref in refs)
+                               for b in self.boundary_coverage)):
+                raise ValueError("Targeted mill assessment requires verified shared execution and target evidence.")
+            if assessment.mill_contribution == "conditional_benefit" and (
+                "mill" not in self.context.strategy_ids or self.provenance is None
+                or assessment.catalog_fingerprint != self.provenance.catalog_fingerprint
+            ):
+                raise ValueError("Targeted mill strategy basis must match explicit context and provenance.")
         for finding in self.efficiency_findings:
             if finding.execution_unit_id not in unit_ids or set(finding.evidence_ids) - evidence.keys():
                 raise ValueError("Efficiency findings require resolved units and evidence.")
@@ -452,7 +573,12 @@ class PlayabilityProfile(Artifact):
             object.__setattr__(self, name, tuple(sorted(getattr(self, name), key=lambda item: artifact_digest(asdict(item)))))
 
     def to_json(self) -> dict[str, object]:
-        return asdict(self)
+        payload = asdict(self)
+        if not self.shared_tap_prerequisites:
+            del payload["shared_tap_prerequisites"]
+        if self.targeted_mill_assessment is None:
+            del payload["targeted_mill_assessment"]
+        return payload
 
     @property
     def profile_id(self) -> str:

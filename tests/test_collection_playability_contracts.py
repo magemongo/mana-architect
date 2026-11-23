@@ -3,9 +3,9 @@ from dataclasses import replace
 import pytest
 
 from mana_architect.collection_playability.contracts import (
-    Classification, ComparisonEvidence, ComparisonOutcome, Coverage, EvaluationStatus,
+    BoundaryCoverage, Classification, ComparisonEvidence, ComparisonOutcome, Coverage, EvaluationStatus,
     EvidenceReference, PlayabilityContext, PlayabilityProfile, PlayabilityProvenance,
-    UniquenessProfile,
+    SemanticCoverageState, SharedTapPrerequisite, TapCostCitation, UniquenessProfile,
 )
 from mana_architect.deck_pipeline.adapters import ENGINE_VERSIONS
 
@@ -14,6 +14,72 @@ def test_context_identity_is_independent_of_strategy_order():
     first = PlayabilityContext("snapshot", "v1", ENGINE_VERSIONS, ("tokens", "aristocrats"))
     second = PlayabilityContext("snapshot", "v1", ENGINE_VERSIONS, ("aristocrats", "tokens"))
     assert first.context_id == second.context_id
+
+
+def test_targeted_mill_assessment_rejects_unresolved_or_unselected_basis():
+    from test_collection_playability_efficiency_golden import real, run
+    from mana_architect.strategy_synergy import load_synergy_context
+    profile = run(load_synergy_context(), real("Thassa's Bounty"), strategy_ids=('mill',))
+    assessment = profile.targeted_mill_assessment
+    with pytest.raises(ValueError, match='shared execution'):
+        replace(profile, targeted_mill_assessment=replace(assessment, execution_unit_id='missing'))
+    with pytest.raises(ValueError, match='shared execution'):
+        replace(profile, targeted_mill_assessment=replace(assessment, mill_evidence_ids=('missing',)))
+    with pytest.raises(ValueError, match='shared execution'):
+        replace(profile, execution_units=tuple(replace(unit, target_evidence_ids=()) for unit in profile.execution_units))
+    with pytest.raises(ValueError, match='explicit context'):
+        replace(profile, context=replace(profile.context, strategy_ids=()))
+    with pytest.raises(ValueError, match='provenance'):
+        replace(profile, targeted_mill_assessment=replace(assessment, catalog_fingerprint='wrong'))
+    with pytest.raises(ValueError, match='Invalid targeted'):
+        replace(assessment, target_legality='legal')
+
+
+def test_shared_tap_contract_binds_both_costs_and_preserves_canonical_order():
+    context = PlayabilityContext('snapshot', 'v1', ENGINE_VERSIONS)
+    cost = '{1}, {T}'
+    source = f'{cost}: Draw a card.'
+    first = TapCostCitation('first', 0, len(cost), cost)
+    offset = len(source) + 1
+    second = TapCostCitation('second', offset, offset + len(cost), cost)
+    ref = EvidenceReference('card', 'mechanical', 'v1', 'draw', 'oracle_text', 10, 21, 'Draw a card')
+    boundaries = (
+        BoundaryCoverage('card', 0, 'first', 0, len(source), source, SemanticCoverageState.VERIFIED,
+                         (ref.evidence_id,), activation_cost=cost),
+        BoundaryCoverage('card', 0, 'second', offset, offset + len(source), source, SemanticCoverageState.PARTIAL,
+                         activation_cost=cost),
+    )
+    group = SharedTapPrerequisite('card', 0, (second, first, second))
+    assert group.costs == (first, second)
+    profile = PlayabilityProfile('card', context, evidence=(ref,), boundary_coverage=boundaries,
+                                 shared_tap_prerequisites=(group, group))
+    assert profile.shared_tap_prerequisites == (group,)
+    reordered = replace(profile, boundary_coverage=boundaries[::-1],
+                        shared_tap_prerequisites=(replace(group, costs=(first, second)),))
+    assert (profile.to_json(), profile.profile_id) == (reordered.to_json(), reordered.profile_id)
+
+    with pytest.raises(ValueError, match='card and single face'):
+        replace(profile, shared_tap_prerequisites=(replace(group, card_id='wrong-card'),))
+    with pytest.raises(ValueError, match='single face'):
+        replace(profile, boundary_coverage=(boundaries[0], replace(boundaries[1], face_index=1)))
+    with pytest.raises(ValueError, match='single face'):
+        replace(group, face_index=1)
+    with pytest.raises(ValueError, match='exact pre-colon'):
+        replace(profile, shared_tap_prerequisites=(replace(group, costs=(first, replace(second, boundary_id='missing'))),))
+    shifted = replace(second, start=second.start + 1, end=second.end + 1)
+    with pytest.raises(ValueError, match='exact pre-colon'):
+        replace(profile, shared_tap_prerequisites=(replace(group, costs=(first, shifted)),))
+    wrong_text = replace(second, text='{2}, {T}')
+    with pytest.raises(ValueError, match='exact pre-colon'):
+        replace(profile, shared_tap_prerequisites=(replace(group, costs=(first, wrong_text)),))
+    with pytest.raises(ValueError, match='two or more nonoverlapping'):
+        replace(group, costs=(first, replace(second, start=first.start, end=first.end)))
+    with pytest.raises(ValueError, match='Conflicting tap cost citations'):
+        replace(group, costs=(first, second, shifted))
+    with pytest.raises(ValueError, match='Conflicting shared tap groups'):
+        replace(profile, shared_tap_prerequisites=(group, replace(group, costs=(first, shifted))))
+    with pytest.raises(ValueError, match='locally verified draw'):
+        replace(profile, boundary_coverage=(replace(boundaries[0], state=SemanticCoverageState.PARTIAL), boundaries[1]))
 
 
 @pytest.mark.parametrize("status", [state for state in EvaluationStatus if state != EvaluationStatus.EVALUATED])

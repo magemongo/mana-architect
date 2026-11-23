@@ -10,7 +10,9 @@ from mana_architect.collection_playability.contracts import (
     PlayabilityProfile, PlayabilityProvenance,
 )
 from mana_architect.collection_playability.mechanics import evaluate_mechanics
-from mana_architect.collection_playability.efficiency import MAX_PEERS, evaluate_efficiency, supports_efficiency_search
+from mana_architect.collection_playability.efficiency import (
+    ACTIVATION_MODEL_VERSION, MAX_PEERS, assess_targeted_mill, efficiency_search_model, evaluate_efficiency, peer_prefilter,
+)
 from mana_architect.deck_pipeline.adapters import ENGINE_VERSIONS, parse_card_snapshot
 from mana_architect.deck_pipeline.contracts import PairwiseSynergyAnalysis, artifact_digest
 from mana_architect.deck_pipeline.inventory import CardSnapshot, CollectionSnapshot, OwnedPrinting
@@ -82,16 +84,19 @@ class CollectionInputs:
         """Return native inputs, mechanical findings and bounded efficiency evidence."""
         inputs = self.card(card_id)
         inputs = replace(inputs, profile=evaluate_mechanics(inputs, self._catalog.strategies))
-        if not supports_efficiency_search(inputs):
+        inputs = replace(inputs, profile=assess_targeted_mill(inputs, self._catalog.strategies))
+        model = efficiency_search_model(inputs)
+        if model is None:
+            limitations = ("outside_verified_fixed_draw_spell_model",)
+            if "bundle_target_evidence_unresolved" in inputs.profile.reasons:
+                limitations += ("bundle_target_evidence_unresolved",)
             return replace(inputs, profile=replace(inputs.profile, coverage=(*inputs.profile.coverage,
-                Coverage("effect_efficiency", EvaluationStatus.UNSUPPORTED,
-                         limitations=("outside_verified_fixed_draw_spell_model",)))))
+                Coverage("effect_efficiency", EvaluationStatus.UNSUPPORTED, limitations=limitations))))
         # This cheap prefilter bounds native extraction; compatibility is checked later.
         candidates = []
         truncated = False
         for card in self._snapshot.cards:
-            if (card.card_id == card_id or card.type_line != "Sorcery" or not card.oracle_text
-                    or not card.oracle_text.strip().casefold().startswith("draw ")):
+            if card.card_id == card_id or not peer_prefilter(card, model):
                 continue
             if len(candidates) == MAX_PEERS:
                 truncated = True
@@ -101,12 +106,15 @@ class CollectionInputs:
         for card in candidates:
             peer = self.card(card.card_id)
             peers.append(replace(peer, profile=evaluate_mechanics(peer, self._catalog.strategies)))
-        profile = evaluate_efficiency(inputs, peers)
+        profile = evaluate_efficiency(inputs, peers, self._catalog.strategies)
         evaluated = any(item.assessment != "unknown" for item in profile.efficiency_findings)
+        limitations = ("fixed_draw_activation_only", "owned_peer_search_bounded_to_64",
+                       "not_a_whole_card_or_global_assessment") if model == ACTIVATION_MODEL_VERSION else (
+            "fixed_draw_component_only", "owned_peer_search_bounded_to_64", "not_a_whole_spell_or_global_assessment",
+        )
         profile = replace(profile, coverage=(*profile.coverage, Coverage(
             "effect_efficiency", EvaluationStatus.EVALUATED if evaluated else EvaluationStatus.INSUFFICIENT_EVIDENCE,
-            limitations=("fixed_draw_component_only", "owned_peer_search_bounded_to_64",
-                         "not_a_whole_spell_or_global_assessment",
+            limitations=(*limitations,
                          *(("peer_search_truncated",) if truncated else ())))))
         return replace(inputs, profile=profile)
 

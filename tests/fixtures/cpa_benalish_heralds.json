@@ -1,0 +1,40 @@
+{
+  "source": "Pinned local Scryfall default-cards.jsonl.gz snapshot",
+  "snapshot_sha256": "d190c5ed83e3487daab01a69ff5f50c1d4ee55e1e83f0b08bfe295e2b9477672",
+  "rules_version": "2026-11-06",
+  "card": {
+    "card_id": "09ee1332-741f-4c55-abc3-8bcff9031cd9",
+    "name": "Benalish Heralds",
+    "type_line": "Creature — Human Soldier",
+    "oracle_text": "{3}{U}, {T}: Draw a card.",
+    "mana_cost": "{3}{W}",
+    "mana_value": 4.0,
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "produced_mana": [],
+    "keywords": [],
+    "commander_legality": "legal",
+    "colors": [
+      "W"
+    ],
+    "layout": "normal"
+  },
+  "expected": {
+    "activation_cost": "{3}{U}, {T}",
+    "draw_quantity": 1,
+    "cost_span": [
+      0,
+      11
+    ],
+    "draw_instruction_span": [
+      13,
+      25
+    ],
+    "native_draw_span": [
+      13,
+      24
+    ]
+  }
+}

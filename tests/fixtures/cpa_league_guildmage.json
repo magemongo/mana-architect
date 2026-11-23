@@ -1,0 +1,18 @@
+{
+  "source": "Scryfall default-cards cache, data/cache/scryfall/default-cards.jsonl.gz",
+  "snapshot_sha256": "d190c5ed83e3487daab01a69ff5f50c1d4ee55e1e83f0b08bfe295e2b9477672",
+  "card": {
+    "card_id": "08bb1f33-b232-4382-a268-4804d4e72d29",
+    "name": "League Guildmage",
+    "type_line": "Creature — Human Wizard",
+    "oracle_text": "{3}{U}, {T}: Draw a card.\n{X}{R}, {T}: Copy target instant or sorcery spell you control with mana value X. You may choose new targets for the copy.",
+    "mana_cost": "{U}{R}",
+    "mana_value": 2.0,
+    "color_identity": ["R", "U"],
+    "produced_mana": [],
+    "keywords": [],
+    "commander_legality": "legal",
+    "colors": ["R", "U"],
+    "layout": "normal"
+  }
+}

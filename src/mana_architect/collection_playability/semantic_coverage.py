@@ -15,6 +15,12 @@ _DAMAGE_TRIGGER = (
     r"(?:this creature|it) deals (?:that much|\d+) damage to (?:you|each opponent)"
 )
 _COST = r"(?:\{(?:\d+|[WUBRGCSTQ])\})+"
+MANA_TAP_DRAW_VERIFIER = "cpa-boundary-coverage-mana-tap-draw-v1"
+_MANA_TAP_DRAW = re.compile(
+    r"(?P<cost>(?:\{(?:[0-9]+|[WUBRGC])\})+,[ \t]*\{T\}):[ \t]*"
+    r"(?P<effect>Draw (?P<count>a|one|two|three|four|five|[0-9]+) (?P<noun>cards?))\."
+)
+_DRAW_COUNTS = {"a": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 _SHAPES = (
     ("draw", re.compile(rf"^(?:{_DRAW})\.$", re.I)),
     ("draw_mill", re.compile(rf"^(?:{_DRAW})\.\s+(?:{_MILL})\.$", re.I)),
@@ -26,7 +32,27 @@ _SHAPES = (
 )
 
 
-def assess_boundary(boundary, capabilities, references, unknowns):
+def _matches_native_mana_tap_draw(boundary, match, capabilities, refs):
+    count_text = match["count"]
+    count = (count_text.lstrip("0") or "0") if count_text.isdecimal() else str(_DRAW_COUNTS[count_text])
+    if count == "0" or (match["noun"] == "card") != (count == "1"):
+        return False
+    start = boundary.start + match.start("effect")
+    end = boundary.start + match.end("effect")
+    return any(
+        cap.id == "draw" and cap.timing == "activated" and cap.targeting == "none"
+        and not cap.resolution_targets and cap.costs == (match["cost"],)
+        and cap.quantity.kind == "fixed" and str(cap.quantity.value) == count
+        and cap.evidence.start == start and cap.evidence.end in {end, end + 1}
+        and any(ref.source == "mechanical" and ref.record_id == cap.id
+                and (ref.start, ref.end, ref.text) == (start, cap.evidence.end, cap.evidence.oracle_span)
+                and ref.text == boundary.source_text[start - boundary.start:ref.end - boundary.start]
+                for ref in refs)
+        for cap in capabilities
+    )
+
+
+def assess_boundary(boundary, capabilities, references, unknowns, *, single_face=True):
     """Verify known complete shapes and preserve all other boundaries as uncertain."""
     refs = tuple(ref for ref in references if ref.card_id == boundary.card_id
                  and ref.source_field == "oracle_text" and boundary.start <= ref.start < ref.end <= boundary.end)
@@ -52,6 +78,10 @@ def assess_boundary(boundary, capabilities, references, unknowns):
         "remove": any(ref.source == "interaction" for ref in refs),
         "damage_trigger": "deal_noncombat_damage" in ids,
     }.get(shape, False)
+    mana_tap_draw = _MANA_TAP_DRAW.fullmatch(boundary.source_text) if boundary.kind == "activated" else None
+    if mana_tap_draw:
+        cost_supported = single_face and cost == mana_tap_draw["cost"]
+        native_supported = _matches_native_mana_tap_draw(boundary, mana_tap_draw, capabilities, refs)
     # A matching Interaction rule supplies the complete supported removal
     # semantics even when the general capability extractor leaves it unknown.
     independently_supported = (
@@ -73,8 +103,10 @@ def assess_boundary(boundary, capabilities, references, unknowns):
              SemanticCoverageState.PARTIAL if refs else SemanticCoverageState.UNKNOWN)
     targeting = ("mandatory_target",) if verified and re.search(r"\btarget\b", body, re.I) else ()
     conditions = ("pay_activation_cost",) if verified and cost else ()
+    version = {"verifier_version": MANA_TAP_DRAW_VERIFIER} if mana_tap_draw else {}
     return BoundaryCoverage(
         boundary.card_id, boundary.face_index, boundary.ability_id, boundary.start, boundary.end,
         boundary.source_text, state, tuple(ref.evidence_id for ref in refs), unknown, cost,
         targeting, conditions, () if verified else ("semantic_completeness_unverified",),
+        **version,
     )

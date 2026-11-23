@@ -48,11 +48,8 @@ def test_real_draw_cost_and_uncertainty_are_preserved(catalog, name):
     unit = next(unit for unit in profile.execution_units if unit.unit_id == draw.execution_unit_id)
     assert unit.kind == 'activated'
     assert unit.activation_cost == expected['activation_cost']
-    assert draw.safety == 'unsupported'
     assert 'pay_ability_cost' in draw.requirements
-    assert not profile.efficiency_findings
     [coverage] = [item for item in profile.coverage if item.source == 'effect_efficiency']
-    assert coverage.status == EvaluationStatus.UNSUPPORTED
     assert not profile.bulk_review_eligibility
     evidence = {ref.evidence_id: ref for ref in profile.evidence}
     assert draw.evidence_ids and set(draw.evidence_ids) <= evidence.keys()
@@ -65,7 +62,51 @@ def test_real_draw_cost_and_uncertainty_are_preserved(catalog, name):
     assert len(matching) == 1
     assert card.oracle_text[matching[0].source_start:matching[0].source_end] == matching[0].source_text
     assert expected['effect'] in matching[0].source_text
-    assert matching[0].state != 'verified'
+    if name == 'Jayemdae Tome':
+        [finding] = profile.efficiency_findings
+        assert finding.assessment == 'unknown' and finding.peer_card_id is None
+        assert coverage.status == EvaluationStatus.INSUFFICIENT_EVIDENCE
+        assert matching[0].state == 'verified'
+        assert draw.safety == draw.applicability == 'conditional'
+        assert {'tap_source', 'legal_activation_timing', 'meet_creature_tap_restriction_if_applicable'} <= set(draw.requirements)
+        assert (unit.card_id, unit.face_index, unit.ability_id) == (card.card_id, 0, matching[0].boundary_id)
+        assert set(draw.evidence_ids) <= set(unit.evidence_ids)
+        assert not set(draw.evidence_ids).intersection(ref for context in profile.viable_contexts for ref in context.evidence_ids)
+    else:
+        assert not profile.efficiency_findings
+        assert coverage.status == EvaluationStatus.UNSUPPORTED
+        assert matching[0].state != 'verified'
+        assert draw.safety == 'unsupported'
+
+
+@pytest.mark.parametrize('cost,separator', [('{5}, {T}', ' '), ('{2}{U},{T}', ''), ('{4},\t{T}', '\t')])
+def test_synthetic_mana_tap_cost_preserves_original_text(catalog, cost, separator):
+    base = real('Jayemdae Tome')
+    card = replace(base, card_id='synthetic-mana-tap', oracle_text=f'{cost}:{separator}Draw a card.')
+    profile = analyze(catalog, card)
+    [draw] = [use for use in profile.mechanical_uses if use.role_id == 'draw']
+    [unit] = profile.execution_units
+    [boundary] = profile.boundary_coverage
+    assert unit.activation_cost == boundary.activation_cost == cost
+    assert card.oracle_text[boundary.source_start:boundary.source_start + len(cost)] == cost
+    assert draw.execution_unit_id == unit.unit_id
+    assert draw.safety == 'conditional'
+    assert {'pay_ability_cost', 'tap_source'} <= set(draw.requirements)
+    [finding] = profile.efficiency_findings
+    assert finding.assessment == 'unknown' and finding.execution_unit_id == unit.unit_id
+
+
+def test_independent_abilities_keep_their_own_cost_and_draw_evidence(catalog):
+    base = real('Jayemdae Tome')
+    card = replace(base, card_id='synthetic-two-activations',
+                   oracle_text='{4}, {T}: Draw a card.\n{2}, {T}: Draw two cards.')
+    profile = analyze(catalog, card)
+    units = {unit.unit_id: unit for unit in profile.execution_units}
+    evidence = {ref.evidence_id: ref for ref in profile.evidence}
+    assert {(units[use.execution_unit_id].activation_cost, evidence[use.evidence_ids[0]].text, use.safety)
+            for use in profile.mechanical_uses if use.role_id == 'draw'} == {
+        ('{4}, {T}', 'Draw a card', 'conditional'), ('{2}, {T}', 'Draw two cards', 'conditional'),
+    }
 
 
 def test_real_distinctions_are_not_erased(catalog):

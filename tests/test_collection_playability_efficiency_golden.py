@@ -26,13 +26,13 @@ def catalog():
     return load_synergy_context()
 
 
-def run(catalog, subject, others=(), reverse=False):
+def run(catalog, subject, others=(), reverse=False, strategy_ids=()):
     cards = [subject, *others]
     # Printing identity remains tied to card identity when inputs are reordered.
     ordered = sorted(cards, key=lambda c: c.card_id)
     rows = [OwnedPrinting(i, str(i), c.card_id, c.name, 'test', str(i), 'en', 'nonfoil', 'nm', 1) for i, c in enumerate(ordered)]
     snapshot = CollectionSnapshot(tuple(reversed(cards)) if reverse else tuple(cards), tuple(reversed(rows)) if reverse else tuple(rows), 'pinned-local-snapshot')
-    context = PlayabilityContext(snapshot.snapshot_id, 'golden-fixed-draw-v1', ENGINE_VERSIONS)
+    context = PlayabilityContext(snapshot.snapshot_id, 'golden-fixed-draw-v1', ENGINE_VERSIONS, strategy_ids)
     return CollectionInputs(context, snapshot, catalog).analyze(subject.card_id).profile
 
 
@@ -69,6 +69,32 @@ def test_no_peer_and_different_blue_intensity(catalog):
         assert p.efficiency_findings[0].assessment == 'unknown'
         assert 'legal_target_at_resolution' in p.efficiency_findings[0].conditions
         assert 'peer_search_truncated' not in coverage(p).limitations
+
+
+@pytest.mark.parametrize('strategies', [(), ('mill',)])
+@pytest.mark.parametrize('owned_peer', [False, True])
+def test_contextual_mill_assessment_is_independent_of_peer_search(catalog, strategies, owned_peer):
+    bounty = real("Thassa's Bounty")
+    peers = (real('Brilliant Plan'),) if owned_peer else ()
+    profile = run(catalog, bounty, peers, strategy_ids=strategies)
+    assessment = profile.targeted_mill_assessment
+    assert assessment.model_version == 'cpa-draw-targeted-mill-v1'
+    assert assessment.mill_contribution == ('conditional_benefit' if strategies else 'unknown')
+    assert (assessment.bundle_efficiency, assessment.target_legality) == ('unknown', 'unassessed')
+    [mill] = [use for use in profile.mechanical_uses if use.role_id == 'mill_opponent']
+    [draw] = [use for use in profile.mechanical_uses if use.role_id == 'draw']
+    assert assessment.execution_unit_id == mill.execution_unit_id == draw.execution_unit_id
+    assert assessment.mill_evidence_ids == assessment.target_evidence_ids == mill.evidence_ids
+    assert 'neither effect occurs' in ' '.join(assessment.explanation)
+    if strategies:
+        assert (assessment.strategy_id, assessment.preference_id, assessment.catalog_fingerprint) == (
+            'mill', 'mill_theme_mill_opponent', profile.provenance.catalog_fingerprint,
+        )
+        assert 'legal opponent' in ' '.join(assessment.explanation)
+    else:
+        assert assessment.strategy_id is assessment.preference_id is assessment.catalog_fingerprint is None
+    assert profile.efficiency_findings[0].assessment == ('higher_mana_for_same_draw' if owned_peer else 'unknown')
+    assert profile.to_json() == run(catalog, bounty, peers, reverse=True, strategy_ids=strategies).to_json()
 
 
 @pytest.mark.parametrize('name', ['Inspiration', 'Opportunity', 'Painful Truths', 'Time Stretch'])
@@ -118,6 +144,72 @@ def test_unsupported_phase_one_draw_never_generates_a_finding(catalog):
     draw = next(u for u in profile.mechanical_uses if u.role_id == 'draw')
     unsupported = replace(draw, applicability='unknown')
     altered = replace(profile, mechanical_uses=tuple(unsupported if u == draw else u for u in profile.mechanical_uses),
-                      efficiency_findings=())
+                      efficiency_findings=(), targeted_mill_assessment=None)
     result = evaluate_efficiency(SimpleNamespace(card=bounty, profile=altered), ())
     assert not result.efficiency_findings
+
+
+@pytest.mark.parametrize('strategy_ids,benefit', [((), False), (('mill',), True)])
+@pytest.mark.parametrize('owned_peer', [False, True])
+def test_targeted_player_mill_has_explicit_context_and_shared_resolution(catalog, strategy_ids, benefit, owned_peer):
+    bounty, peer = real("Thassa's Bounty"), real('Brilliant Plan')
+    others = (peer,) if owned_peer else ()
+    profile = run(catalog, bounty, others, strategy_ids=strategy_ids)
+    assessment = profile.targeted_mill_assessment
+    assert assessment.model_version == 'cpa-draw-targeted-mill-v1'
+    assert assessment.mill_contribution == ('conditional_benefit' if benefit else 'unknown')
+    assert assessment.bundle_efficiency == 'unknown' and assessment.target_legality == 'unassessed'
+    unit = next(u for u in profile.execution_units if u.unit_id == assessment.execution_unit_id)
+    assert unit.target_evidence_ids == assessment.target_evidence_ids == assessment.mill_evidence_ids
+    [ref] = [ref for ref in profile.evidence if ref.evidence_id in assessment.mill_evidence_ids]
+    assert ref.text == bounty.oracle_text[ref.start:ref.end] == 'Target player mills three cards'
+    assert all(use.execution_unit_id == unit.unit_id for use in profile.mechanical_uses)
+    assert any('neither effect occurs' in reason for reason in assessment.explanation)
+    if benefit:
+        assert assessment.strategy_id == 'mill' and assessment.preference_id == 'mill_theme_mill_opponent'
+        assert assessment.catalog_fingerprint == profile.provenance.catalog_fingerprint
+        assert any('legal opponent' in reason for reason in assessment.explanation)
+    [finding] = profile.efficiency_findings
+    assert finding.assessment == ('higher_mana_for_same_draw' if owned_peer else 'unknown')
+    assert 'legal_target_at_resolution' in finding.conditions
+    assert profile.to_json() == run(catalog, bounty, others, reverse=True, strategy_ids=strategy_ids).to_json()
+
+
+def test_selected_mill_without_catalog_preference_stays_unknown(catalog):
+    strategies = replace(catalog.strategies, strategies=tuple(
+        replace(strategy, preferences=()) if strategy.id == 'mill' else strategy
+        for strategy in catalog.strategies.strategies))
+    missing = replace(catalog, strategies=strategies)
+    profile = run(missing, real("Thassa's Bounty"), (real('Brilliant Plan'),), strategy_ids=('mill',))
+    assert profile.targeted_mill_assessment.mill_contribution == 'unknown'
+    assert profile.efficiency_findings[0].assessment == 'higher_mana_for_same_draw'
+
+
+@pytest.mark.parametrize('target', ['player', 'opponent'])
+@pytest.mark.parametrize('mutation', ['missing', 'wrong', 'unverified'])
+def test_bundle_target_guard_abstains_for_both_target_wordings(catalog, target, mutation):
+    bounty = replace(real("Thassa's Bounty"), oracle_text=f'Draw three cards. Target {target} mills three cards.')
+    peer = real('Brilliant Plan')
+    profile = run(catalog, bounty, (peer,))
+    assert profile.efficiency_findings[0].assessment == 'higher_mana_for_same_draw'
+    assert (profile.targeted_mill_assessment is not None) == (target == 'player')
+    profile = replace(profile, efficiency_findings=(), targeted_mill_assessment=None)
+    [unit] = profile.execution_units
+    if mutation == 'unverified':
+        profile = replace(profile, boundary_coverage=tuple(replace(b, state='partial') for b in profile.boundary_coverage))
+    else:
+        ids = () if mutation == 'missing' else next(use.evidence_ids for use in profile.mechanical_uses if use.role_id == 'draw')
+        profile = replace(profile, execution_units=(replace(unit, target_evidence_ids=ids),))
+    result = evaluate_efficiency(SimpleNamespace(card=bounty, profile=profile),
+                                 (SimpleNamespace(card=peer, profile=run(catalog, peer)),))
+    assert not result.efficiency_findings and result.targeted_mill_assessment is None
+    assert 'bundle_target_evidence_unresolved' in result.reasons
+
+
+def test_unaffected_profile_payload_omits_assessment(catalog):
+    import hashlib
+    profile = run(catalog, real('Brilliant Plan'))
+    assert 'targeted_mill_assessment' not in profile.to_json()
+    raw = json.dumps(profile.to_json(), sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+    assert hashlib.sha256(raw).hexdigest() == profile.profile_id
+    assert replace(profile, targeted_mill_assessment=None).to_json() == profile.to_json()

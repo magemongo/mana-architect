@@ -1,21 +1,26 @@
-# Phase 2: effect efficiency — partial implementation
+# Phase 2 — Personal-project MVP acceptance
 
-**Release decision: BLOCKED.** The fixed-draw component model below is a bounded first increment, not the full Phase 2 model in the CPA implementation guide. In particular, it does not assess removal, mana, recurring abilities, non-mana resource costs, or general high-impact effects; it does not value the mill component, nor has it been calibrated with an independent real-card Golden dataset. The Thassa's Bounty-like case requires a compatible owned peer and is not an unconditional assessment. Absence of a finding is not evidence of efficiency or inefficiency. No classification, bulk review decision, global ranking or Phase 3 comparison is produced.
+**Release decision — CONDITIONAL PASS for the revised Phase 2 MVP scope.** On 2026-11-19 the owner approved closure with documented coverage gaps. The original guide remains the longer-term roadmap. Earlier BLOCKED reports assessed that broader scope and remain as historical evidence.
 
-## Model and safety
+## Accepted scope
 
-`CollectionInputs.analyze` retains Phase 1 evidence, execution units, uses, target requirements, semantic coverage and dependencies. `cpa-efficiency-v1` compares a verified, legal, single-boundary fixed draw sorcery, optionally with the exact supported targeted mill clause, to an owned legal sorcery with the same draw quantity and no secondary effect. Color identity and fixed colored/colorless mana symbols must match; a greater generic cost gives a relative observation about the draw component only. The finding cites both card evidence records, records the actual costs, timing, targeting conditions and conditional value of secondary mill. Snapshot provenance pins the metadata. It neither calls the peer a substitute nor claims dominance, and does not assess the whole bundle's net value.
+- `cpa-efficiency-v1` compares supported fixed-draw sorcery components with compatible owned peers and cites both native draw references. Quantity, fixed mana symbols and supported source semantics constrain comparison.
+- `cpa-activation-draw-efficiency-v1` compares one verified fixed-mana-and-tap draw activation on a supported single-face artifact with a compatible owned activation. Exact activation costs and native draw evidence accompany the finding. Printed casting cost and future activation opportunities remain separate.
+- `cpa-draw-targeted-mill-v1` records qualitative conditional benefit for verified player-target mill only under explicit catalog-backed mill intent. Actual target legality stays unassessed and whole-bundle efficiency stays unknown. Both accepted target wordings require exact source-to-target linkage before positive component findings.
+- Eligible inputs with no cheaper compatible peer receive unknown. Unsupported effects, costs and dependencies retain explicit uncertainty. Shared tap evidence preserves blocking decisions. Native peer evaluation is bounded to 64 candidates, ordered deterministically, with truncation disclosed.
 
-Only uses whose Phase 1 safety is supported or conditional can produce a positive observation. Unsupported or unverified abilities, additional costs, mixed and linked effects, face structures and unresolved dependencies are excluded by the exact shape and safety checks. The model cannot detect every rule or dependency: its verifier is bounded as described in [semantic coverage](semantic-coverage.md) and [card dependencies](card-dependencies.md). The search processes at most 64 draw-prefixed owned sorceries in snapshot order, so missing a peer cannot establish that none exists. The `effect_efficiency` coverage explicitly reports unsupported, insufficient evidence or evaluated with these limitations. Findings are deterministic and versioned; this model is not a calibrated score.
+Evidence, native limitations, boundaries, dependencies, costs and execution identity remain attached to results. Profiles remain uncertain in final classification and bulk review remains disabled. These findings are available through `CollectionInputs.analyze` and serializable profiles. No known misleading result was found in the supported closing examples.
 
-When a 65th eligible prefilter candidate exists, coverage now includes `peer_search_truncated`, whether or not a peer was found. See the [independent draw validation](../phase-2-draw-validation.md) for the pinned real-card cases, results and remaining release work.
+## Closing evidence
 
-## Remaining release work
+The normal entry point reproduced the Bounty–Brilliant Plan draw difference and the Jayemdae Tome–Arcane Encyclopedia per-activation difference. Explicit mill intent retained conditional mill value even without a draw peer, while default context kept that contribution unknown. Time Stretch, Greed and Staff of Domination abstained as expected. Reassembling Skeleton and Plummet retained conditional Phase 1 uses. The closing focused suite passed 215 tests. The applicable broad result and commands are in the [closing report](../phase-2-mvp-closing-report.md).
 
-Implement independently evidenced, context-sensitive functional peer groups and meaningful treatment of effect bundles, timing, reliability, repeatability and non-mana costs. Assess high-cost high-impact counterexamples without extrapolating from mana value. Independently pin and review real-card fixtures, measure performance and coverage, and establish the guide's Golden and regression gates. The guide's MVP also requests a local review report while reserving classification for Phase 5; resolve that tension conservatively without asserting unsupported classifications. Do not claim PASS until the Phase 2 deliverables and gate have been independently validated.
+## Deferred backlog
 
-The two pre-existing Streamlit AppTests are separate from this semantic gate. Both timed out when individually attempted with a 20-second limit; this does not establish their failure or success.
+1. Initial owned functional comparisons within verified groups, with explicit tradeoffs and non-comparability. See the [Phase 3 brief](../phase-3-implementation-brief.md).
+2. Broader functional groups, additional effect bundles, non-mana costs and wider independently reviewed Golden coverage.
+3. Replenishment, actual activation opportunities, game state, target availability and creature-specific comparison conditions.
+4. Boundary and dependency gaps identified in the snapshot probes, including Aether Syphon and conservative card-level abstentions.
+5. Recovery of the two timed-out Streamlit AppTests. Their unverified status does not block this revised scope.
 
-## Verification in this increment
-
-The regression command `python -B -m pytest -q -rs -p no:cacheprovider -k 'not test_suggestions_page_filters_by_identity_and_strategy_without_corrections and not test_builder_generates_with_selected_catalog_strategy'` passed 604 tests, with those two tests deselected. The focused efficiency, dependency and semantic-coverage run passed 31 tests. The efficiency tests use synthetic fixed-draw examples; they are not the independently reviewed real-card Golden dataset required above.
+Missing peers and unsupported mechanics supply no basis for universal low-value or removal claims. Completion of this revised milestone does not establish completion of the original guide.

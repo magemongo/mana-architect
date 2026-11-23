@@ -46,7 +46,10 @@ def test_owned_printings_and_engine_evidence_are_preserved(collection_inputs):
     assert profile.provenance.legality_data_as_of == snapshot.legality_data_as_of
     replay = CollectionInputs(context, replace(snapshot, printings=snapshot.printings[::-1]), catalog)
     assert profile.profile_id == replay.card("oracle").profile.profile_id
-    assert json.dumps(profile.to_json(), allow_nan=False) == json.dumps(asdict(profile), allow_nan=False)
+    expected = asdict(profile)
+    assert expected.pop("shared_tap_prerequisites") == ()
+    assert expected.pop("targeted_mill_assessment") is None
+    assert json.dumps(profile.to_json(), allow_nan=False) == json.dumps(expected, allow_nan=False)
     assert adapter.card("missing").profile.status == EvaluationStatus.INSUFFICIENT_EVIDENCE
 
 

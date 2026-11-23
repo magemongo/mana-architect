@@ -9,7 +9,8 @@ from mana_architect.collection_playability.contracts import (
     EvaluationStatus, ExecutionUnit, MechanicalUse, PlayabilityProfile, ViableContext,
 )
 from mana_architect.interaction_profile import Selection
-from mana_architect.collection_playability.semantic_coverage import assess_boundary
+from mana_architect.collection_playability.semantic_coverage import MANA_TAP_DRAW_VERIFIER, assess_boundary
+from mana_architect.collection_playability.shared_tap import find_shared_tap_prerequisites
 from mana_architect.collection_playability.dependencies import assess_dependencies
 from mana_architect.collection_playability.contracts import SemanticCoverageState
 from mana_architect.strategy_synergy import capability_requirements, matches_strategy_preference
@@ -155,13 +156,21 @@ def evaluate_mechanics(inputs: "CollectionCardInputs", catalog: SynergyStrategyC
 
     boundary_units = {}
     incomplete_boundaries = set()
+    single_face = " // " not in inputs.parsed.oracle_text and "//" not in card.type_line
     assessments = {
         boundary.ability_id: assess_boundary(
             boundary, capability_groups.get(boundary.ability_id, ()), profile.evidence, mechanics.unknowns,
+            single_face=single_face,
         )
         for boundary in boundaries
     }
     dependencies, affected_boundaries = assess_dependencies(boundaries, assessments, capability_groups)
+    verified_draw_ids = {
+        boundary_id for boundary_id, capabilities in capability_groups.items()
+        if assessments[boundary_id].state == SemanticCoverageState.VERIFIED
+        and any(cap.id == "draw" for cap in capabilities)
+    }
+    shared_tap = find_shared_tap_prerequisites(card, boundaries, verified_draw_ids)
     for boundary_id, capabilities in capability_groups.items():
         boundary = boundary_map[boundary_id]
         if boundary.kind not in {"spell", "activated", "triggered"} or not capabilities:
@@ -233,6 +242,8 @@ def evaluate_mechanics(inputs: "CollectionCardInputs", catalog: SynergyStrategyC
             requirements = set(use.requirements)
             if assessment.state == SemanticCoverageState.VERIFIED and assessment.activation_cost:
                 requirements.add("pay_ability_cost")
+                if assessment.verifier_version == MANA_TAP_DRAW_VERIFIER:
+                    requirements.update(("legal_activation_timing", "meet_creature_tap_restriction_if_applicable"))
                 for symbol, requirement in (("{T}", "tap_source"), ("{Q}", "untap_source")):
                     if symbol in assessment.activation_cost.upper():
                         requirements.add(requirement)
@@ -265,10 +276,13 @@ def evaluate_mechanics(inputs: "CollectionCardInputs", catalog: SynergyStrategyC
                 requirements=(*use.requirements, "compatible_sacrifice_outlet"),
             )
             uses.add(fodder_use)
+        # This rule establishes printed activation mechanics only.
+        if use.safety == "unsupported" or (
+            boundary_id in assessments and assessments[boundary_id].verifier_version == MANA_TAP_DRAW_VERIFIER
+        ):
+            continue
         for strategy in strategies:
             for preference in strategy.preferences:
-                if use.safety == "unsupported":
-                    continue
                 if not matches_strategy_preference(preference, capability, card.type_line):
                     continue
                 contexts.add(ViableContext(
@@ -370,6 +384,7 @@ def evaluate_mechanics(inputs: "CollectionCardInputs", catalog: SynergyStrategyC
             execution_units=tuple(units),
             boundary_coverage=tuple(assessments.values()),
             card_dependencies=dependencies,
+            shared_tap_prerequisites=shared_tap,
         )
     applicability = {use.applicability for use in uses}
     return replace(
@@ -383,6 +398,7 @@ def evaluate_mechanics(inputs: "CollectionCardInputs", catalog: SynergyStrategyC
         execution_units=tuple(units),
         boundary_coverage=tuple(assessments.values()),
         card_dependencies=dependencies,
+        shared_tap_prerequisites=shared_tap,
         viable_contexts=tuple(contexts),
         confidence="low" if incomplete or "unknown" in applicability else "medium",
         reasons=("partial_native_coverage",) if incomplete else (),
