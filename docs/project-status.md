@@ -20,12 +20,24 @@ against known rules and reports missing data as incomplete validation.
 - Manage the strategy and role catalog, inspect Oracle parser evidence, and
   explicitly refresh saved classifications.
 
-Commander selection supports one commander per deck. Draft generation uses
-heuristic weights, and the UI provides draft generation and review. Oracle
-parsing and mechanical matching cover supported patterns and report unresolved
-text. Catalog-guided generation requires saved affinity data and current
-classifications.
+The UI and legacy `build-deck` workflow support one commander. The staged
+pipeline CLI supports one commander or two with standalone Partner through
+[`compose`](deck-building/decisions/phase-4.md) and
+[`refine`](deck-building/decisions/phase-5.md). Legacy draft generation uses
+heuristic weights. Catalog-guided generation requires saved affinity data and
+current classifications. Oracle parsing and mechanical matching cover supported
+patterns and report unresolved text.
 
-Use temporary SQLite databases for tests. The
-[README](../README.md) covers setup and usage. The
-[technical references](README.md) describe scoring and persistence.
+## Collection Playability Analysis
+
+[CPA Phase 2](collection-playability/decisions/phase-2.md) conditionally closed
+under the revised MVP scope for supported draw comparisons and conditional
+targeted mill with explicit strategy intent. Final classifications remain
+uncertain and bulk review is disabled. The
+[Phase 3 brief](collection-playability/phase-3-implementation-brief.md) plans
+bounded functional comparisons among owned cards.
+
+The [README](../README.md) covers setup and usage. The
+[technical references](README.md) describe scoring and persistence. The
+[offline development baseline](development-baseline.md) records isolated
+validation commands, results, and outstanding test coverage.
